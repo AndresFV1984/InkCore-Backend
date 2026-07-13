@@ -1,0 +1,27 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:indicore_test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE;INIT=CREATE SCHEMA IF NOT EXISTS indicolors
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: indicolors
+  flyway:
+    enabled: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          secret-key: 012345678901234567890123456789012
+
+security:
+  jwt:
+    secret: 012345678901234567890123456789012
+    expiration-seconds: 3600
+  dev:
+    permit-all: true

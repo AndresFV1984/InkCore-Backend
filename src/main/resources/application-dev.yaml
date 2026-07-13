@@ -1,0 +1,23 @@
+# Desarrollo local
+# - Postgres con docker compose: docker compose up -d (indicore_app es dueño de la BD).
+# - Postgres corporativo (indicolors pertenece a indicore_admin): ejecutar una vez:
+#     .\scripts\postgres\fix-permissions.ps1
+#   O en IntelliJ, variables de entorno FLYWAY_USER=indicore_admin y FLYWAY_PASSWORD=<admin>
+spring:
+  flyway:
+    create-schemas: true
+  jpa:
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: false
+
+logging:
+  level:
+    com.indicore: DEBUG
+    org.hibernate.SQL: WARN
+    org.hibernate.type.descriptor.sql: WARN
+
+security:
+  dev:
+    permit-all: false
