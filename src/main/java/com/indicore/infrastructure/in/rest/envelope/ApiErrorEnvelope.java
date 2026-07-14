@@ -13,7 +13,7 @@ public record ApiErrorEnvelope(
         ApiHeaders headers,
         @Schema(description = "Marca de tiempo UTC de la respuesta", example = "2026-05-17T16:00:00Z")
         Instant timestamp,
-        @Schema(description = "Ruta HTTP que origino el error", example = "/indicore/api/v1/users/register")
+        @Schema(description = "Ruta HTTP que origino el error", example = "/InkCore-backend/api/v1/users/register")
         String path,
         @Schema(description = "Mensaje resumido del error", example = "Datos invalidos")
         String message,

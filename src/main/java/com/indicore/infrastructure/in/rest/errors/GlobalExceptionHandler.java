@@ -1,6 +1,5 @@
 package com.indicore.infrastructure.in.rest.errors;
 
-import com.indicore.domain.client.exception.ClientAlreadyExistsException;
 import com.indicore.domain.shared.exception.DomainException;
 import com.indicore.domain.shared.exception.ResourceNotFoundException;
 import com.indicore.domain.user.exception.AccountDisabledException;
@@ -38,19 +37,6 @@ public class GlobalExceptionHandler {
                 .map(this::formatFieldError)
                 .toList();
         return responseFactory.error(request, HttpStatus.BAD_REQUEST, "Datos invÃ¡lidos", errors);
-    }
-
-    @ExceptionHandler(ClientAlreadyExistsException.class)
-    public ResponseEntity<ApiErrorEnvelope> handleClientExists(
-            ClientAlreadyExistsException ex,
-            HttpServletRequest request
-    ) {
-        return responseFactory.error(
-                request,
-                HttpStatus.CONFLICT,
-                ex.getMessage(),
-                List.of(ex.getCode())
-        );
     }
 
     @ExceptionHandler(UserAlreadyExistsException.class)

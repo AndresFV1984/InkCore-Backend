@@ -1,4 +1,4 @@
-# Estructura del backend IndiCore (hexagonal)
+# Estructura del backend InkCore (hexagonal)
 
 Backend alineado con `docs/ARQUITECTURA_Y_CONSTRUCCION.md` y `docs/RESUMEN_PROYECTO.md` (referencia RFID Inventory).
 
@@ -85,8 +85,8 @@ Variables recomendadas: `JWT_SECRET` (â‰¥ 32 caracteres), `JWT_EXP_SECONDS`.
 ## API y Swagger
 
 - Convención de rutas y respuestas: `docs/CONVENCION_ENDPOINTS.md`
-- Context path: `/indicore`
-- Swagger UI: `/indicore/swagger-ui.html`
+- Context path: `/InkCore-backend`
+- Swagger UI: `/InkCore-backend/swagger-ui.html`
 - En endpoints protegidos, usar **Authorize** con el token devuelto por login.
 
 ## SOLID (resumen)

@@ -2,8 +2,8 @@ package com.indicore.application.user.usecase;
 
 import java.util.List;
 
-public record CreateUserCommand(
-        String companyId,
+public record UpdateUserCommand(
+        String userId,
         String identificationNumber,
         String documentType,
         String name,

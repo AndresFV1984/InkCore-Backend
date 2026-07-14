@@ -1,4 +1,4 @@
-# Convención de endpoints IndiCore
+# Convención de endpoints InkCore
 
 ## Regla
 
@@ -8,7 +8,7 @@ Toda ruta REST debe incluir **una palabra de acción** después del recurso:
 {METHOD} /api/v1/{recurso}/{accion}[/parametros]
 ```
 
-Context path de la aplicación: `/indicore` (configurable con `APP_CONTEXT`).
+Context path de la aplicación: `/InkCore-backend` (configurable con `APP_CONTEXT`).
 
 ## Vocabulario permitido
 
@@ -32,12 +32,12 @@ No usar sinónimos fuera de esta tabla (`create`, `fetch`, etc.).
 |--------|------|-------------|-------------|
 | POST | `/api/v1/auth/login` | `login` | Iniciar sesión |
 | POST | `/api/v1/users/register` | `registerUser` | Registrar usuario (ADMIN) |
+| PUT | `/api/v1/users/update/{userId}` | `updateUser` | Actualizar usuario (ADMIN) |
 | GET | `/api/v1/users/list` | `listUsers` | Listar usuarios (ADMIN) |
 | GET | `/api/v1/users/profile` | `profileUser` | Perfil del token actual |
 | GET | `/api/v1/users/get/{userId}` | `getUser` | Usuario por ID |
-| POST | `/api/v1/clients/register` | `registerClient` | Registrar cliente |
-| GET | `/api/v1/clients/list` | `listClients` | Listar clientes |
-| GET | `/api/v1/clients/get/{id}` | `getClient` | Cliente por UUID |
+| GET | `/api/v1/roles/list` | `listRoles` | Catálogo de roles (ADMIN) |
+| GET | `/api/v1/permissions/list` | `listPermissions` | Catálogo de permisos (ADMIN) |
 
 ## Contrato de respuesta (Swagger)
 
@@ -51,4 +51,4 @@ No usar sinónimos fuera de esta tabla (`create`, `fetch`, etc.).
 3. `@Operation(operationId = "...", summary = "...")`.
 4. Anotar errores con `@ApiErrorResponses` y, si requiere JWT, `@ApiSecuredErrorResponses`.
 5. Actualizar la tabla de este documento.
-6. Probar en Swagger UI: `/indicore/swagger-ui.html`
+6. Probar en Swagger UI: `/InkCore-backend/swagger-ui.html`

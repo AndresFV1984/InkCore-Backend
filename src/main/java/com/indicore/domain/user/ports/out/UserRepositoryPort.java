@@ -15,7 +15,11 @@ public interface UserRepositoryPort {
 
     boolean existsByMailIgnoreCase(String mail);
 
+    boolean existsByMailIgnoreCaseExcludingUserId(String mail, String userId);
+
     boolean existsByIdentificationNumber(String identificationNumber);
+
+    boolean existsByIdentificationNumberExcludingUserId(String identificationNumber, String userId);
 
     List<User> findAll();
 

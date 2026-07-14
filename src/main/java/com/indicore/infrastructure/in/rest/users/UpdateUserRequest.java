@@ -10,18 +10,10 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 
 @Schema(
-        name = "CreateUserRequest",
-        description = "Datos del formulario Nuevo usuario (datos personales + acceso al sistema)"
+        name = "UpdateUserRequest",
+        description = "Datos para actualizar un usuario. La contraseña es opcional: si se omite o va vacía, no se cambia."
 )
-public record CreateUserRequest(
-        @Schema(
-                description = "Identificador de empresa (opcional; si se omite se usa el valor por defecto)",
-                example = "company-seed-001",
-                maxLength = 64
-        )
-        @Size(max = 64)
-        String companyId,
-
+public record UpdateUserRequest(
         @Schema(description = "Nombre completo", example = "María Fernanda López", requiredMode = Schema.RequiredMode.REQUIRED)
         @NotBlank @Size(max = 200)
         String name,
@@ -69,18 +61,16 @@ public record CreateUserRequest(
 
         @ArraySchema(
                 arraySchema = @Schema(description = "Códigos de permisos seleccionados (usar GET /api/v1/permissions/list)"),
-                schema = @Schema(example = "VER_ORDENES_PRODUCCION")
+                schema = @Schema(example = "GESTIONAR_MI_TRABAJO_PRODUCCION")
         )
         List<@NotBlank @Size(max = 80) String> permissionCodes,
 
         @Schema(
-                description = "Contraseña en texto plano (mínimo 6 caracteres; se almacena con hash)",
-                example = "clave123",
-                minLength = 6,
-                maxLength = 100,
-                requiredMode = Schema.RequiredMode.REQUIRED
+                description = "Nueva contraseña (opcional). Si se envía, mínimo 6 caracteres.",
+                example = "nuevaClave1",
+                maxLength = 100
         )
-        @NotBlank @Size(min = 6, max = 100)
+        @Size(max = 100)
         String password,
 
         @Schema(

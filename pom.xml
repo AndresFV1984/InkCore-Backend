@@ -9,10 +9,10 @@
 		<relativePath/>
 	</parent>
 	<groupId>com.indicore</groupId>
-	<artifactId>indicore-backend</artifactId>
+	<artifactId>inkcore-backend</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>indicore-backend</name>
-	<description>Backend REST IndiCore — arquitectura hexagonal (Spring Boot)</description>
+	<name>InkCore-backend</name>
+	<description>Backend REST InkCore — arquitectura hexagonal (Spring Boot)</description>
 
 	<properties>
 		<java.version>17</java.version>

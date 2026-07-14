@@ -19,14 +19,14 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
-public class CreateUserUseCase {
+public class UpdateUserUseCase {
 
     private final UserRepositoryPort userRepository;
     private final RoleRepositoryPort roleRepository;
     private final PermissionRepositoryPort permissionRepository;
     private final PasswordHasherPort passwordHasher;
 
-    public CreateUserUseCase(
+    public UpdateUserUseCase(
             UserRepositoryPort userRepository,
             RoleRepositoryPort roleRepository,
             PermissionRepositoryPort permissionRepository,
@@ -39,19 +39,40 @@ public class CreateUserUseCase {
     }
 
     @Transactional
-    public User execute(CreateUserCommand command) {
-        if (userRepository.existsByMailIgnoreCase(command.mail())) {
+    public User execute(UpdateUserCommand command) {
+        User existing = userRepository.findById(command.userId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "USER_NOT_FOUND",
+                        "Usuario no encontrado"
+                ));
+
+        if (userRepository.existsByMailIgnoreCaseExcludingUserId(command.mail(), command.userId())) {
             throw new UserAlreadyExistsException("Ya existe un usuario con el correo indicado");
         }
-        if (userRepository.existsByIdentificationNumber(command.identificationNumber())) {
+        if (userRepository.existsByIdentificationNumberExcludingUserId(
+                command.identificationNumber(),
+                command.userId()
+        )) {
             throw new UserAlreadyExistsException("Ya existe un usuario con el documento indicado");
         }
 
-        Role role = resolveRole(command.roleCode());
+        Role role = roleRepository.findByCodeIgnoreCase(command.roleCode())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "ROLE_NOT_FOUND",
+                        "No existe el rol indicado: " + command.roleCode()
+                ));
+
         List<String> permissionCodes = resolvePermissionCodes(command.permissionCodes());
 
-        User user = User.createNew(
-                command.companyId(),
+        String hashedPassword = null;
+        if (command.rawPassword() != null && !command.rawPassword().isBlank()) {
+            if (command.rawPassword().length() < 6) {
+                throw new IllegalArgumentException("La contraseña debe tener mínimo 6 caracteres");
+            }
+            hashedPassword = passwordHasher.hash(command.rawPassword());
+        }
+
+        User updated = existing.update(
                 command.identificationNumber(),
                 command.documentType(),
                 command.name(),
@@ -60,7 +81,7 @@ public class CreateUserUseCase {
                 command.department(),
                 command.city(),
                 command.address(),
-                passwordHasher.hash(command.rawPassword()),
+                hashedPassword,
                 command.state(),
                 role.getRoleId(),
                 role.getCode(),
@@ -68,15 +89,7 @@ public class CreateUserUseCase {
                 permissionCodes
         );
 
-        return userRepository.save(user);
-    }
-
-    private Role resolveRole(String roleCode) {
-        return roleRepository.findByCodeIgnoreCase(roleCode)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "ROLE_NOT_FOUND",
-                        "No existe el rol indicado: " + roleCode
-                ));
+        return userRepository.save(updated);
     }
 
     private List<String> resolvePermissionCodes(List<String> requested) {

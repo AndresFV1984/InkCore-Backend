@@ -2,6 +2,8 @@ package com.indicore.domain.user.model;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -17,14 +19,17 @@ public final class User {
     private final String name;
     private final String mail;
     private final String contact;
+    private final String department;
+    private final String city;
     private final String address;
     private final String passwordHash;
     private final LocalDate creationDate;
     private final boolean state;
     private final long tokenVersion;
     private final UUID roleId;
-    /** Código de rol para emitir JWT (p. ej. ADMINISTRADOR); vacío si no hay rol. */
     private final String roleCode;
+    private final String roleName;
+    private final List<String> permissionCodes;
     private final Boolean forcePasswordChange;
     private final LocalDateTime passwordChangedAt;
     private final LocalDateTime passwordExpiresAt;
@@ -40,6 +45,8 @@ public final class User {
             String name,
             String mail,
             String contact,
+            String department,
+            String city,
             String address,
             String passwordHash,
             LocalDate creationDate,
@@ -47,6 +54,8 @@ public final class User {
             long tokenVersion,
             UUID roleId,
             String roleCode,
+            String roleName,
+            List<String> permissionCodes,
             Boolean forcePasswordChange,
             LocalDateTime passwordChangedAt,
             LocalDateTime passwordExpiresAt,
@@ -60,14 +69,20 @@ public final class User {
         this.documentType = documentType;
         this.name = name;
         this.mail = mail;
-        this.contact = contact;
-        this.address = address;
+        this.contact = contact != null ? contact : "";
+        this.department = department;
+        this.city = city;
+        this.address = address != null ? address : "";
         this.passwordHash = passwordHash;
         this.creationDate = creationDate;
         this.state = state;
         this.tokenVersion = tokenVersion;
         this.roleId = roleId;
         this.roleCode = roleCode != null ? roleCode : "";
+        this.roleName = roleName != null ? roleName : "";
+        this.permissionCodes = permissionCodes == null
+                ? List.of()
+                : List.copyOf(permissionCodes);
         this.forcePasswordChange = forcePasswordChange;
         this.passwordChangedAt = passwordChangedAt;
         this.passwordExpiresAt = passwordExpiresAt;
@@ -83,38 +98,112 @@ public final class User {
             String name,
             String mail,
             String contact,
+            String department,
+            String city,
             String address,
             String passwordHash,
+            boolean state,
             UUID roleId,
-            String roleCode
+            String roleCode,
+            String roleName,
+            List<String> permissionCodes
     ) {
-        if (mail == null || mail.isBlank()) {
-            throw new IllegalArgumentException("El correo es obligatorio");
+        requireNotBlank(name, "El nombre completo es obligatorio");
+        requireNotBlank(documentType, "El tipo de documento es obligatorio");
+        requireNotBlank(identificationNumber, "El número de identificación es obligatorio");
+        requireNotBlank(mail, "El correo es obligatorio");
+        requireNotBlank(department, "El departamento es obligatorio");
+        requireNotBlank(city, "La ciudad / municipio es obligatorio");
+        requireNotBlank(passwordHash, "La contraseña es obligatoria");
+        if (roleId == null) {
+            throw new IllegalArgumentException("El rol es obligatorio");
         }
-        if (passwordHash == null || passwordHash.isBlank()) {
-            throw new IllegalArgumentException("La contraseña es obligatoria");
-        }
+
         return new User(
                 UUID.randomUUID().toString(),
-                companyId,
-                identificationNumber,
-                documentType,
-                name,
+                blankToDefault(companyId, "company-seed-001"),
+                identificationNumber.trim(),
+                documentType.trim().toUpperCase(),
+                name.trim(),
                 mail.trim().toLowerCase(),
-                contact,
-                address,
+                blankToEmpty(contact),
+                department.trim(),
+                city.trim(),
+                blankToEmpty(address),
                 passwordHash,
                 LocalDate.now(),
-                true,
+                state,
                 1L,
                 roleId,
-                roleCode != null ? roleCode : "",
+                roleCode,
+                roleName,
+                normalizePermissionCodes(permissionCodes),
                 true,
                 null,
                 null,
                 0,
                 null,
                 null
+        );
+    }
+
+    public User update(
+            String identificationNumber,
+            String documentType,
+            String name,
+            String mail,
+            String contact,
+            String department,
+            String city,
+            String address,
+            String passwordHashOrNull,
+            boolean state,
+            UUID roleId,
+            String roleCode,
+            String roleName,
+            List<String> permissionCodes
+    ) {
+        requireNotBlank(name, "El nombre completo es obligatorio");
+        requireNotBlank(documentType, "El tipo de documento es obligatorio");
+        requireNotBlank(identificationNumber, "El número de identificación es obligatorio");
+        requireNotBlank(mail, "El correo es obligatorio");
+        requireNotBlank(department, "El departamento es obligatorio");
+        requireNotBlank(city, "La ciudad / municipio es obligatorio");
+        if (roleId == null) {
+            throw new IllegalArgumentException("El rol es obligatorio");
+        }
+
+        String nextHash = passwordHashOrNull == null || passwordHashOrNull.isBlank()
+                ? this.passwordHash
+                : passwordHashOrNull;
+
+        return new User(
+                this.userId,
+                this.companyId,
+                identificationNumber.trim(),
+                documentType.trim().toUpperCase(),
+                name.trim(),
+                mail.trim().toLowerCase(),
+                blankToEmpty(contact),
+                department.trim(),
+                city.trim(),
+                blankToEmpty(address),
+                nextHash,
+                this.creationDate,
+                state,
+                this.tokenVersion,
+                roleId,
+                roleCode,
+                roleName,
+                normalizePermissionCodes(permissionCodes),
+                this.forcePasswordChange,
+                passwordHashOrNull != null && !passwordHashOrNull.isBlank()
+                        ? LocalDateTime.now()
+                        : this.passwordChangedAt,
+                this.passwordExpiresAt,
+                this.failedAttempts,
+                this.lockedUntil,
+                this.lastLoginAt
         );
     }
 
@@ -126,6 +215,8 @@ public final class User {
             String name,
             String mail,
             String contact,
+            String department,
+            String city,
             String address,
             String passwordHash,
             LocalDate creationDate,
@@ -133,6 +224,8 @@ public final class User {
             long tokenVersion,
             UUID roleId,
             String roleCode,
+            String roleName,
+            List<String> permissionCodes,
             Boolean forcePasswordChange,
             LocalDateTime passwordChangedAt,
             LocalDateTime passwordExpiresAt,
@@ -148,6 +241,8 @@ public final class User {
                 name,
                 mail,
                 contact,
+                department,
+                city,
                 address,
                 passwordHash,
                 creationDate,
@@ -155,6 +250,8 @@ public final class User {
                 tokenVersion,
                 roleId,
                 roleCode,
+                roleName,
+                permissionCodes,
                 forcePasswordChange,
                 passwordChangedAt,
                 passwordExpiresAt,
@@ -162,6 +259,36 @@ public final class User {
                 lockedUntil,
                 lastLoginAt
         );
+    }
+
+    private static void requireNotBlank(String value, String message) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(message);
+        }
+    }
+
+    private static String blankToEmpty(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private static String blankToDefault(String value, String defaultValue) {
+        return value == null || value.isBlank() ? defaultValue : value.trim();
+    }
+
+    private static List<String> normalizePermissionCodes(List<String> codes) {
+        if (codes == null || codes.isEmpty()) {
+            return List.of();
+        }
+        List<String> normalized = new ArrayList<>();
+        for (String code : codes) {
+            if (code != null && !code.isBlank()) {
+                String trimmed = code.trim().toUpperCase();
+                if (!normalized.contains(trimmed)) {
+                    normalized.add(trimmed);
+                }
+            }
+        }
+        return List.copyOf(normalized);
     }
 
     public String getUserId() {
@@ -192,6 +319,14 @@ public final class User {
         return contact;
     }
 
+    public String getDepartment() {
+        return department;
+    }
+
+    public String getCity() {
+        return city;
+    }
+
     public String getAddress() {
         return address;
     }
@@ -218,6 +353,14 @@ public final class User {
 
     public String getRoleCode() {
         return roleCode;
+    }
+
+    public String getRoleName() {
+        return roleName;
+    }
+
+    public List<String> getPermissionCodes() {
+        return permissionCodes;
     }
 
     public Boolean getForcePasswordChange() {

@@ -5,11 +5,15 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -35,10 +39,16 @@ public class UserEntity {
     @Column(nullable = false, length = 320, unique = true)
     private String mail;
 
-    @Column(nullable = false, length = 300)
+    @Column(length = 300)
     private String contact;
 
-    @Column(nullable = false, length = 255)
+    @Column(nullable = false, length = 100)
+    private String department;
+
+    @Column(nullable = false, length = 100)
+    private String city;
+
+    @Column(length = 255)
     private String address;
 
     @Column(name = "password_hash", nullable = false, length = 200)
@@ -56,6 +66,15 @@ public class UserEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "role_id")
     private RoleEntity role;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "user_permissions",
+            schema = "indicolors",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "permission_id")
+    )
+    private Set<PermissionEntity> permissions = new HashSet<>();
 
     @Column(name = "force_password_change")
     private Boolean forcePasswordChange;
@@ -134,6 +153,22 @@ public class UserEntity {
         this.contact = contact;
     }
 
+    public String getDepartment() {
+        return department;
+    }
+
+    public void setDepartment(String department) {
+        this.department = department;
+    }
+
+    public String getCity() {
+        return city;
+    }
+
+    public void setCity(String city) {
+        this.city = city;
+    }
+
     public String getAddress() {
         return address;
     }
@@ -180,6 +215,14 @@ public class UserEntity {
 
     public void setRole(RoleEntity role) {
         this.role = role;
+    }
+
+    public Set<PermissionEntity> getPermissions() {
+        return permissions;
+    }
+
+    public void setPermissions(Set<PermissionEntity> permissions) {
+        this.permissions = permissions != null ? permissions : new HashSet<>();
     }
 
     public Boolean getForcePasswordChange() {

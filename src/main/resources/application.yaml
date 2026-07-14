@@ -1,6 +1,6 @@
 spring:
   application:
-    name: indicore-backend
+    name: InkCore-backend
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
 
@@ -68,7 +68,7 @@ spring:
 server:
   port: ${SERVER_PORT:8091}
   servlet:
-    context-path: ${APP_CONTEXT:/indicore}
+    context-path: ${APP_CONTEXT:/InkCore-backend}
   tomcat:
     threads:
       max: ${SERVER_TOMCAT_THREADS_MAX:50}

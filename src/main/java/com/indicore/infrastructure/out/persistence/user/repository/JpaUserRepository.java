@@ -10,18 +10,36 @@ import java.time.LocalDateTime;
 
 public interface JpaUserRepository extends JpaRepository<UserEntity, String> {
 
-    @Query("SELECT u FROM UserEntity u LEFT JOIN FETCH u.role WHERE u.userId = :id")
+    @Query("""
+            SELECT DISTINCT u FROM UserEntity u
+            LEFT JOIN FETCH u.role
+            LEFT JOIN FETCH u.permissions
+            WHERE u.userId = :id
+            """)
     java.util.Optional<UserEntity> findByIdWithRole(@Param("id") String id);
 
-    @Query("SELECT u FROM UserEntity u LEFT JOIN FETCH u.role WHERE LOWER(TRIM(u.mail)) = LOWER(TRIM(:mail))")
+    @Query("""
+            SELECT DISTINCT u FROM UserEntity u
+            LEFT JOIN FETCH u.role
+            LEFT JOIN FETCH u.permissions
+            WHERE LOWER(TRIM(u.mail)) = LOWER(TRIM(:mail))
+            """)
     java.util.Optional<UserEntity> findByMailFetchRole(@Param("mail") String mail);
 
-    @Query("SELECT DISTINCT u FROM UserEntity u LEFT JOIN FETCH u.role")
+    @Query("""
+            SELECT DISTINCT u FROM UserEntity u
+            LEFT JOIN FETCH u.role
+            LEFT JOIN FETCH u.permissions
+            """)
     java.util.List<UserEntity> findAllWithRole();
 
     boolean existsByMailIgnoreCase(String mail);
 
+    boolean existsByMailIgnoreCaseAndUserIdNot(String mail, String userId);
+
     boolean existsByIdentificationNumber(String identificationNumber);
+
+    boolean existsByIdentificationNumberAndUserIdNot(String identificationNumber, String userId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE UserEntity u SET u.lastLoginAt = :at WHERE u.userId = :id")
