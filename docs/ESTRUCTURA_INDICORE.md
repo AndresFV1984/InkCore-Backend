@@ -4,7 +4,7 @@ Backend alineado con `docs/ARQUITECTURA_Y_CONSTRUCCION.md` y `docs/RESUMEN_PROYE
 
 ## Paquete raÃ­z
 
-`com.indicore`
+`com.inkcore`
 
 ## Base de datos
 
@@ -73,14 +73,34 @@ Variables recomendadas: `JWT_SECRET` (â‰¥ 32 caracteres), `JWT_EXP_SECONDS`.
 
 ## Migraciones Flyway
 
-| Archivo | Contenido |
-|---------|-----------|
-| `V1__indicolors_schema.sql` | Schema `indicolors` + extensiÃ³n `pgcrypto` |
-| `V2__roles.sql` | Tabla `roles` + semilla administrador |
-| `V3__users.sql` | Tabla `users` (columnas alineadas al script SQL) + semilla admin |
-| `V4__clients.sql` | Tabla `clients` + semilla demo |
+Convención: **un archivo por tabla** (DDL + semilla mínima si aplica). Schema/extensión en `V1`.
 
-> Si ya tenÃ­as historial Flyway con migraciones antiguas (`indicore`), limpia la BD o haz baseline/reseteo del historial antes de aplicar esta serie.
+| Archivo | Tabla / contenido |
+|---------|-------------------|
+| `V1__schema.sql` | Schema `indicolors` + extensión `pgcrypto` |
+| `V2__companies.sql` | `companies` + semilla |
+| `V3__roles.sql` | `roles` + semillas Administrador / Operador |
+| `V4__permissions.sql` | `permissions` + catálogo |
+| `V5__role_permissions.sql` | `role_permissions` (solo DDL) |
+| `V6__users.sql` | `users` + admin semilla |
+| `V7__user_roles.sql` | `user_roles` + vínculo admin |
+| `V8__clients.sql` | `clients` |
+
+Scripts informativos (fuera de Flyway, ejecutar a mano en BD):
+
+| Archivo | Uso |
+|---------|-----|
+| `scripts/postgres/assign-role-permissions.sql` | Asignar / consultar / revocar permisos de negocio a roles |
+
+Roles PostgreSQL (Script_Crear_BD):
+
+| Rol | Uso |
+|-----|-----|
+| `indicolors_owner` | DDL / Flyway (único autorizado a migraciones) |
+| `indicolors_app` | Runtime de la aplicación (DML) |
+| `inkcore_admin` | Admin general de la BD (opcional) |
+
+> No existe `indicolors_migrator`. Si ya tenías historial Flyway con migraciones antiguas, limpia la BD o haz baseline/reseteo del historial antes de aplicar esta serie.
 
 ## API y Swagger
 

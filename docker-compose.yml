@@ -1,24 +1,25 @@
-# Postgres local alineado con application.yaml (DB_URL / DB_USERNAME / DB_PASSWORD por defecto).
+# Postgres local alineado con application-dev.yaml (DB_URL / DB_USERNAME / DB_PASSWORD por defecto).
 # Uso: docker compose up -d
-# Luego arranca la app; Flyway crea indicolors y el historial (el rol es dueño de la BD).
+# Luego arranca la app; Flyway usa indicolors_owner y la app runtime usa indicolors_app.
+# No existe rol indicolors_migrator (ver ScriptBD/Script_Crear_BD).
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: indicore-postgres
+    container_name: indicolors-postgres
     environment:
-      POSTGRES_DB: indicore
-      POSTGRES_USER: indicore_app
+      POSTGRES_DB: inkcore
+      POSTGRES_USER: indicolors_owner
       POSTGRES_PASSWORD: "indicolors2026!"
     ports:
       - "5432:5432"
     volumes:
-      - indicore-postgres-data:/var/lib/postgresql/data
+      - indicolors-postgres-data:/var/lib/postgresql/data
       - ./scripts/postgres/docker-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U indicore_app -d indicore"]
+      test: ["CMD-SHELL", "pg_isready -U indicolors_owner -d inkcore"]
       interval: 5s
       timeout: 5s
       retries: 5
 
 volumes:
-  indicore-postgres-data:
+  indicolors-postgres-data:

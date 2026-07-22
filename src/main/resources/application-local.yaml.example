@@ -1,0 +1,21 @@
+# Ejemplo local (copiar a application-local.yaml y activar profile "local").
+# No versionar secretos reales.
+#
+# spring.profiles.active=dev,local
+#
+# Hot restart (perfil dev + spring-boot-devtools):
+#   1) Arrancar con: .\mvnw spring-boot:run
+#   2) Tras editar Java: Build Project / .\mvnw compile
+#   DevTools reinicia el contexto al detectar cambios en target/classes.
+#
+# app.cors.allowed-origins sobrescribe/amplía según merge de profiles.
+
+app:
+  cors:
+    allowed-origins:
+      - http://localhost:5173
+      - http://127.0.0.1:5173
+    # Si usáis cookies cross-origin en el futuro:
+    # allow-credentials: true
+    # (requiere orígenes concretos; nunca Access-Control-Allow-Origin: *)
+    allow-credentials: false

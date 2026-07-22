@@ -36,6 +36,10 @@ No usar sinónimos fuera de esta tabla (`create`, `fetch`, etc.).
 | GET | `/api/v1/users/list` | `listUsers` | Listar usuarios (ADMIN) |
 | GET | `/api/v1/users/profile` | `profileUser` | Perfil del token actual |
 | GET | `/api/v1/users/get/{userId}` | `getUser` | Usuario por ID |
+| POST | `/api/v1/clients/register` | `registerClient` | Registrar cliente (JWT; incluye `documentType`) |
+| PUT | `/api/v1/clients/update/{clientId}` | `updateClient` | Actualizar cliente (JWT; incluye `documentType`) |
+| GET | `/api/v1/clients/list` | `listClients` | Listar clientes (JWT) |
+| GET | `/api/v1/clients/get/{clientId}` | `getClient` | Cliente por ID (JWT) |
 | GET | `/api/v1/roles/list` | `listRoles` | Catálogo de roles (ADMIN) |
 | GET | `/api/v1/permissions/list` | `listPermissions` | Catálogo de permisos (ADMIN) |
 

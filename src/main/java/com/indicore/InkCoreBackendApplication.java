@@ -1,12 +1,16 @@
 package com.indicore;
 
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
+/**
+ * Compatibilidad con run configurations antiguas de IntelliJ.
+ * Preferir {@link com.inkcore.InkCoreBackendApplication}.
+ */
+@Deprecated(since = "0.0.1", forRemoval = true)
+public final class InkCoreBackendApplication {
 
-@SpringBootApplication
-public class InkCoreBackendApplication {
+    private InkCoreBackendApplication() {
+    }
 
     public static void main(String[] args) {
-        SpringApplication.run(InkCoreBackendApplication.class, args);
+        com.inkcore.InkCoreBackendApplication.main(args);
     }
 }
