@@ -1,13 +1,14 @@
 -- =============================================================================
--- INFORMACIÓN — Asignación de permisos a roles (NO es migración Flyway)
+-- INFORMACIÓN — Consulta / ajuste de permisos a roles (NO es migración Flyway)
 -- =============================================================================
 -- Ubicación: scripts/postgres/assign-role-permissions.sql
--- Ejecutar manualmente en PostgreSQL (psql, DBeaver, pgAdmin) después de Flyway.
+-- Semilla inicial: V5__role_permissions.sql (DDL + INSERT).
+-- Usa este script solo para consultar o ajustar permisos a mano (psql/DBeaver).
 --
 -- Tablas involucradas:
 --   indicolors.permissions       → catálogo (semilla en V4__permissions.sql)
 --   indicolors.roles             → roles (semilla en V3__roles.sql)
---   indicolors.role_permissions  → N:M rol ↔ permiso (DDL en V5__role_permissions.sql)
+--   indicolors.role_permissions  → N:M (DDL + semilla en V5__role_permissions.sql)
 --
 -- Roles semilla:
 --   Administrador → a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11

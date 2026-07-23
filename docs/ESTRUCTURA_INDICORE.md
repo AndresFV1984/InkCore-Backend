@@ -102,6 +102,31 @@ Roles PostgreSQL (Script_Crear_BD):
 
 > No existe `indicolors_migrator`. Si ya tenías historial Flyway con migraciones antiguas, limpia la BD o haz baseline/reseteo del historial antes de aplicar esta serie.
 
+## Docker (API + Postgres + Redis + Sonar)
+
+Imagen: **`bayronindicore/inkcore-backend`** (Docker Hub). Stack alineado al patrón Rafex.
+
+```powershell
+# Publicar a Docker Hub (tag automático v + día.mes, ej. v22.07 + latest)
+.\scripts\docker\push-hub.ps1
+
+# Levantar stack
+docker compose up -d --build
+```
+
+| Servicio | URL / puerto |
+|----------|----------------|
+| API | http://localhost:8091/InkCore-backend |
+| Swagger | http://localhost:8091/InkCore-backend/swagger-ui.html |
+| Postgres (`db`) | `localhost:15432` |
+| Redis | `localhost:6379` |
+| Redis Insight | http://localhost:8092 |
+| SonarQube | http://localhost:9000 |
+
+Datos persistentes en host: `C:/inkcore_postgres_data`, `C:/inkcore_redis_data`.
+
+Versión de imagen: formato **`vdd.MM`** (ej. `v22.07`). Si cambias init/passwords: `docker compose down -v` y vuelve a levantar.
+
 ## API y Swagger
 
 - Convención de rutas y respuestas: `docs/CONVENCION_ENDPOINTS.md`

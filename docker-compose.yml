@@ -1,25 +1,135 @@
-# Postgres local alineado con application-dev.yaml (DB_URL / DB_USERNAME / DB_PASSWORD por defecto).
-# Uso: docker compose up -d
-# Luego arranca la app; Flyway usa indicolors_owner y la app runtime usa indicolors_app.
-# No existe rol indicolors_migrator (ver ScriptBD/Script_Crear_BD).
 services:
-  postgres:
+  db:
     image: postgres:16-alpine
-    container_name: indicolors-postgres
+    container_name: inkcore-postgres
     environment:
       POSTGRES_DB: inkcore
       POSTGRES_USER: indicolors_owner
-      POSTGRES_PASSWORD: "indicolors2026!"
-    ports:
-      - "5432:5432"
+      POSTGRES_PASSWORD: ${POSTGRES_OWNER_PASSWORD:-YyZUdfRUcjJmiFxrkr5DP77mZD4hlRo1}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
     volumes:
-      - indicolors-postgres-data:/var/lib/postgresql/data
+      - C:/inkcore_postgres_data:/var/lib/postgresql/data
       - ./scripts/postgres/docker-init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "15432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U indicolors_owner -d inkcore"]
-      interval: 5s
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: inkcore-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - C:/inkcore_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+
+  redis-insight:
+    image: redis/redisinsight:latest
+    container_name: inkcore-redis-insight
+    ports:
+      - "8092:5540"
+    volumes:
+      - redis-insight-data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  sonar-db:
+    image: postgres:16-alpine
+    container_name: inkcore-sonar-postgres
+    environment:
+      POSTGRES_DB: sonar
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: sonar
+    volumes:
+      - sonar_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sonar -d sonar"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  sonarqube:
+    image: sonarqube:10.5-community
+    container_name: inkcore-sonarqube
+    depends_on:
+      sonar-db:
+        condition: service_healthy
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://sonar-db:5432/sonar
+      SONAR_JDBC_USERNAME: sonar
+      SONAR_JDBC_PASSWORD: sonar
+    ports:
+      - "9000:9000"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+    restart: unless-stopped
+
+  app:
+    build: .
+    image: bayronindicore/inkcore-backend:${IMAGE_TAG:-latest}
+    container_name: inkcore-backend
+    ports:
+      - "8091:8091"
+    environment:
+      # Base de datos
+      DB_URL: jdbc:postgresql://db:5432/inkcore
+      DB_USERNAME: indicolors_app
+      DB_PASSWORD: ${POSTGRES_APP_PASSWORD:-5p5g+OQu9X6/cdi23jLKiTqSpAfgWCiS}
+      FLYWAY_MIGRATION_USER: indicolors_owner
+      FLYWAY_MIGRATION_PASSWORD: ${POSTGRES_OWNER_PASSWORD:-YyZUdfRUcjJmiFxrkr5DP77mZD4hlRo1}
+      # Redis (disponible en el stack; la app usa memory hasta habilitar Redis en código)
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REFRESH_TOKEN_STORE_TYPE: ${REFRESH_TOKEN_STORE_TYPE:-memory}
+      TOKEN_VERSION_CACHE_TYPE: ${TOKEN_VERSION_CACHE_TYPE:-memory}
+      # JWT (cambiar en producción)
+      JWT_SECRET: ${JWT_SECRET:-cambia-esto-en-produccion-por-clave-segura}
+      JWT_EXP_SECONDS: 3600
+      REFRESH_EXP_SECONDS: 86400
+      # Spring
+      SPRING_LAZY_INIT: "false"
+      SERVER_PORT: 8091
+      APP_CONTEXT: /InkCore-backend
+      SPRING_PROFILES_ACTIVE: docker
+      # Orígenes extra además de localhost:5173 (CSV). Ej: https://app.ejemplo.com
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
+      JAVA_OPTS: ${JAVA_OPTS:--Xms256m -Xmx512m -XX:MaxRAMPercentage=75.0}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://localhost:8091${APP_CONTEXT:-/InkCore-backend}/actuator/health >/dev/null || exit 1",
+        ]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 90s
 
 volumes:
-  indicolors-postgres-data:
+  redis-insight-data:
+  sonar_postgres_data:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:

@@ -4,13 +4,15 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * CORS whitelist. Nunca usar {@code *}.
  * <p>
- * Lista en YAML ({@code app.cors.allowed-origins}) o CSV vía env
- * {@code CORS_ALLOWED_ORIGINS} / {@code app.cors.origins}.
+ * Lista en YAML ({@code app.cors.allowed-origins}) y/o CSV vía env
+ * {@code CORS_ALLOWED_ORIGINS} / {@code app.cors.origins} (se unen).
  */
 @ConfigurationProperties(prefix = "app.cors")
 public class CorsProperties {
@@ -19,8 +21,8 @@ public class CorsProperties {
     private List<String> allowedOrigins = new ArrayList<>();
 
     /**
-     * Alternativa CSV (staging/prod), p. ej. {@code CORS_ALLOWED_ORIGINS=https://app.example.com}.
-     * Se usa si {@link #allowedOrigins} está vacío.
+     * CSV adicional (staging/prod), p. ej. {@code CORS_ALLOWED_ORIGINS=https://app.example.com}.
+     * Se combina con {@link #allowedOrigins}.
      */
     private String origins = "";
 
@@ -33,10 +35,12 @@ public class CorsProperties {
             "Content-Type",
             "Accept",
             "Origin",
+            "X-Requested-With",
             "X-Correlation-Id"
     );
 
     private List<String> exposedHeaders = List.of(
+            "Authorization",
             "X-Correlation-Id"
     );
 
@@ -49,16 +53,21 @@ public class CorsProperties {
     private long maxAgeSeconds = 3600;
 
     public List<String> resolveAllowedOrigins() {
-        if (allowedOrigins != null && !allowedOrigins.isEmpty()) {
-            return List.copyOf(allowedOrigins);
+        Set<String> resolved = new LinkedHashSet<>();
+        if (allowedOrigins != null) {
+            for (String origin : allowedOrigins) {
+                if (origin != null && !origin.isBlank()) {
+                    resolved.add(origin.trim());
+                }
+            }
         }
-        if (origins == null || origins.isBlank()) {
-            return List.of();
+        if (origins != null && !origins.isBlank()) {
+            Arrays.stream(origins.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .forEach(resolved::add);
         }
-        return Arrays.stream(origins.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .toList();
+        return List.copyOf(resolved);
     }
 
     public List<String> getAllowedOrigins() {

@@ -1,6 +1,5 @@
--- Relación N:M roles ↔ permisos (solo DDL).
--- La asignación de permisos a roles se hace desde BD con el script informativo:
---   scripts/postgres/assign-role-permissions.sql
+-- Relación N:M roles ↔ permisos + semilla
+-- Script manual de consulta/ajuste: scripts/postgres/assign-role-permissions.sql
 
 CREATE TABLE IF NOT EXISTS indicolors.role_permissions (
     role_id       UUID                         NOT NULL,
@@ -16,3 +15,27 @@ CREATE TABLE IF NOT EXISTS indicolors.role_permissions (
 CREATE INDEX IF NOT EXISTS idx_role_permissions_permission_id ON indicolors.role_permissions (permission_id);
 
 COMMENT ON TABLE indicolors.role_permissions IS 'Relación N:M entre roles y permisos';
+
+-- Administrador: todos los permisos
+INSERT INTO indicolors.role_permissions (role_id, permission_id)
+SELECT 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'::uuid, p.permission_id
+FROM indicolors.permissions p
+ON CONFLICT DO NOTHING;
+
+-- Operador: permisos operativos de producción
+INSERT INTO indicolors.role_permissions (role_id, permission_id)
+SELECT 'b1ffbc99-9c0b-4ef8-bb6d-6bb9bd380a22'::uuid, p.permission_id
+FROM indicolors.permissions p
+WHERE p.code IN (
+    'production.orders.create_edit',
+    'production.orders.view',
+    'production.status.view',
+    'production.stages.mark',
+    'production.preprensa.mark',
+    'production.corte.mark',
+    'production.impresion.mark',
+    'production.terminados.mark',
+    'production.acabados.mark',
+    'production.mywork.manage'
+)
+ON CONFLICT DO NOTHING;

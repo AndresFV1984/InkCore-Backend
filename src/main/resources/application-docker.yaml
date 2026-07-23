@@ -1,0 +1,125 @@
+# Perfil Docker Compose (postgres + app en la misma red)
+# Activo con SPRING_PROFILES_ACTIVE=docker
+spring:
+  devtools:
+    restart:
+      enabled: false
+    livereload:
+      enabled: false
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://db:5432/inkcore}
+    username: ${DB_USERNAME:indicolors_app}
+    password: ${DB_PASSWORD:5p5g+OQu9X6/cdi23jLKiTqSpAfgWCiS}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: ${DB_POOL_NAME:indicolorsHikariPool}
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:15}
+      minimum-idle: ${DB_POOL_MIN_IDLE:3}
+      connection-timeout: ${DB_POOL_CONNECTION_TIMEOUT_MS:30000}
+      validation-timeout: ${DB_POOL_VALIDATION_TIMEOUT_MS:5000}
+      idle-timeout: ${DB_POOL_IDLE_TIMEOUT_MS:600000}
+      max-lifetime: ${DB_POOL_MAX_LIFETIME_MS:1800000}
+      leak-detection-threshold: ${DB_POOL_LEAK_DETECTION_THRESHOLD_MS:0}
+      initialization-fail-timeout: ${DB_POOL_INIT_FAIL_TIMEOUT_MS:60000}
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+        default_schema: indicolors
+
+  main:
+    lazy-initialization: false
+
+  data:
+    jpa:
+      repositories:
+        enabled: true
+    redis:
+      repositories:
+        enabled: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    create-schemas: true
+    user: ${FLYWAY_MIGRATION_USER:indicolors_owner}
+    password: ${FLYWAY_MIGRATION_PASSWORD:YyZUdfRUcjJmiFxrkr5DP77mZD4hlRo1}
+    schemas: indicolors
+    validate-on-migrate: false
+    clean-disabled: true
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          secret-key: ${JWT_SECRET:dev-only-change-me-dev-only-change-me}
+
+server:
+  port: ${SERVER_PORT:8091}
+  servlet:
+    context-path: ${APP_CONTEXT:/InkCore-backend}
+  tomcat:
+    max-http-form-post-size: 6MB
+    max-swallow-size: 6MB
+    threads:
+      max: ${SERVER_TOMCAT_THREADS_MAX:50}
+      min-spare: ${SERVER_TOMCAT_THREADS_MIN_SPARE:10}
+      accept-count: ${SERVER_TOMCAT_ACCEPT_COUNT:100}
+      max-connections: ${SERVER_TOMCAT_MAX_CONNECTIONS:200}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    display-operation-id: true
+    tags-sorter: alpha
+    operations-sorter: alpha
+    disable-swagger-default-url: true
+    persist-authorization: true
+  paths-to-exclude: /error
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:dev-only-change-me-dev-only-change-me}
+    expiration-seconds: ${JWT_EXP_SECONDS:3600}
+  dev:
+    permit-all: ${SECURITY_PERMIT_ALL:false}
+  refresh-token:
+    expiration-seconds: ${REFRESH_EXP_SECONDS:1209600}
+    rotate-on-refresh: ${REFRESH_ROTATE_ON_REFRESH:true}
+    store:
+      type: ${REFRESH_TOKEN_STORE_TYPE:memory}
+  token-version-cache:
+    type: ${TOKEN_VERSION_CACHE_TYPE:memory}
+
+# Frontend Docker/nginx (http://localhost:5173/inkcore/) — Origin sin path.
+# Orígenes extra (prod): CORS_ALLOWED_ORIGINS=https://app.ejemplo.com
+app:
+  cors:
+    allowed-origins:
+      - http://localhost:5173
+      - http://127.0.0.1:5173
+    origins: ${CORS_ALLOWED_ORIGINS:}
+    allow-credentials: false
+    max-age-seconds: 3600
