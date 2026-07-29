@@ -114,6 +114,13 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA indicolors
 ALTER DEFAULT PRIVILEGES IN SCHEMA indicolors
     GRANT USAGE, SELECT ON SEQUENCES TO indicolors_app;
 
+-- Objetos futuros creados por Flyway / DDL con el rol indicolors_owner
+ALTER DEFAULT PRIVILEGES FOR ROLE indicolors_owner IN SCHEMA indicolors
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO indicolors_app;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE indicolors_owner IN SCHEMA indicolors
+    GRANT USAGE, SELECT ON SEQUENCES TO indicolors_app;
+
 -- 7. SEARCH PATH
 ALTER DATABASE inkcore SET search_path TO indicolors, public;
 
@@ -196,6 +203,8 @@ CREATE INDEX idx_users_mail ON indicolors.users (mail);
 CREATE INDEX idx_users_state ON indicolors.users (state);
 CREATE INDEX idx_users_document ON indicolors.users (document_type, identification_number);
 CREATE INDEX idx_users_department_city ON indicolors.users (department, city);
+CREATE INDEX IF NOT EXISTS idx_users_mail_lower ON indicolors.users (LOWER(mail));
+CREATE INDEX IF NOT EXISTS idx_users_company_state ON indicolors.users (company_id, state);
 
 -- 10. COMENTARIOS
 COMMENT ON TABLE indicolors.users IS 'Tabla de usuarios del sistema';
@@ -312,4 +321,269 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.user_roles TO indicolor
 
 GRANT ALL PRIVILEGES ON TABLE indicolors.companies TO indicolors_owner;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.companies TO indicolors_app;
+
+-- ============================================
+-- 17. CREAR TABLA CLIENTES (formulario "Nuevo cliente")
+-- ============================================
+CREATE TABLE indicolors.clients (
+    client_id      CHARACTER VARYING(64)  NOT NULL DEFAULT gen_random_uuid()::text,
+    company_id     CHARACTER VARYING(64)  NOT NULL,
+    name           CHARACTER VARYING(200) NOT NULL,
+    document_type  CHARACTER VARYING(20),
+    identification CHARACTER VARYING(32),
+    department     CHARACTER VARYING(100) NOT NULL,
+    city           CHARACTER VARYING(120) NOT NULL,
+    address        CHARACTER VARYING(255),
+    phone          CHARACTER VARYING(32),
+    email          CHARACTER VARYING(320),
+    contact_person CHARACTER VARYING(200),
+    state          BOOLEAN                NOT NULL DEFAULT TRUE,
+    creation_date  DATE                   NOT NULL DEFAULT CURRENT_DATE,
+    CONSTRAINT clients_pkey PRIMARY KEY (client_id),
+    CONSTRAINT clients_company_fk
+        FOREIGN KEY (company_id) REFERENCES indicolors.companies (company_id),
+    CONSTRAINT clients_document_type_check
+        CHECK (document_type IS NULL OR document_type IN ('CC', 'CE', 'TI', 'PA', 'NIT')),
+    CONSTRAINT clients_email_check
+        CHECK (email IS NULL OR email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
+);
+
+-- 17.1 ÍNDICES CLIENTES
+CREATE INDEX idx_clients_company_id ON indicolors.clients (company_id);
+CREATE INDEX idx_clients_name ON indicolors.clients (name);
+CREATE INDEX idx_clients_identification ON indicolors.clients (identification);
+CREATE INDEX idx_clients_document ON indicolors.clients (document_type, identification);
+CREATE INDEX idx_clients_department_city ON indicolors.clients (department, city);
+CREATE INDEX idx_clients_state ON indicolors.clients (state);
+CREATE INDEX IF NOT EXISTS idx_clients_company_state ON indicolors.clients (company_id, state);
+
+-- 17.2 COMENTARIOS CLIENTES
+COMMENT ON TABLE indicolors.clients IS 'Tabla de clientes registrados por cada compañía (formulario Nuevo cliente)';
+COMMENT ON COLUMN indicolors.clients.client_id IS 'Identificador único del cliente';
+COMMENT ON COLUMN indicolors.clients.company_id IS 'Identificador de la empresa dueña del registro del cliente';
+COMMENT ON COLUMN indicolors.clients.name IS 'Nombre o razón social del cliente';
+COMMENT ON COLUMN indicolors.clients.document_type IS 'Tipo de documento del cliente: CC, CE, TI, PA, NIT';
+COMMENT ON COLUMN indicolors.clients.identification IS 'Número de documento (NIT o cédula) del cliente';
+COMMENT ON COLUMN indicolors.clients.department IS 'Departamento de ubicación del cliente';
+COMMENT ON COLUMN indicolors.clients.city IS 'Ciudad/municipio de ubicación del cliente';
+COMMENT ON COLUMN indicolors.clients.address IS 'Dirección del cliente (calle, barrio, referencia)';
+COMMENT ON COLUMN indicolors.clients.phone IS 'Teléfono de contacto del cliente';
+COMMENT ON COLUMN indicolors.clients.email IS 'Correo electrónico de contacto del cliente';
+COMMENT ON COLUMN indicolors.clients.contact_person IS 'Nombre de la persona de contacto principal del cliente';
+COMMENT ON COLUMN indicolors.clients.state IS 'True=Activo, False=Inactivo';
+COMMENT ON COLUMN indicolors.clients.creation_date IS 'Fecha de registro del cliente en el sistema';
+
+-- 17.3 PERMISOS CLIENTES
+GRANT ALL PRIVILEGES ON TABLE indicolors.clients TO indicolors_owner;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.clients TO indicolors_app;
+
+-- ============================================
+-- 18. REFUERZO DE PERMISOS indicolors_app (fix login)
+-- ============================================
+-- GRANT CONNECT, GRANT USAGE ON SCHEMA y los ALTER DEFAULT PRIVILEGES
+-- FOR ROLE indicolors_owner ya existen en las secciones 5, 6 y 6 (bis),
+-- por eso no se repiten aqui.
+--
+-- Lo que faltaba: DML sobre TODAS las tablas ya existentes en el schema
+-- (login usa users, user_roles, roles, role_permissions, permissions).
+-- Los GRANT anteriores en el script se hicieron tabla por tabla; este
+-- cubre de una sola vez cualquier tabla que se haya quedado sin permiso
+-- explicito (por orden de ejecucion, ejecucion parcial, etc.).
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA indicolors TO indicolors_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA indicolors TO indicolors_app;
+
+-- ============================================
+-- 19. CREAR TABLA VENDEDORES (formulario "Nuevo vendedor")
+-- ============================================
+CREATE TABLE indicolors.sellers (
+    seller_id       CHARACTER VARYING(64)  NOT NULL DEFAULT gen_random_uuid()::text,
+    company_id      CHARACTER VARYING(64)  NOT NULL,
+    full_name       CHARACTER VARYING(200) NOT NULL,
+    document_type   CHARACTER VARYING(20)  NOT NULL,
+    identification  CHARACTER VARYING(32)  NOT NULL,
+    email           CHARACTER VARYING(320) NOT NULL,
+    phone           CHARACTER VARYING(32),
+    department      CHARACTER VARYING(100) NOT NULL,
+    city            CHARACTER VARYING(120) NOT NULL,
+    address         CHARACTER VARYING(255),
+    state           BOOLEAN                NOT NULL DEFAULT TRUE,
+    creation_date   DATE                   NOT NULL DEFAULT CURRENT_DATE,
+    CONSTRAINT sellers_pkey PRIMARY KEY (seller_id),
+    CONSTRAINT sellers_company_fk
+        FOREIGN KEY (company_id) REFERENCES indicolors.companies (company_id),
+    CONSTRAINT sellers_identification_company_unique UNIQUE (company_id, identification),
+    CONSTRAINT sellers_document_type_check
+        CHECK (document_type IN ('CC', 'CE', 'TI', 'PA', 'NIT')),
+    CONSTRAINT sellers_email_check
+        CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
+);
+
+-- 19.1 ÍNDICES VENDEDORES
+CREATE INDEX idx_sellers_company_id ON indicolors.sellers (company_id);
+CREATE INDEX idx_sellers_full_name ON indicolors.sellers (full_name);
+CREATE INDEX idx_sellers_document ON indicolors.sellers (document_type, identification);
+CREATE INDEX idx_sellers_department_city ON indicolors.sellers (department, city);
+CREATE INDEX idx_sellers_state ON indicolors.sellers (state);
+CREATE INDEX IF NOT EXISTS idx_sellers_company_state ON indicolors.sellers (company_id, state);
+CREATE INDEX IF NOT EXISTS idx_sellers_email_lower ON indicolors.sellers (LOWER(email));
+
+-- 19.2 COMENTARIOS VENDEDORES
+COMMENT ON TABLE indicolors.sellers IS 'Tabla de vendedores registrados por cada compañía (formulario Nuevo vendedor)';
+COMMENT ON COLUMN indicolors.sellers.seller_id IS 'Identificador único del vendedor';
+COMMENT ON COLUMN indicolors.sellers.company_id IS 'Identificador de la empresa dueña del registro del vendedor';
+COMMENT ON COLUMN indicolors.sellers.full_name IS 'Nombre completo del vendedor';
+COMMENT ON COLUMN indicolors.sellers.document_type IS 'Tipo de documento del vendedor: CC, CE, TI, PA, NIT';
+COMMENT ON COLUMN indicolors.sellers.identification IS 'Número de documento de identificación del vendedor';
+COMMENT ON COLUMN indicolors.sellers.email IS 'Correo electrónico del vendedor';
+COMMENT ON COLUMN indicolors.sellers.phone IS 'Teléfono / contacto del vendedor';
+COMMENT ON COLUMN indicolors.sellers.department IS 'Departamento de ubicación del vendedor';
+COMMENT ON COLUMN indicolors.sellers.city IS 'Ciudad/municipio de ubicación del vendedor';
+COMMENT ON COLUMN indicolors.sellers.address IS 'Dirección del vendedor (calle, barrio, referencia)';
+COMMENT ON COLUMN indicolors.sellers.state IS 'True=Activo, False=Inactivo';
+COMMENT ON COLUMN indicolors.sellers.creation_date IS 'Fecha de registro del vendedor en el sistema';
+
+-- 19.3 PERMISOS VENDEDORES
+GRANT ALL PRIVILEGES ON TABLE indicolors.sellers TO indicolors_owner;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.sellers TO indicolors_app;
+
+-- ============================================
+-- 20. CREAR TABLA CUENTAS BANCARIAS (formulario "Nueva cuenta bancaria")
+-- ============================================
+CREATE TABLE indicolors.bank_accounts (
+    account_id         CHARACTER VARYING(64)  NOT NULL DEFAULT gen_random_uuid()::text,
+    company_id         CHARACTER VARYING(64)  NOT NULL,
+    bank_name          CHARACTER VARYING(150) NOT NULL,
+    account_type       CHARACTER VARYING(30)  NOT NULL,
+    account_number     CHARACTER VARYING(50)  NOT NULL,
+    holder_name        CHARACTER VARYING(200) NOT NULL,
+    holder_nit         CHARACTER VARYING(32),
+    include_in_pdf     BOOLEAN                NOT NULL DEFAULT TRUE,
+    is_primary         BOOLEAN                NOT NULL DEFAULT FALSE,
+    state              BOOLEAN                NOT NULL DEFAULT TRUE,
+    creation_date      DATE                   NOT NULL DEFAULT CURRENT_DATE,
+    CONSTRAINT bank_accounts_pkey PRIMARY KEY (account_id),
+    CONSTRAINT bank_accounts_company_fk
+        FOREIGN KEY (company_id) REFERENCES indicolors.companies (company_id),
+    CONSTRAINT bank_accounts_number_company_unique UNIQUE (company_id, account_number),
+    CONSTRAINT bank_accounts_type_check
+        CHECK (account_type IN ('Ahorros', 'Corriente'))
+);
+
+-- 20.1 ÍNDICES CUENTAS BANCARIAS
+CREATE INDEX idx_bank_accounts_company_id ON indicolors.bank_accounts (company_id);
+CREATE INDEX idx_bank_accounts_state ON indicolors.bank_accounts (state);
+CREATE INDEX idx_bank_accounts_bank_name ON indicolors.bank_accounts (bank_name);
+CREATE INDEX idx_bank_accounts_company_state ON indicolors.bank_accounts (company_id, state);
+
+-- Garantiza que cada compañía tenga como máximo UNA cuenta marcada
+-- como principal (columna "Principal" del listado).
+CREATE UNIQUE INDEX idx_bank_accounts_one_primary_per_company
+    ON indicolors.bank_accounts (company_id)
+    WHERE is_primary = TRUE;
+
+-- 20.2 COMENTARIOS CUENTAS BANCARIAS
+COMMENT ON TABLE indicolors.bank_accounts IS 'Cuentas bancarias de la compañía, usadas para cobros y generación de PDF de costeo al cliente';
+COMMENT ON COLUMN indicolors.bank_accounts.account_id IS 'Identificador único de la cuenta bancaria';
+COMMENT ON COLUMN indicolors.bank_accounts.company_id IS 'Identificador de la empresa dueña de la cuenta';
+COMMENT ON COLUMN indicolors.bank_accounts.bank_name IS 'Nombre del banco (ej. Bancolombia)';
+COMMENT ON COLUMN indicolors.bank_accounts.account_type IS 'Tipo de cuenta: Ahorros o Corriente';
+COMMENT ON COLUMN indicolors.bank_accounts.account_number IS 'Número de la cuenta bancaria';
+COMMENT ON COLUMN indicolors.bank_accounts.holder_name IS 'Nombre o razón social del titular de la cuenta';
+COMMENT ON COLUMN indicolors.bank_accounts.holder_nit IS 'NIT del titular de la cuenta, si aplica';
+COMMENT ON COLUMN indicolors.bank_accounts.include_in_pdf IS 'True=Incluir esta cuenta en el PDF de costeo al cliente (campo "Uso en documentos")';
+COMMENT ON COLUMN indicolors.bank_accounts.is_primary IS 'True=Cuenta principal de la compañía (solo una por compañía)';
+COMMENT ON COLUMN indicolors.bank_accounts.state IS 'True=Activa, False=Inactiva';
+COMMENT ON COLUMN indicolors.bank_accounts.creation_date IS 'Fecha de registro de la cuenta en el sistema';
+
+-- 20.3 PERMISOS CUENTAS BANCARIAS
+GRANT ALL PRIVILEGES ON TABLE indicolors.bank_accounts TO indicolors_owner;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.bank_accounts TO indicolors_app;
+
+-- ============================================
+-- 21. CREAR TABLA PRODUCTOS TERMINADOS (formulario "Nuevo terminado")
+-- ============================================
+CREATE TABLE indicolors.finished_products (
+    finished_product_id CHARACTER VARYING(64)  NOT NULL DEFAULT gen_random_uuid()::text,
+    company_id           CHARACTER VARYING(64)  NOT NULL,
+    name                 CHARACTER VARYING(150) NOT NULL,
+    min_cost             NUMERIC(12,2),
+    value_per_cm2        NUMERIC(6,2)            NOT NULL DEFAULT 0,
+    quick_access         BOOLEAN                 NOT NULL DEFAULT FALSE,
+    state                BOOLEAN                 NOT NULL DEFAULT TRUE,
+    creation_date        DATE                    NOT NULL DEFAULT CURRENT_DATE,
+    CONSTRAINT finished_products_pkey PRIMARY KEY (finished_product_id),
+    CONSTRAINT finished_products_company_fk
+        FOREIGN KEY (company_id) REFERENCES indicolors.companies (company_id),
+    CONSTRAINT finished_products_name_company_unique UNIQUE (company_id, name),
+    CONSTRAINT finished_products_min_cost_check
+        CHECK (min_cost IS NULL OR min_cost >= 0),
+    CONSTRAINT finished_products_value_per_cm2_check
+        CHECK (value_per_cm2 >= 0 AND value_per_cm2 <= 9999)
+);
+
+-- 21.1 ÍNDICES PRODUCTOS TERMINADOS
+CREATE INDEX idx_finished_products_company_id ON indicolors.finished_products (company_id);
+CREATE INDEX idx_finished_products_name ON indicolors.finished_products (name);
+CREATE INDEX idx_finished_products_state ON indicolors.finished_products (state);
+CREATE INDEX idx_finished_products_company_state ON indicolors.finished_products (company_id, state);
+CREATE INDEX idx_finished_products_quick_access ON indicolors.finished_products (quick_access);
+
+-- 21.2 COMENTARIOS PRODUCTOS TERMINADOS
+COMMENT ON TABLE indicolors.finished_products IS 'Catálogo de Productos Terminados (ej. Laminado mate), usados al configurar órdenes de producción';
+COMMENT ON COLUMN indicolors.finished_products.finished_product_id IS 'Identificador único del producto terminado';
+COMMENT ON COLUMN indicolors.finished_products.company_id IS 'Identificador de la empresa dueña del producto terminado';
+COMMENT ON COLUMN indicolors.finished_products.name IS 'Nombre del producto terminado (ej. Laminado mate)';
+COMMENT ON COLUMN indicolors.finished_products.min_cost IS 'Costo mínimo del producto terminado; NULL si no aplica';
+COMMENT ON COLUMN indicolors.finished_products.value_per_cm2 IS 'Valor por cm² del producto terminado; 0 si no aplica';
+COMMENT ON COLUMN indicolors.finished_products.quick_access IS 'True=Muestra el producto terminado en la barra de selección rápida al configurar una orden de producción';
+COMMENT ON COLUMN indicolors.finished_products.state IS 'True=Activo, False=Inactivo';
+COMMENT ON COLUMN indicolors.finished_products.creation_date IS 'Fecha de registro del producto terminado en el sistema';
+
+-- 21.3 PERMISOS PRODUCTOS TERMINADOS
+GRANT ALL PRIVILEGES ON TABLE indicolors.finished_products TO indicolors_owner;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.finished_products TO indicolors_app;
+
+-- ============================================
+-- 22. CREAR TABLA PROCESOS DE ACABADO APLICADOS (formulario "Nueva operación de acabado")
+-- ============================================
+CREATE TABLE indicolors.finishing_processes (
+    finishing_process_id CHARACTER VARYING(64)  NOT NULL DEFAULT gen_random_uuid()::text,
+    company_id            CHARACTER VARYING(64)  NOT NULL,
+    name                  CHARACTER VARYING(150) NOT NULL,
+    min_cost              NUMERIC(12,2),
+    value_per_cm2         NUMERIC(6,2)            NOT NULL DEFAULT 0,
+    quick_access          BOOLEAN                 NOT NULL DEFAULT FALSE,
+    state                 BOOLEAN                 NOT NULL DEFAULT TRUE,
+    creation_date         DATE                    NOT NULL DEFAULT CURRENT_DATE,
+    CONSTRAINT finishing_processes_pkey PRIMARY KEY (finishing_process_id),
+    CONSTRAINT finishing_processes_company_fk
+        FOREIGN KEY (company_id) REFERENCES indicolors.companies (company_id),
+    CONSTRAINT finishing_processes_name_company_unique UNIQUE (company_id, name),
+    CONSTRAINT finishing_processes_min_cost_check
+        CHECK (min_cost IS NULL OR min_cost >= 0),
+    CONSTRAINT finishing_processes_value_per_cm2_check
+        CHECK (value_per_cm2 >= 0 AND value_per_cm2 <= 9999)
+);
+
+-- 22.1 ÍNDICES PROCESOS DE ACABADO APLICADOS
+CREATE INDEX idx_finishing_processes_company_id ON indicolors.finishing_processes (company_id);
+CREATE INDEX idx_finishing_processes_name ON indicolors.finishing_processes (name);
+CREATE INDEX idx_finishing_processes_state ON indicolors.finishing_processes (state);
+CREATE INDEX idx_finishing_processes_company_state ON indicolors.finishing_processes (company_id, state);
+CREATE INDEX idx_finishing_processes_quick_access ON indicolors.finishing_processes (quick_access);
+
+-- 22.2 COMENTARIOS PROCESOS DE ACABADO APLICADOS
+COMMENT ON TABLE indicolors.finishing_processes IS 'Catálogo de Procesos de Acabado Aplicados (ej. Plegar, Embolsar), usados al configurar órdenes de producción';
+COMMENT ON COLUMN indicolors.finishing_processes.finishing_process_id IS 'Identificador único del proceso de acabado aplicado';
+COMMENT ON COLUMN indicolors.finishing_processes.company_id IS 'Identificador de la empresa dueña del proceso de acabado aplicado';
+COMMENT ON COLUMN indicolors.finishing_processes.name IS 'Nombre del proceso de acabado aplicado (ej. Plegar, Embolsar)';
+COMMENT ON COLUMN indicolors.finishing_processes.min_cost IS 'Costo mínimo del proceso de acabado aplicado; NULL si no aplica';
+COMMENT ON COLUMN indicolors.finishing_processes.value_per_cm2 IS 'Valor por cm² del proceso de acabado aplicado; 0 si no aplica';
+COMMENT ON COLUMN indicolors.finishing_processes.quick_access IS 'True=Muestra el proceso de acabado aplicado en la barra de selección rápida al configurar una orden de producción';
+COMMENT ON COLUMN indicolors.finishing_processes.state IS 'True=Activo, False=Inactivo';
+COMMENT ON COLUMN indicolors.finishing_processes.creation_date IS 'Fecha de registro del proceso de acabado aplicado en el sistema';
+
+-- 22.3 PERMISOS PROCESOS DE ACABADO APLICADOS
+GRANT ALL PRIVILEGES ON TABLE indicolors.finishing_processes TO indicolors_owner;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.finishing_processes TO indicolors_app;
 

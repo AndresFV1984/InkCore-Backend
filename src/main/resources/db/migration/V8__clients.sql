@@ -30,6 +30,7 @@ CREATE INDEX IF NOT EXISTS idx_clients_identification ON indicolors.clients (ide
 CREATE INDEX IF NOT EXISTS idx_clients_document ON indicolors.clients (document_type, identification);
 CREATE INDEX IF NOT EXISTS idx_clients_department_city ON indicolors.clients (department, city);
 CREATE INDEX IF NOT EXISTS idx_clients_state ON indicolors.clients (state);
+CREATE INDEX IF NOT EXISTS idx_clients_company_state ON indicolors.clients (company_id, state);
 
 COMMENT ON TABLE indicolors.clients IS 'Tabla de clientes registrados por cada compañía (formulario Nuevo cliente)';
 COMMENT ON COLUMN indicolors.clients.client_id IS 'Identificador único del cliente';

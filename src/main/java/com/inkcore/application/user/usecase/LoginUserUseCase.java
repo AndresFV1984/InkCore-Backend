@@ -7,9 +7,7 @@ import com.inkcore.application.shared.RefreshTokenStorePort;
 import com.inkcore.domain.user.exception.InvalidCredentialsException;
 import com.inkcore.domain.user.exception.PasswordExpiredException;
 import com.inkcore.domain.user.exception.UserLockedException;
-import com.inkcore.domain.user.model.Role;
 import com.inkcore.domain.user.model.User;
-import com.inkcore.domain.user.ports.out.RoleRepositoryPort;
 import com.inkcore.domain.user.ports.out.UserRepositoryPort;
 import com.inkcore.infrastructure.config.PasswordPolicyProperties;
 import org.springframework.stereotype.Service;
@@ -22,13 +20,11 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 public class LoginUserUseCase {
 
     private final UserRepositoryPort userRepository;
-    private final RoleRepositoryPort roleRepository;
     private final PasswordHasherPort passwordHasher;
     private final AccessTokenPort accessTokenPort;
     private final RefreshTokenStorePort refreshTokenStore;
@@ -37,7 +33,6 @@ public class LoginUserUseCase {
 
     public LoginUserUseCase(
             UserRepositoryPort userRepository,
-            RoleRepositoryPort roleRepository,
             PasswordHasherPort passwordHasher,
             AccessTokenPort accessTokenPort,
             RefreshTokenStorePort refreshTokenStore,
@@ -45,7 +40,6 @@ public class LoginUserUseCase {
             Clock clock
     ) {
         this.userRepository = userRepository;
-        this.roleRepository = roleRepository;
         this.passwordHasher = passwordHasher;
         this.accessTokenPort = accessTokenPort;
         this.refreshTokenStore = refreshTokenStore;
@@ -82,7 +76,13 @@ public class LoginUserUseCase {
                     passwordPolicy.getLockDurationMinutes(),
                     now
             );
-            userRepository.save(updated);
+            // Solo columnas de seguridad: no reescribe user_roles.
+            userRepository.updateSecurityState(
+                    updated.getUserId(),
+                    updated.getFailedAttempts(),
+                    updated.getLockedUntil(),
+                    updated.getLastLoginAt()
+            );
             throw new InvalidCredentialsException();
         }
 
@@ -98,15 +98,20 @@ public class LoginUserUseCase {
         String refreshToken = accessTokenPort.generateRefreshToken();
 
         User loggedIn = user.registerSuccessfulLogin(now);
-        User saved = userRepository.save(loggedIn);
+        userRepository.updateSecurityState(
+                loggedIn.getUserId(),
+                loggedIn.getFailedAttempts(),
+                loggedIn.getLockedUntil(),
+                loggedIn.getLastLoginAt()
+        );
 
         Duration refreshTtl = Duration.ofSeconds(accessTokenPort.getRefreshExpirationSeconds());
         Instant refreshExpiresAt = Instant.now(clock).plus(refreshTtl);
         refreshTokenStore.save(
                 new RefreshTokenRecord(
                         refreshToken,
-                        saved.getUserId(),
-                        saved.getTokenVersion(),
+                        loggedIn.getUserId(),
+                        loggedIn.getTokenVersion(),
                         refreshExpiresAt
                 ),
                 refreshTtl
@@ -117,9 +122,9 @@ public class LoginUserUseCase {
                 refreshToken,
                 accessTokenPort.getAccessExpirationSeconds(),
                 accessTokenPort.getRefreshExpirationSeconds(),
-                saved,
-                buildPasswordWarning(saved, now),
-                buildRoles(saved)
+                loggedIn,
+                buildPasswordWarning(loggedIn, now),
+                buildRoles(loggedIn)
         );
     }
 
@@ -136,18 +141,20 @@ public class LoginUserUseCase {
         return new LoginResult.PasswordExpirationWarning(showWarning, Math.max(daysUntilExpiration, 0));
     }
 
+    /**
+     * Usa roles/permisos ya cargados en el agregado (JOIN FETCH del login).
+     * Evita N+1 a {@code RoleRepositoryPort}.
+     */
     private List<LoginResult.RolePermissions> buildRoles(User user) {
-        List<UUID> roleIds = user.getRoleIds();
         List<String> roleCodes = user.getRoleCodes();
-        if (roleIds.isEmpty()) {
+        if (roleCodes == null || roleCodes.isEmpty()) {
             return List.of();
         }
-        List<LoginResult.RolePermissions> roles = new ArrayList<>();
-        for (int i = 0; i < roleIds.size(); i++) {
-            String roleCode = i < roleCodes.size() ? roleCodes.get(i) : "";
-            List<String> permissions = roleRepository.findById(roleIds.get(i))
-                    .map(Role::getPermissionCodes)
-                    .orElse(List.of());
+        List<String> permissions = user.getPermissionCodes() == null
+                ? List.of()
+                : List.copyOf(user.getPermissionCodes());
+        List<LoginResult.RolePermissions> roles = new ArrayList<>(roleCodes.size());
+        for (String roleCode : roleCodes) {
             roles.add(new LoginResult.RolePermissions(roleCode, permissions));
         }
         return List.copyOf(roles);

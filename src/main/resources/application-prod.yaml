@@ -17,14 +17,15 @@ spring:
     driver-class-name: org.postgresql.Driver
     hikari:
       pool-name: ${DB_POOL_NAME:indicolorsHikariPool}
-      maximum-pool-size: ${DB_POOL_MAX_SIZE:15}
-      minimum-idle: ${DB_POOL_MIN_IDLE:5}
-      connection-timeout: ${DB_POOL_CONNECTION_TIMEOUT_MS:30000}
-      validation-timeout: ${DB_POOL_VALIDATION_TIMEOUT_MS:5000}
+      # ~100 concurrentes: alinear pool con hilos Tomcat (evitar espera de connection-timeout)
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:40}
+      minimum-idle: ${DB_POOL_MIN_IDLE:10}
+      connection-timeout: ${DB_POOL_CONNECTION_TIMEOUT_MS:10000}
+      validation-timeout: ${DB_POOL_VALIDATION_TIMEOUT_MS:3000}
       idle-timeout: ${DB_POOL_IDLE_TIMEOUT_MS:600000}
       max-lifetime: ${DB_POOL_MAX_LIFETIME_MS:1800000}
       leak-detection-threshold: ${DB_POOL_LEAK_DETECTION_THRESHOLD_MS:0}
-      initialization-fail-timeout: ${DB_POOL_INIT_FAIL_TIMEOUT_MS:1}
+      initialization-fail-timeout: ${DB_POOL_INIT_FAIL_TIMEOUT_MS:60000}
 
   jpa:
     open-in-view: false
@@ -33,10 +34,16 @@ spring:
     show-sql: false
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
         jdbc:
           time_zone: UTC
+          batch_size: 25
+        order_inserts: true
+        order_updates: true
         default_schema: indicolors
+        query:
+          fail_on_pagination_over_collection_fetch: true
+        default_batch_fetch_size: 25
 
   main:
     lazy-initialization: ${SPRING_LAZY_INIT:false}
@@ -75,17 +82,17 @@ spring:
           secret-key: ${JWT_SECRET:dev-only-change-me-dev-only-change-me}
 
 server:
-  port: ${SERVER_PORT:8091}
+  port: ${SERVER_PORT:8086}
   servlet:
     context-path: ${APP_CONTEXT:/InkCore-backend}
   tomcat:
     max-http-form-post-size: 6MB
     max-swallow-size: 6MB
     threads:
-      max: ${SERVER_TOMCAT_THREADS_MAX:50}
-      min-spare: ${SERVER_TOMCAT_THREADS_MIN_SPARE:10}
-    accept-count: ${SERVER_TOMCAT_ACCEPT_COUNT:100}
-    max-connections: ${SERVER_TOMCAT_MAX_CONNECTIONS:200}
+      max: ${SERVER_TOMCAT_THREADS_MAX:100}
+      min-spare: ${SERVER_TOMCAT_THREADS_MIN_SPARE:20}
+    accept-count: ${SERVER_TOMCAT_ACCEPT_COUNT:200}
+    max-connections: ${SERVER_TOMCAT_MAX_CONNECTIONS:400}
 
 springdoc:
   api-docs:
@@ -131,7 +138,7 @@ security:
     expiration-days: ${PASSWORD_EXPIRATION_DAYS:90}
     warning-days: ${PASSWORD_WARNING_DAYS:7}
 
-# Staging/prod: definir orígenes vía env (CSV), nunca *
+# Orígenes solo por env (nunca * ni localhost hardcodeado).
 # Ejemplo: CORS_ALLOWED_ORIGINS=https://app.ejemplo.com,https://admin.ejemplo.com
 app:
   cors:
@@ -142,10 +149,13 @@ app:
 
 logging:
   level:
-    com.inkcore: DEBUG
+    root: INFO
+    com.inkcore: INFO
     org.hibernate.orm.connections.pooling: WARN
     org.hibernate.SQL: WARN
     org.hibernate.type.descriptor.sql: WARN
-    org.springframework.security: DEBUG
-    org.springframework.web: DEBUG
+    org.springframework.security: WARN
+    org.springframework.web: WARN
     org.springframework.data.redis: WARN
+    com.zaxxer.hikari: INFO
+    com.zaxxer.hikari.pool.HikariPool: WARN

@@ -21,7 +21,7 @@ public class JwtDecoderConfig {
 
     @Bean
     JwtDecoder jwtDecoder(
-            @Value("${spring.security.oauth2.resourceserver.jwt.secret-key:${security.jwt.secret}}") String rawSecret,
+            @Value("${spring.security.oauth2.resourceserver.jwt.secret-key:${security.jwt.secret:${JWT_SECRET:dev-only-change-me-dev-only-change-me}}}") String rawSecret,
             UserTokenVersionService userTokenVersionService
     ) {
         byte[] keyBytes = rawSecret.getBytes(StandardCharsets.UTF_8);

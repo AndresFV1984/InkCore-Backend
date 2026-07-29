@@ -1,6 +1,10 @@
 package com.inkcore.infrastructure.in.rest.errors;
 
+import com.inkcore.domain.bankaccount.exception.BankAccountAlreadyExistsException;
 import com.inkcore.domain.client.exception.ClientAlreadyExistsException;
+import com.inkcore.domain.finish.exception.FinishAlreadyExistsException;
+import com.inkcore.domain.finishingprocess.exception.FinishingProcessAlreadyExistsException;
+import com.inkcore.domain.seller.exception.SellerAlreadyExistsException;
 import com.inkcore.domain.shared.exception.DomainException;
 import com.inkcore.domain.shared.exception.ResourceNotFoundException;
 import com.inkcore.domain.user.exception.AccountDisabledException;
@@ -101,6 +105,58 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ClientAlreadyExistsException.class)
     public ResponseEntity<ApiErrorEnvelope> handleClientExists(
             ClientAlreadyExistsException ex,
+            HttpServletRequest request
+    ) {
+        return responseFactory.error(
+                request,
+                HttpStatus.CONFLICT,
+                ex.getMessage(),
+                List.of(ex.getCode())
+        );
+    }
+
+    @ExceptionHandler(SellerAlreadyExistsException.class)
+    public ResponseEntity<ApiErrorEnvelope> handleSellerExists(
+            SellerAlreadyExistsException ex,
+            HttpServletRequest request
+    ) {
+        return responseFactory.error(
+                request,
+                HttpStatus.CONFLICT,
+                ex.getMessage(),
+                List.of(ex.getCode())
+        );
+    }
+
+    @ExceptionHandler(BankAccountAlreadyExistsException.class)
+    public ResponseEntity<ApiErrorEnvelope> handleBankAccountExists(
+            BankAccountAlreadyExistsException ex,
+            HttpServletRequest request
+    ) {
+        return responseFactory.error(
+                request,
+                HttpStatus.CONFLICT,
+                ex.getMessage(),
+                List.of(ex.getCode())
+        );
+    }
+
+    @ExceptionHandler(FinishAlreadyExistsException.class)
+    public ResponseEntity<ApiErrorEnvelope> handleFinishExists(
+            FinishAlreadyExistsException ex,
+            HttpServletRequest request
+    ) {
+        return responseFactory.error(
+                request,
+                HttpStatus.CONFLICT,
+                ex.getMessage(),
+                List.of(ex.getCode())
+        );
+    }
+
+    @ExceptionHandler(FinishingProcessAlreadyExistsException.class)
+    public ResponseEntity<ApiErrorEnvelope> handleFinishingProcessExists(
+            FinishingProcessAlreadyExistsException ex,
             HttpServletRequest request
     ) {
         return responseFactory.error(

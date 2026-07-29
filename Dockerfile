@@ -22,12 +22,11 @@ RUN chown inkcore:inkcore /app/app.jar
 
 USER inkcore
 
-ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:MaxRAMPercentage=75.0" \
-    SPRING_PROFILES_ACTIVE=docker \
-    SERVER_PORT=8091 \
+ENV JAVA_OPTS="-Xms512m -Xmx1024m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:MaxRAMPercentage=75.0" \
+    SERVER_PORT=8086 \
     APP_CONTEXT=/InkCore-backend
 
-EXPOSE 8091
+EXPOSE 8086
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=90s --retries=8 \
   CMD curl -fsS "http://localhost:${SERVER_PORT}${APP_CONTEXT}/actuator/health" || exit 1

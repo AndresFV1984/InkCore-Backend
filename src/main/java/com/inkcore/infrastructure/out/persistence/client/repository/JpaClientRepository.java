@@ -1,19 +1,19 @@
 package com.inkcore.infrastructure.out.persistence.client.repository;
 
 import com.inkcore.infrastructure.out.persistence.client.entity.ClientEntity;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.util.List;
-
 public interface JpaClientRepository extends JpaRepository<ClientEntity, String> {
 
-    List<ClientEntity> findAllByState(boolean state);
+    Page<ClientEntity> findAllByState(boolean state, Pageable pageable);
 
-    List<ClientEntity> findAllByCompanyId(String companyId);
+    Page<ClientEntity> findAllByCompanyId(String companyId, Pageable pageable);
 
-    List<ClientEntity> findAllByCompanyIdAndState(String companyId, boolean state);
+    Page<ClientEntity> findAllByCompanyIdAndState(String companyId, boolean state, Pageable pageable);
 
     @Query("""
             SELECT CASE WHEN COUNT(c) > 0 THEN TRUE ELSE FALSE END

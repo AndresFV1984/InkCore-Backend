@@ -2,8 +2,8 @@
 
 ## Qué hace
 
-Whitelist de orígenes para que el frontend (Vite en `http://localhost:5173`) pueda llamar a
-`http://localhost:8091/InkCore-backend` sin proxy. Preflight `OPTIONS` responde sin JWT.
+Whitelist de orígenes para que el frontend (Vite/nginx en `http://localhost:8085`) pueda llamar a
+`http://localhost:8086/InkCore-backend` sin proxy. Preflight `OPTIONS` responde sin JWT.
 
 **No** se usa `Access-Control-Allow-Origin: *`.
 
@@ -14,12 +14,14 @@ Prefijo: `app.cors`
 | Propiedad | Descripción |
 |-----------|-------------|
 | `allowed-origins` | Lista YAML de orígenes |
-| `origins` | CSV alternativo (`CORS_ALLOWED_ORIGINS`) si la lista está vacía |
+| `origins` | CSV adicional (`CORS_ALLOWED_ORIGINS`); se une a `allowed-origins` |
 | `allowed-methods` | Default: GET, POST, PUT, PATCH, DELETE, OPTIONS |
 | `allowed-headers` | Authorization, Content-Type, Accept, Origin, X-Correlation-Id |
 | `exposed-headers` | X-Correlation-Id (tokens van en el body del envelope) |
 | `allow-credentials` | `false` (JWT en `Authorization`, sin cookies) |
 | `max-age-seconds` | Cache del preflight (default 3600) |
+
+CORS se define **solo** en perfiles (`application-dev.yaml` / `application-prod.yaml`), no en `application.yaml`.
 
 ### Desarrollo (`application-dev.yaml`)
 
@@ -27,8 +29,8 @@ Prefijo: `app.cors`
 app:
   cors:
     allowed-origins:
-      - http://localhost:5173
-      - http://127.0.0.1:5173
+      - http://localhost:8085
+      - http://127.0.0.1:8085
 ```
 
 El base path del front (`/inkcore/`) **no** forma parte del `Origin`.
@@ -43,7 +45,7 @@ $env:CORS_ALLOWED_ORIGINS="https://app.ejemplo.com,https://admin.ejemplo.com"
 export CORS_ALLOWED_ORIGINS="https://app.ejemplo.com,https://admin.ejemplo.com"
 ```
 
-O lista en `application-prod.yaml` / `application-local.yaml` (ver `application-local.yaml.example`).
+O lista en `application-prod.yaml` / variable `CORS_ALLOWED_ORIGINS`.
 
 ### Credenciales (cookies)
 
@@ -54,10 +56,10 @@ Si en el futuro usáis cookies cross-origin: `allow-credentials: true` **y** or�
 ## Verificación rápida
 
 ```bash
-curl -i -X OPTIONS "http://localhost:8091/InkCore-backend/api/v1/roles/list" \
-  -H "Origin: http://localhost:5173" \
+curl -i -X OPTIONS "http://localhost:8086/InkCore-backend/api/v1/roles/list" \
+  -H "Origin: http://localhost:8085" \
   -H "Access-Control-Request-Method: GET" \
   -H "Access-Control-Request-Headers: authorization,content-type"
 ```
 
-Esperado: `200`/`204` y `Access-Control-Allow-Origin: http://localhost:5173`.
+Esperado: `200`/`204` y `Access-Control-Allow-Origin: http://localhost:8085`.

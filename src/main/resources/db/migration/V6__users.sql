@@ -30,7 +30,9 @@ CREATE TABLE IF NOT EXISTS indicolors.users (
 
 CREATE INDEX IF NOT EXISTS idx_users_company_id ON indicolors.users (company_id);
 CREATE INDEX IF NOT EXISTS idx_users_mail ON indicolors.users (mail);
+CREATE INDEX IF NOT EXISTS idx_users_mail_lower ON indicolors.users (LOWER(mail));
 CREATE INDEX IF NOT EXISTS idx_users_state ON indicolors.users (state);
+CREATE INDEX IF NOT EXISTS idx_users_company_state ON indicolors.users (company_id, state);
 CREATE INDEX IF NOT EXISTS idx_users_document ON indicolors.users (document_type, identification_number);
 CREATE INDEX IF NOT EXISTS idx_users_department_city ON indicolors.users (department, city);
 

@@ -623,7 +623,7 @@ security:
 **Server:**
 ```yaml
 server:
-  port: ${SERVER_PORT:8091}
+  port: ${SERVER_PORT:8086}
   tomcat:
     threads:
       max: ${SERVER_TOMCAT_THREADS_MAX:50}
@@ -797,12 +797,12 @@ ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:MaxRAMPercentage=75.0"
 ENV SPRING_PROFILES_ACTIVE=prod
 ```
 
-**Healthcheck:** `curl http://localhost:8091/actuator/health`
+**Healthcheck:** `curl http://localhost:8086/actuator/health`
 
 ### Kubernetes
 Plantillas disponibles en `k8s/`:
 - `deployment.yaml` — Deployment con replicas, probes, recursos.
-- `service.yaml` — Service ClusterIP puerto 8091.
+- `service.yaml` — Service ClusterIP puerto 8086.
 - `secret.yaml` — Secretos (DB, JWT).
 - `hpa.yaml` — HorizontalPodAutoscaler CPU-based.
 
@@ -861,7 +861,7 @@ java -Xms512m -Xmx1g -jar .\target\rfid-inventory.jar
 docker build -t rfid-inventory:latest .
 
 # Ejecutar imagen
-docker run --rm -p 8091:8091 `
+docker run --rm -p 8086:8086 `
   -e SPRING_PROFILES_ACTIVE=dev `
   -e SPRING_DATASOURCE_URL="jdbc:postgresql://host:5432/rfidinventorybd" `
   -e SPRING_DATASOURCE_USERNAME=usrfidinventory `

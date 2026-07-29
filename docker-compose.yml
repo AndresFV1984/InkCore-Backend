@@ -3,12 +3,15 @@ services:
     image: postgres:16-alpine
     container_name: inkcore-postgres
     environment:
+      # BD + owner: la imagen crea inkcore / indicolors_owner.
+      # Roles app/admin, schema, grants: scripts/postgres/docker-init/01-indicolors.sql
+      # Tablas/seeds: Flyway (V1..V9) al arrancar la app.
       POSTGRES_DB: inkcore
       POSTGRES_USER: indicolors_owner
       POSTGRES_PASSWORD: ${POSTGRES_OWNER_PASSWORD:-YyZUdfRUcjJmiFxrkr5DP77mZD4hlRo1}
       POSTGRES_INITDB_ARGS: "--encoding=UTF8"
     volumes:
-      - C:/inkcore_postgres_data:/var/lib/postgresql/data
+      - inkcore_postgres_data:/var/lib/postgresql/data
       - ./scripts/postgres/docker-init:/docker-entrypoint-initdb.d:ro
     ports:
       - "15432:5432"
@@ -26,7 +29,7 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - C:/inkcore_redis_data:/data
+      - inkcore_redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -85,12 +88,16 @@ services:
     image: bayronindicore/inkcore-backend:${IMAGE_TAG:-latest}
     container_name: inkcore-backend
     ports:
-      - "8091:8091"
+      - "8086:8086"
     environment:
-      # Base de datos
+      # Base de datos (DB_* para yaml de perfil; SPRING_DATASOURCE_* por si el perfil no carga)
       DB_URL: jdbc:postgresql://db:5432/inkcore
       DB_USERNAME: indicolors_app
       DB_PASSWORD: ${POSTGRES_APP_PASSWORD:-5p5g+OQu9X6/cdi23jLKiTqSpAfgWCiS}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/inkcore
+      SPRING_DATASOURCE_USERNAME: indicolors_app
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_APP_PASSWORD:-5p5g+OQu9X6/cdi23jLKiTqSpAfgWCiS}
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
       FLYWAY_MIGRATION_USER: indicolors_owner
       FLYWAY_MIGRATION_PASSWORD: ${POSTGRES_OWNER_PASSWORD:-YyZUdfRUcjJmiFxrkr5DP77mZD4hlRo1}
       # Redis (disponible en el stack; la app usa memory hasta habilitar Redis en código)
@@ -98,18 +105,20 @@ services:
       REDIS_PORT: 6379
       REFRESH_TOKEN_STORE_TYPE: ${REFRESH_TOKEN_STORE_TYPE:-memory}
       TOKEN_VERSION_CACHE_TYPE: ${TOKEN_VERSION_CACHE_TYPE:-memory}
-      # JWT (cambiar en producción)
+      # JWT (SECURITY_JWT_SECRET mapea a security.jwt.secret aunque el perfil no cargue)
       JWT_SECRET: ${JWT_SECRET:-cambia-esto-en-produccion-por-clave-segura}
+      SECURITY_JWT_SECRET: ${JWT_SECRET:-cambia-esto-en-produccion-por-clave-segura}
       JWT_EXP_SECONDS: 3600
       REFRESH_EXP_SECONDS: 86400
-      # Spring
+      # Spring — perfiles válidos: dev | prod (NO usar "docker")
       SPRING_LAZY_INIT: "false"
-      SERVER_PORT: 8091
+      SERVER_PORT: 8086
       APP_CONTEXT: /InkCore-backend
-      SPRING_PROFILES_ACTIVE: docker
-      # Orígenes extra además de localhost:5173 (CSV). Ej: https://app.ejemplo.com
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
-      JAVA_OPTS: ${JAVA_OPTS:--Xms256m -Xmx512m -XX:MaxRAMPercentage=75.0}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8085,http://127.0.0.1:8085}
+      # Esperar a Postgres en arranque (default yaml 1ms es demasiado agresivo en Docker)
+      DB_POOL_INIT_FAIL_TIMEOUT_MS: ${DB_POOL_INIT_FAIL_TIMEOUT_MS:-60000}
+      JAVA_OPTS: ${JAVA_OPTS:--Xms512m -Xmx1024m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:MaxRAMPercentage=75.0}
     depends_on:
       db:
         condition: service_healthy
@@ -120,7 +129,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "curl -fsS http://localhost:8091${APP_CONTEXT:-/InkCore-backend}/actuator/health >/dev/null || exit 1",
+          "curl -fsS http://localhost:8086${APP_CONTEXT:-/InkCore-backend}/actuator/health >/dev/null || exit 1",
         ]
       interval: 30s
       timeout: 3s
@@ -128,6 +137,8 @@ services:
       start_period: 90s
 
 volumes:
+  inkcore_postgres_data:
+  inkcore_redis_data:
   redis-insight-data:
   sonar_postgres_data:
   sonarqube_data:

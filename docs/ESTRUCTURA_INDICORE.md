@@ -85,26 +85,33 @@ Convención: **un archivo por tabla** (DDL + semilla mínima si aplica). Schema/
 | `V6__users.sql` | `users` + admin semilla |
 | `V7__user_roles.sql` | `user_roles` + vínculo admin |
 | `V8__clients.sql` | `clients` |
+| `V9__sellers.sql` | `sellers` |
+| `V10__bank_accounts.sql` | `bank_accounts` |
+| `V11__finished_products.sql` | `finished_products` (terminados) |
+| `V12__finishing_processes.sql` | `finishing_processes` (acabados) |
 
 Scripts informativos (fuera de Flyway, ejecutar a mano en BD):
 
 | Archivo | Uso |
 |---------|-----|
 | `scripts/postgres/assign-role-permissions.sql` | Asignar / consultar / revocar permisos de negocio a roles |
+| `scripts/postgres/docker-init/01-indicolors.sql` | Bootstrap Docker: roles/schema/grants (sin tablas; solo volumen vacío) |
+| `ScriptBD/Script_Crear_BD.sql` | Bootstrap manual completo (roles + tablas; en Docker las tablas van por Flyway) |
 
-Roles PostgreSQL (Script_Crear_BD):
+Roles PostgreSQL (Script_Crear_BD / docker-init):
 
 | Rol | Uso |
 |-----|-----|
-| `indicolors_owner` | DDL / Flyway (único autorizado a migraciones) |
+| `indicolors_owner` | DDL / Flyway (`POSTGRES_USER` en Docker) |
 | `indicolors_app` | Runtime de la aplicación (DML) |
-| `inkcore_admin` | Admin general de la BD (opcional) |
+| `inkcore_admin` | Admin general de la BD + event trigger en schemas nuevos |
 
 > No existe `indicolors_migrator`. Si ya tenías historial Flyway con migraciones antiguas, limpia la BD o haz baseline/reseteo del historial antes de aplicar esta serie.
 
 ## Docker (API + Postgres + Redis + Sonar)
 
 Imagen: **`bayronindicore/inkcore-backend`** (Docker Hub). Stack alineado al patrón Rafex.
+Perfiles Spring: solo **`dev` / `prod`**. Compose local usa `dev` y `DB_URL` hacia el servicio `db`; la imagen Hub default es `prod`.
 
 ```powershell
 # Publicar a Docker Hub (tag automático v + día.mes, ej. v22.07 + latest)
@@ -116,14 +123,16 @@ docker compose up -d --build
 
 | Servicio | URL / puerto |
 |----------|----------------|
-| API | http://localhost:8091/InkCore-backend |
-| Swagger | http://localhost:8091/InkCore-backend/swagger-ui.html |
+| API | http://localhost:8086/InkCore-backend |
+| Swagger | http://localhost:8086/InkCore-backend/swagger-ui.html |
 | Postgres (`db`) | `localhost:15432` |
 | Redis | `localhost:6379` |
 | Redis Insight | http://localhost:8092 |
 | SonarQube | http://localhost:9000 |
 
-Datos persistentes en host: `C:/inkcore_postgres_data`, `C:/inkcore_redis_data`.
+Datos persistentes: volúmenes Docker `inkcore_postgres_data` y `inkcore_redis_data` (portables entre Windows/Linux/macOS).
+
+**Importante:** la imagen `bayronindicore/inkcore-backend` no arranca sola; necesita el stack (`db` + `redis`) vía `docker compose up -d`. Si solo haces `docker run` de la app, fallará al inyectar beans de JPA/JWT porque no hay Postgres.
 
 Versión de imagen: formato **`vdd.MM`** (ej. `v22.07`). Si cambias init/passwords: `docker compose down -v` y vuelve a levantar.
 

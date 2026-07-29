@@ -37,9 +37,9 @@ public class JwtTokenService implements AccessTokenPort {
 
     public JwtTokenService(
             Clock clock,
-            @Value("${security.jwt.secret}") String rawSecret,
-            @Value("${security.jwt.expiration-seconds:3600}") long accessExpirationSeconds,
-            @Value("${security.refresh-token.expiration-seconds:1209600}") long refreshExpirationSeconds,
+            @Value("${security.jwt.secret:${JWT_SECRET:dev-only-change-me-dev-only-change-me}}") String rawSecret,
+            @Value("${security.jwt.expiration-seconds:${JWT_EXP_SECONDS:3600}}") long accessExpirationSeconds,
+            @Value("${security.refresh-token.expiration-seconds:${REFRESH_EXP_SECONDS:1209600}}") long refreshExpirationSeconds,
             ObjectMapper objectMapper
     ) {
         byte[] keyBytes = rawSecret.getBytes(StandardCharsets.UTF_8);

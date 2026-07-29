@@ -7,9 +7,7 @@ import com.inkcore.application.shared.RefreshTokenStorePort;
 import com.inkcore.domain.user.exception.InvalidCredentialsException;
 import com.inkcore.domain.user.exception.PasswordExpiredException;
 import com.inkcore.domain.user.exception.UserLockedException;
-import com.inkcore.domain.user.model.Role;
 import com.inkcore.domain.user.model.User;
-import com.inkcore.domain.user.ports.out.RoleRepositoryPort;
 import com.inkcore.domain.user.ports.out.UserRepositoryPort;
 import com.inkcore.infrastructure.config.PasswordPolicyProperties;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,7 +33,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -47,7 +47,6 @@ class LoginUserUseCaseTest {
     private static final UUID ROLE_ID = UUID.fromString("b1ffbc99-9c0b-4ef8-bb6d-6bb9bd380a22");
 
     @Mock UserRepositoryPort userRepository;
-    @Mock RoleRepositoryPort roleRepository;
     @Mock PasswordHasherPort passwordHasher;
     @Mock AccessTokenPort accessTokenPort;
     @Mock RefreshTokenStorePort refreshTokenStore;
@@ -64,7 +63,6 @@ class LoginUserUseCaseTest {
         Clock clock = Clock.fixed(FIXED_NOW, ZoneOffset.UTC);
         useCase = new LoginUserUseCase(
                 userRepository,
-                roleRepository,
                 passwordHasher,
                 accessTokenPort,
                 refreshTokenStore,
@@ -82,10 +80,6 @@ class LoginUserUseCaseTest {
         when(accessTokenPort.generateRefreshToken()).thenReturn("opaque-refresh");
         when(accessTokenPort.getAccessExpirationSeconds()).thenReturn(3600L);
         when(accessTokenPort.getRefreshExpirationSeconds()).thenReturn(1209600L);
-        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(roleRepository.findById(ROLE_ID)).thenReturn(Optional.of(
-                Role.reconstitute(ROLE_ID, "c1", "Administrador", "", true, List.of("USUARIO_VER"))
-        ));
 
         LoginResult result = useCase.execute(new LoginUserCommand("admin@indicolors.com", "Indicore2026!"));
 
@@ -99,6 +93,14 @@ class LoginUserUseCaseTest {
         assertEquals(1, result.roles().size());
         assertEquals("ADMINISTRADOR", result.roles().get(0).role());
 
+        verify(userRepository).updateSecurityState(
+                eq("user-1"),
+                eq(0),
+                isNull(),
+                any(LocalDateTime.class)
+        );
+        verify(userRepository, never()).save(any());
+
         ArgumentCaptor<RefreshTokenRecord> refreshCaptor = ArgumentCaptor.forClass(RefreshTokenRecord.class);
         verify(refreshTokenStore).save(refreshCaptor.capture(), eq(Duration.ofSeconds(1209600)));
         assertEquals("opaque-refresh", refreshCaptor.getValue().refreshToken());
@@ -111,7 +113,6 @@ class LoginUserUseCaseTest {
         User user = activeUser(2, null, null);
         when(userRepository.findByMailIgnoreCase("admin@indicolors.com")).thenReturn(Optional.of(user));
         when(passwordHasher.matches("bad-pass", "hash")).thenReturn(false);
-        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
         InvalidCredentialsException ex = assertThrows(
                 InvalidCredentialsException.class,
@@ -119,10 +120,8 @@ class LoginUserUseCaseTest {
         );
         assertEquals("UNAUTHORIZED", ex.getCode());
 
-        ArgumentCaptor<User> saved = ArgumentCaptor.forClass(User.class);
-        verify(userRepository).save(saved.capture());
-        assertEquals(3, saved.getValue().getFailedAttempts());
-        assertNull(saved.getValue().getLockedUntil());
+        verify(userRepository).updateSecurityState(eq("user-1"), eq(3), isNull(), isNull());
+        verify(userRepository, never()).save(any());
         verify(accessTokenPort, never()).generateToken(any(), any(Long.class), any(), any());
         verify(refreshTokenStore, never()).save(any(), any());
     }
@@ -132,18 +131,19 @@ class LoginUserUseCaseTest {
         User user = activeUser(4, null, null);
         when(userRepository.findByMailIgnoreCase("admin@indicolors.com")).thenReturn(Optional.of(user));
         when(passwordHasher.matches("bad-pass", "hash")).thenReturn(false);
-        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
         assertThrows(
                 InvalidCredentialsException.class,
                 () -> useCase.execute(new LoginUserCommand("admin@indicolors.com", "bad-pass"))
         );
 
-        ArgumentCaptor<User> saved = ArgumentCaptor.forClass(User.class);
-        verify(userRepository).save(saved.capture());
-        assertEquals(5, saved.getValue().getFailedAttempts());
-        assertEquals(LocalDateTime.ofInstant(FIXED_NOW, ZoneOffset.UTC).plusMinutes(15),
-                saved.getValue().getLockedUntil());
+        verify(userRepository).updateSecurityState(
+                eq("user-1"),
+                eq(5),
+                eq(LocalDateTime.ofInstant(FIXED_NOW, ZoneOffset.UTC).plusMinutes(15)),
+                isNull()
+        );
+        verify(userRepository, never()).save(any());
     }
 
     @Test
@@ -159,6 +159,7 @@ class LoginUserUseCaseTest {
         assertEquals("ACCOUNT_LOCKED", ex.getCode());
         assertTrue(ex.getRemainingMinutes() >= 1);
         verify(passwordHasher, never()).matches(any(), any());
+        verify(userRepository, never()).updateSecurityState(any(), anyInt(), any(), any());
     }
 
     @Test

@@ -6,6 +6,8 @@ import com.inkcore.application.client.usecase.GetClientByIdUseCase;
 import com.inkcore.application.client.usecase.ListClientsUseCase;
 import com.inkcore.application.client.usecase.UpdateClientCommand;
 import com.inkcore.application.client.usecase.UpdateClientUseCase;
+import com.inkcore.domain.shared.PageQuery;
+import com.inkcore.infrastructure.in.rest.shared.PageResponse;
 import com.inkcore.domain.client.model.Client;
 import com.inkcore.infrastructure.in.rest.envelope.ApiErrorEnvelope;
 import com.inkcore.infrastructure.in.rest.envelope.ApiResponseFactory;
@@ -37,17 +39,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/v1/clients")
-@Tag(
-        name = "Clientes",
-        description = """
-                Alta (`/register`), listado (`/list`), detalle (`/get/{clientId}`) y actualización (`/update/{clientId}`).
-                Requiere JWT Bearer. Respuesta con `documentType` anidado.
-                """
-)
+@Tag(name = "Clientes", description = "Gestión de clientes")
 @SecurityRequirement(name = "bearerAuth")
 public class ClientController {
 
@@ -268,7 +262,9 @@ public class ClientController {
             operationId = "listClients",
             summary = "Listar clientes",
             description = """
-                    Query opcionales: `companyId`, `state` (true=activos, false=inactivos, ausente=todos).
+                    Query opcionales: `companyId`, `state` (true=activos, false=inactivos, ausente=todos),
+                    `page` (0-based, default 0), `size` (default 20, máx 100).
+                    Respuesta paginada: `{ content, page, size, totalElements, totalPages, hasNext }`.
                     """
     )
     @ApiResponse(
@@ -278,7 +274,7 @@ public class ClientController {
                     mediaType = MediaType.APPLICATION_JSON_VALUE,
                     schema = @Schema(implementation = ClientListSuccessEnvelope.class),
                     examples = @ExampleObject(
-                            name = "Clientes",
+                            name = "ClientesPaginados",
                             value = """
                                     {
                                       "headers": {
@@ -288,27 +284,34 @@ public class ClientController {
                                         "description": "Success"
                                       },
                                       "timestamp": "2026-07-22T12:00:00Z",
-                                      "data": [
-                                        {
-                                          "clientId": "714ad646-c4fe-42fa-9f13-4a44823e6bee",
-                                          "companyId": "company-seed-001",
-                                          "name": "Comercializadora ABC S.A.S.",
-                                          "documentType": {
-                                            "documentType": "NIT",
-                                            "identificationNumber": "900123456-1"
-                                          },
-                                          "department": {
-                                            "department": "Antioquia",
-                                            "city": "Medellín"
-                                          },
-                                          "address": "Calle 10 # 20-30",
-                                          "phone": "604 123 4567",
-                                          "email": "correo@empresa.com",
-                                          "contactPerson": "Ana Gómez",
-                                          "state": true,
-                                          "creationDate": "2026-07-22"
-                                        }
-                                      ]
+                                      "data": {
+                                        "content": [
+                                          {
+                                            "clientId": "714ad646-c4fe-42fa-9f13-4a44823e6bee",
+                                            "companyId": "company-seed-001",
+                                            "name": "Comercializadora ABC S.A.S.",
+                                            "documentType": {
+                                              "documentType": "NIT",
+                                              "identificationNumber": "900123456-1"
+                                            },
+                                            "department": {
+                                              "department": "Antioquia",
+                                              "city": "Medellín"
+                                            },
+                                            "address": "Calle 10 # 20-30",
+                                            "phone": "604 123 4567",
+                                            "email": "correo@empresa.com",
+                                            "contactPerson": "Ana Gómez",
+                                            "state": true,
+                                            "creationDate": "2026-07-22"
+                                          }
+                                        ],
+                                        "page": 0,
+                                        "size": 20,
+                                        "totalElements": 1,
+                                        "totalPages": 1,
+                                        "hasNext": false
+                                      }
                                     }
                                     """
                     )
@@ -316,16 +319,21 @@ public class ClientController {
     )
     @ApiErrorResponses
     @ApiSecuredErrorResponses
-    public ResponseEntity<ApiSuccessEnvelope<List<ClientResponse>>> list(
+    public ResponseEntity<ApiSuccessEnvelope<PageResponse<ClientResponse>>> list(
             @Parameter(description = "Filtro por empresa", example = "company-seed-001")
             @RequestParam(required = false) String companyId,
             @Parameter(description = "Filtro por estado: true=activos, false=inactivos, omitir=todos")
             @RequestParam(required = false) Boolean state,
+            @Parameter(description = "Página 0-based", example = "0")
+            @RequestParam(required = false, defaultValue = "0") Integer page,
+            @Parameter(description = "Tamaño de página (máx 100)", example = "20")
+            @RequestParam(required = false, defaultValue = "20") Integer size,
             HttpServletRequest httpRequest
     ) {
-        List<ClientResponse> data = listClientsUseCase.execute(companyId, state).stream()
-                .map(ClientResponse::from)
-                .toList();
+        PageResponse<ClientResponse> data = PageResponse.from(
+                listClientsUseCase.execute(companyId, state, PageQuery.of(page, size)),
+                ClientResponse::from
+        );
         return responseFactory.okStandard(httpRequest, data);
     }
 

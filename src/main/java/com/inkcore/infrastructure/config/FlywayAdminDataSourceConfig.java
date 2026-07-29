@@ -22,7 +22,7 @@ import org.springframework.boot.autoconfigure.flyway.FlywayDataSource;
 public class FlywayAdminDataSourceConfig {
     private static final Logger log = LoggerFactory.getLogger(FlywayAdminDataSourceConfig.class);
 
-    @Value("${spring.datasource.url}")
+    @Value("${spring.datasource.url:${DB_URL:jdbc:postgresql://localhost:5432/inkcore}}")
     private String datasourceUrl;
 
     @Value("${spring.datasource.driver-class-name:org.postgresql.Driver}")

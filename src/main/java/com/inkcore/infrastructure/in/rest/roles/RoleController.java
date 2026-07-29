@@ -24,10 +24,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/roles")
-@Tag(
-        name = "Roles",
-        description = "Catálogo de roles. Usar `code` o `name` en el campo `role` al crear/registrar usuarios."
-)
+@Tag(name = "Roles", description = "Catálogo de roles")
 @SecurityRequirement(name = "bearerAuth")
 public class RoleController {
 

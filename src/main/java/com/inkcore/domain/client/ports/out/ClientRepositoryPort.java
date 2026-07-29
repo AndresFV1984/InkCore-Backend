@@ -1,8 +1,9 @@
 package com.inkcore.domain.client.ports.out;
 
+import com.inkcore.domain.shared.PageQuery;
+import com.inkcore.domain.shared.PageResult;
 import com.inkcore.domain.client.model.Client;
 
-import java.util.List;
 import java.util.Optional;
 
 public interface ClientRepositoryPort {
@@ -11,13 +12,13 @@ public interface ClientRepositoryPort {
 
     Optional<Client> findById(String clientId);
 
-    List<Client> findAll();
+    PageResult<Client> findPage(PageQuery pageQuery);
 
-    List<Client> findAllByState(boolean state);
+    PageResult<Client> findPageByState(boolean state, PageQuery pageQuery);
 
-    List<Client> findAllByCompanyId(String companyId);
+    PageResult<Client> findPageByCompanyId(String companyId, PageQuery pageQuery);
 
-    List<Client> findAllByCompanyIdAndState(String companyId, boolean state);
+    PageResult<Client> findPageByCompanyIdAndState(String companyId, boolean state, PageQuery pageQuery);
 
     boolean existsByCompanyIdAndIdentificationIgnoreCase(String companyId, String identification);
 

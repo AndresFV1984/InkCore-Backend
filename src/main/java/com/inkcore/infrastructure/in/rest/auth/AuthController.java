@@ -29,7 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/auth")
-@Tag(name = "Autenticación", description = "Login y renovación de tokens (endpoints públicos)")
+@Tag(name = "Autenticación", description = "Login y refresh de tokens")
 @SecurityRequirements
 public class AuthController {
 

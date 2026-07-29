@@ -1,5 +1,6 @@
 package com.inkcore.infrastructure.in.rest.users;
 
+import com.inkcore.domain.shared.PageQuery;
 import com.inkcore.application.user.usecase.CreateUserCommand;
 import com.inkcore.application.user.usecase.CreateUserUseCase;
 import com.inkcore.application.user.usecase.GetUserByIdUseCase;
@@ -16,6 +17,7 @@ import com.inkcore.infrastructure.in.rest.envelope.ApiSuccessEnvelope;
 import com.inkcore.infrastructure.in.rest.openapi.ApiErrorResponses;
 import com.inkcore.infrastructure.in.rest.openapi.ApiSecuredErrorResponses;
 import com.inkcore.infrastructure.in.rest.openapi.UserListSuccessEnvelope;
+import com.inkcore.infrastructure.in.rest.shared.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -45,14 +47,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/users")
-@Tag(
-        name = "Usuarios",
-        description = """
-                Login público; alta (`POST /users` o `/users/register` con campo `role`),
-                listado y actualización requieren JWT Bearer.
-                Respuesta: documentType/department anidados y roles[{role, permissions}].
-                """
-)
+@Tag(name = "Usuarios", description = "Gestión de usuarios")
 @SecurityRequirement(name = "bearerAuth")
 public class UserController {
 
@@ -456,9 +451,9 @@ public class UserController {
             operationId = "listUsers",
             summary = "Listar usuarios",
             description = """
-                    Devuelve usuarios con datos para el Directorio y el formulario de edición
-                    (incluye `address`, documentType/department anidados y roles[{role, permissions}]).
-                    Query opcional `state`: true=activos, false=inactivos, ausente=todos.
+                    Devuelve usuarios paginados (page/size) con datos para Directorio y edición.
+                    Query: `state` (opcional), `page` (default 0), `size` (default 20, máx 100).
+                    data = { content, page, size, totalElements, totalPages, hasNext }.
                     Requiere JWT con `PERMISSION_USUARIO_VER` o rol `ADMINISTRADOR`.
                     """
     )
@@ -469,7 +464,7 @@ public class UserController {
                     mediaType = MediaType.APPLICATION_JSON_VALUE,
                     schema = @Schema(implementation = UserListSuccessEnvelope.class),
                     examples = @ExampleObject(
-                            name = "Usuarios",
+                            name = "UsuariosPaginados",
                             value = """
                                     {
                                       "headers": {
@@ -479,34 +474,41 @@ public class UserController {
                                         "description": "Success"
                                       },
                                       "timestamp": "2026-07-18T06:00:00Z",
-                                      "data": [
-                                        {
-                                          "userId": "seed-cfg-9f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c",
-                                          "companyId": "company-seed-001",
-                                          "documentType": {
-                                            "documentType": "NIT",
-                                            "identificationNumber": "9001234567"
-                                          },
-                                          "name": "Administrador InkCore",
-                                          "mail": "admin@indicolors.com",
-                                          "contact": "3001234567",
-                                          "department": {
-                                            "department": "Antioquia",
-                                            "city": "Medellín"
-                                          },
-                                          "address": "Medellín, Colombia",
-                                          "creationDate": "2026-07-18",
-                                          "state": true,
-                                          "forcePasswordChange": false,
-                                          "failedAttempts": 0,
-                                          "roles": [
-                                            {
-                                              "role": "ADMINISTRADOR",
-                                              "permissions": ["PERMISSION_USUARIO_VER", "PERMISSION_USUARIO_CREAR"]
-                                            }
-                                          ]
-                                        }
-                                      ]
+                                      "data": {
+                                        "content": [
+                                          {
+                                            "userId": "seed-cfg-9f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c",
+                                            "companyId": "company-seed-001",
+                                            "documentType": {
+                                              "documentType": "NIT",
+                                              "identificationNumber": "9001234567"
+                                            },
+                                            "name": "Administrador InkCore",
+                                            "mail": "admin@indicolors.com",
+                                            "contact": "3001234567",
+                                            "department": {
+                                              "department": "Antioquia",
+                                              "city": "Medellín"
+                                            },
+                                            "address": "Medellín, Colombia",
+                                            "creationDate": "2026-07-18",
+                                            "state": true,
+                                            "forcePasswordChange": false,
+                                            "failedAttempts": 0,
+                                            "roles": [
+                                              {
+                                                "role": "ADMINISTRADOR",
+                                                "permissions": ["PERMISSION_USUARIO_VER", "PERMISSION_USUARIO_CREAR"]
+                                              }
+                                            ]
+                                          }
+                                        ],
+                                        "page": 0,
+                                        "size": 20,
+                                        "totalElements": 1,
+                                        "totalPages": 1,
+                                        "hasNext": false
+                                      }
                                     }
                                     """
                     )
@@ -514,14 +516,19 @@ public class UserController {
     )
     @ApiErrorResponses
     @ApiSecuredErrorResponses
-    public ResponseEntity<ApiSuccessEnvelope<List<UserListItemResponse>>> listUsers(
+    public ResponseEntity<ApiSuccessEnvelope<PageResponse<UserListItemResponse>>> listUsers(
             @Parameter(description = "Filtro por estado: true=activos, false=inactivos, omitir=todos")
             @RequestParam(required = false) Boolean state,
+            @Parameter(description = "Página 0-based", example = "0")
+            @RequestParam(required = false, defaultValue = "0") Integer page,
+            @Parameter(description = "Tamaño de página (máx 100)", example = "20")
+            @RequestParam(required = false, defaultValue = "20") Integer size,
             HttpServletRequest httpRequest
     ) {
-        List<UserListItemResponse> data = listUsersUseCase.execute(state).stream()
-                .map(UserListItemResponse::from)
-                .toList();
+        PageResponse<UserListItemResponse> data = PageResponse.from(
+                listUsersUseCase.execute(state, PageQuery.of(page, size)),
+                UserListItemResponse::from
+        );
         return responseFactory.okStandard(httpRequest, data);
     }
 

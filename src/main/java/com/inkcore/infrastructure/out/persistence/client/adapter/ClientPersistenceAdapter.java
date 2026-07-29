@@ -1,14 +1,18 @@
 package com.inkcore.infrastructure.out.persistence.client.adapter;
 
+import com.inkcore.domain.shared.PageQuery;
+import com.inkcore.domain.shared.PageResult;
 import com.inkcore.domain.client.model.Client;
 import com.inkcore.domain.client.ports.out.ClientRepositoryPort;
 import com.inkcore.infrastructure.out.persistence.client.entity.ClientEntity;
 import com.inkcore.infrastructure.out.persistence.client.mapper.ClientPersistenceMapper;
 import com.inkcore.infrastructure.out.persistence.client.repository.JpaClientRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -47,28 +51,29 @@ public class ClientPersistenceAdapter implements ClientRepositoryPort {
 
     @Override
     @Transactional(readOnly = true)
-    public List<Client> findAll() {
-        return jpaClientRepository.findAll().stream().map(mapper::toDomain).toList();
+    public PageResult<Client> findPage(PageQuery pageQuery) {
+        return mapPage(jpaClientRepository.findAll(pageable(pageQuery)), pageQuery);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<Client> findAllByState(boolean state) {
-        return jpaClientRepository.findAllByState(state).stream().map(mapper::toDomain).toList();
+    public PageResult<Client> findPageByState(boolean state, PageQuery pageQuery) {
+        return mapPage(jpaClientRepository.findAllByState(state, pageable(pageQuery)), pageQuery);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<Client> findAllByCompanyId(String companyId) {
-        return jpaClientRepository.findAllByCompanyId(companyId).stream().map(mapper::toDomain).toList();
+    public PageResult<Client> findPageByCompanyId(String companyId, PageQuery pageQuery) {
+        return mapPage(jpaClientRepository.findAllByCompanyId(companyId, pageable(pageQuery)), pageQuery);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<Client> findAllByCompanyIdAndState(String companyId, boolean state) {
-        return jpaClientRepository.findAllByCompanyIdAndState(companyId, state).stream()
-                .map(mapper::toDomain)
-                .toList();
+    public PageResult<Client> findPageByCompanyIdAndState(String companyId, boolean state, PageQuery pageQuery) {
+        return mapPage(
+                jpaClientRepository.findAllByCompanyIdAndState(companyId, state, pageable(pageQuery)),
+                pageQuery
+        );
     }
 
     @Override
@@ -92,5 +97,18 @@ public class ClientPersistenceAdapter implements ClientRepositoryPort {
                 && clientId != null
                 && jpaClientRepository.existsByCompanyIdAndIdentificationIgnoreCaseAndClientIdNot(
                 companyId.trim(), identification.trim(), clientId);
+    }
+
+    private static PageRequest pageable(PageQuery pageQuery) {
+        return PageRequest.of(pageQuery.page(), pageQuery.size(), Sort.by(Sort.Direction.ASC, "name"));
+    }
+
+    private PageResult<Client> mapPage(Page<ClientEntity> page, PageQuery pageQuery) {
+        return new PageResult<>(
+                page.getContent().stream().map(mapper::toDomain).toList(),
+                pageQuery.page(),
+                pageQuery.size(),
+                page.getTotalElements()
+        );
     }
 }

@@ -24,10 +24,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/permissions")
-@Tag(
-        name = "Permisos",
-        description = "Catálogo de permisos para los checkboxes del formulario de alta/edición de usuarios."
-)
+@Tag(name = "Permisos", description = "Catálogo de permisos")
 @SecurityRequirement(name = "bearerAuth")
 public class PermissionController {
 

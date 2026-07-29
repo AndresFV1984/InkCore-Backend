@@ -1,5 +1,7 @@
 package com.inkcore.application.user.usecase;
 
+import com.inkcore.domain.shared.PageQuery;
+import com.inkcore.domain.shared.PageResult;
 import com.inkcore.domain.user.model.User;
 import com.inkcore.domain.user.ports.out.UserRepositoryPort;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,16 +15,13 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ListUsersUseCaseTest {
 
-    @Mock
-    UserRepositoryPort userRepository;
+    @Mock UserRepositoryPort userRepository;
 
     private ListUsersUseCase useCase;
 
@@ -32,50 +31,48 @@ class ListUsersUseCaseTest {
     }
 
     @Test
-    void execute_whenStateNull_callsFindAll() {
-        List<User> all = List.of(sampleUser(true), sampleUser(false));
-        when(userRepository.findAll()).thenReturn(all);
+    void execute_nullState_listsAllPaged() {
+        PageQuery query = PageQuery.of(0, 20);
+        PageResult<User> page = new PageResult<>(List.of(sample()), 0, 20, 1);
+        when(userRepository.findPage(query)).thenReturn(page);
 
-        List<User> result = useCase.execute(null);
+        PageResult<User> result = useCase.execute(null, query);
 
-        assertSame(all, result);
-        verify(userRepository).findAll();
-        verifyNoMoreInteractions(userRepository);
+        assertEquals(1, result.content().size());
+        verify(userRepository).findPage(query);
     }
 
     @Test
-    void execute_whenStateTrue_callsFindAllByStateTrue() {
-        List<User> active = List.of(sampleUser(true));
-        when(userRepository.findAllByState(true)).thenReturn(active);
+    void execute_true_listsActivePaged() {
+        PageQuery query = PageQuery.of(0, 20);
+        PageResult<User> page = new PageResult<>(List.of(sample()), 0, 20, 1);
+        when(userRepository.findPageByState(true, query)).thenReturn(page);
 
-        List<User> result = useCase.execute(true);
+        PageResult<User> result = useCase.execute(true, query);
 
-        assertEquals(1, result.size());
-        assertSame(active, result);
-        verify(userRepository).findAllByState(true);
-        verifyNoMoreInteractions(userRepository);
+        assertEquals(1, result.totalElements());
+        verify(userRepository).findPageByState(true, query);
     }
 
     @Test
-    void execute_whenStateFalse_callsFindAllByStateFalse() {
-        List<User> inactive = List.of(sampleUser(false));
-        when(userRepository.findAllByState(false)).thenReturn(inactive);
+    void execute_false_listsInactivePaged() {
+        PageQuery query = PageQuery.of(1, 10);
+        PageResult<User> page = new PageResult<>(List.of(), 1, 10, 0);
+        when(userRepository.findPageByState(false, query)).thenReturn(page);
 
-        List<User> result = useCase.execute(false);
+        PageResult<User> result = useCase.execute(false, query);
 
-        assertEquals(1, result.size());
-        assertSame(inactive, result);
-        verify(userRepository).findAllByState(false);
-        verifyNoMoreInteractions(userRepository);
+        assertEquals(0, result.content().size());
+        verify(userRepository).findPageByState(false, query);
     }
 
-    private static User sampleUser(boolean state) {
-        UUID roleId = UUID.fromString("a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11");
+    private static User sample() {
+        UUID roleId = UUID.fromString("b1ffbc99-9c0b-4ef8-bb6d-6bb9bd380a22");
         return User.reconstitute(
-                "u1", "company-seed-001", "1", "CC", "User", "user@test.com", "",
+                "user-1", "c1", "1", "CC", "Admin", "admin@indicolors.com", "",
                 "Antioquia", "Medellin", "", "hash", LocalDate.of(2026, 1, 1),
-                state, 1L, List.of(roleId), List.of("Administrador"), List.of("ADMINISTRADOR"),
-                List.of("dashboard.view"), false, null, null, 0, null, null
+                true, 1L, List.of(roleId), List.of("Administrador"), List.of("ADMINISTRADOR"),
+                List.of("USUARIO_VER"), false, null, null, 0, null, null
         );
     }
 }

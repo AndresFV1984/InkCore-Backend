@@ -26,20 +26,27 @@ public class OpenApiConfig {
         return new OpenAPI()
                 .info(new Info()
                         .title("InkCore API")
-                        .description("Backend REST InkCore.")
-                        .version("0.0.5")
+                        .description("""
+                                Backend REST InkCore.
+                                Incluye autenticación, usuarios, clientes, vendedores,
+                                cuentas bancarias, productos terminados, acabados, roles y permisos.
+                                Listados paginados (`page` 0-based, `size` default 20 / máx 100):
+                                data = { content, page, size, totalElements, totalPages, hasNext }.
+                                """)
+                        .version("0.0.9")
                         .contact(new Contact().name("InkCore").email("admin@indicolors.com")))
                 .servers(List.of(
                         new Server().url(basePath).description("Context path local")
                 ))
                 .tags(List.of(
                         new Tag().name("Autenticación").description("Login y refresh de tokens"),
-                        new Tag().name("Usuarios").description("Alta, login, listado, perfil y actualización"),
-                        new Tag().name("Clientes").description(
-                                "Alta, listado, consulta y actualización. JWT requerido. "
-                                        + "Respuesta con documentType anidado { documentType, identificationNumber }."
-                        ),
-                        new Tag().name("Roles").description("Catálogo de roles (usar `code` o `name` en el campo `role`)"),
+                        new Tag().name("Usuarios").description("Gestión de usuarios"),
+                        new Tag().name("Clientes").description("Gestión de clientes"),
+                        new Tag().name("Vendedores").description("Gestión de vendedores"),
+                        new Tag().name("Cuentas bancarias").description("Gestión de cuentas bancarias"),
+                        new Tag().name("Terminados").description("Gestión de terminados"),
+                        new Tag().name("Acabados").description("Gestión de acabados"),
+                        new Tag().name("Roles").description("Catálogo de roles"),
                         new Tag().name("Permisos").description("Catálogo de permisos")
                 ))
                 .components(new Components().addSecuritySchemes(scheme,

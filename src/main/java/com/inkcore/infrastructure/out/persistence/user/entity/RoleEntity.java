@@ -37,6 +37,7 @@ public class RoleEntity {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    @org.hibernate.annotations.BatchSize(size = 25)
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "role_permissions",

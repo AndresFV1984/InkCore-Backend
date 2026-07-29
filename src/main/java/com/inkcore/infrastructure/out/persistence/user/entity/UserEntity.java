@@ -76,6 +76,7 @@ public class UserEntity implements Persistable<String> {
      * Solo lectura vía JPA. Escritura de user_roles en {@code UserPersistenceAdapter}
      * (SQL nativo) porque la tabla tiene {@code assigned_at}.
      */
+    @org.hibernate.annotations.BatchSize(size = 25)
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "user_roles",

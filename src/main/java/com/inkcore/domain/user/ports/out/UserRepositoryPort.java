@@ -1,8 +1,10 @@
 package com.inkcore.domain.user.ports.out;
 
+import com.inkcore.domain.shared.PageQuery;
+import com.inkcore.domain.shared.PageResult;
 import com.inkcore.domain.user.model.User;
 
-import java.util.List;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 public interface UserRepositoryPort {
@@ -21,12 +23,22 @@ public interface UserRepositoryPort {
 
     boolean existsByIdentificationNumberExcludingUserId(String identificationNumber, String userId);
 
-    List<User> findAll();
+    PageResult<User> findPage(PageQuery pageQuery);
 
-    List<User> findAllByState(boolean state);
+    PageResult<User> findPageByState(boolean state, PageQuery pageQuery);
 
     /** Versión de token actual para validar claim {@code tv} del JWT */
     Optional<Long> findTokenVersionByUserId(String userId);
 
-    void updateLastLoginAt(String userId, java.time.LocalDateTime at);
+    void updateLastLoginAt(String userId, LocalDateTime at);
+
+    /**
+     * Actualiza solo campos de seguridad de login (sin tocar roles ni el resto del perfil).
+     */
+    void updateSecurityState(
+            String userId,
+            int failedAttempts,
+            LocalDateTime lockedUntil,
+            LocalDateTime lastLoginAt
+    );
 }
