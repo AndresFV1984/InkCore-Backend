@@ -1,5 +1,7 @@
 package com.inkcore;
 
+import com.inkcore.infrastructure.config.ColorConversionProperties;
+import com.inkcore.infrastructure.config.InkEstimationProperties;
 import com.inkcore.infrastructure.config.PasswordPolicyProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -11,7 +13,11 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
         RedisAutoConfiguration.class,
         RedisRepositoriesAutoConfiguration.class
 })
-@EnableConfigurationProperties(PasswordPolicyProperties.class)
+@EnableConfigurationProperties({
+        PasswordPolicyProperties.class,
+        ColorConversionProperties.class,
+        InkEstimationProperties.class
+})
 public class InkCoreBackendApplication {
 
     public static void main(String[] args) {

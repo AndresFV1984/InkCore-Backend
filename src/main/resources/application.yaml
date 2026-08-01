@@ -6,8 +6,10 @@ spring:
 
   servlet:
     multipart:
-      max-file-size: 5MB
-      max-request-size: 6MB
+      # Estimación de tinta / TIFF de pliego: techo alto (también inkcore.ink-estimation.absolute-max-file-bytes)
+      max-file-size: ${MULTIPART_MAX_FILE_SIZE:512MB}
+      max-request-size: ${MULTIPART_MAX_REQUEST_SIZE:520MB}
+      file-size-threshold: ${MULTIPART_FILE_SIZE_THRESHOLD:520MB}
 
   mvc:
     throw-exception-if-no-handler-found: true
@@ -20,8 +22,8 @@ server:
   servlet:
     context-path: ${APP_CONTEXT:/InkCore-backend}
   tomcat:
-    max-http-form-post-size: 6MB
-    max-swallow-size: 6MB
+    max-http-form-post-size: 520MB
+    max-swallow-size: 520MB
   error:
     whitelabel:
       enabled: false
@@ -32,3 +34,42 @@ server:
 
 springdoc:
   paths-to-exclude: /error,/error/**
+
+# Conversión RGB→CMYK (perfiles en classpath:/color-profiles/)
+# icc-cache se configura por perfil (application-dev / application-prod)
+inkcore:
+  color-conversion:
+    source-icc-profile: ${COLOR_SOURCE_ICC:sRGB.icc}
+    destination-icc-profile: ${COLOR_DEST_ICC:FOGRA39.icc}
+    # PDF: 600 dpi si hay que rasterizar; preferEmbeddedPdfImages evita re-rasterizar fotos embebidas
+    pdf-enabled: ${COLOR_PDF_ENABLED:true}
+    min-image-resolution-dpi: ${COLOR_MIN_DPI:600}
+    prefer-embedded-pdf-images: ${COLOR_PREFER_EMBEDDED_PDF_IMAGES:true}
+    # Fidelidad CTP: 0 = no alterar RGB. Solo subir si la prensa oscurece (0.02–0.05).
+    brightness-lift: ${COLOR_BRIGHTNESS_LIFT:0}
+    # Fidelidad CTP: 0 = no alterar saturación. >0 es creativo (fotos comerciales).
+    vibrance-boost: ${COLOR_VIBRANCE_BOOST:0}
+    # Fidelidad CTP: false = no escalar tinta tras soft-proof (conversión ICC pura).
+    soft-proof-brightness-match: ${COLOR_SOFT_PROOF_BRIGHTNESS_MATCH:false}
+
+  # Estimación de consumo de tinta (formulario "Estimar tintas")
+  # Método libre: PDFBox + ICC color.org (sin Ghostscript AGPL ni RIP de pago)
+  ink-estimation:
+    default-width-cm: ${INK_DEFAULT_WIDTH_CM:70}
+    default-height-cm: ${INK_DEFAULT_HEIGHT_CM:100}
+    default-dpi: ${INK_DEFAULT_DPI:300}
+    default-grams-per-cm2-at-full-coverage: ${INK_DEFAULT_G_CM2:0.00021}
+    # Factores por canal (si el cliente NO envía gramsPerCm2). Heurística offset.
+    channel-grams-per-cm2:
+      cyan: ${INK_G_CM2_C:0.00021}
+      magenta: ${INK_G_CM2_M:0.00021}
+      yellow: ${INK_G_CM2_Y:0.00020}
+      black: ${INK_G_CM2_K:0.00022}
+      spot: ${INK_G_CM2_SPOT:0.00025}
+    # Performance: downscale antes de ICC (estimación, no CTP)
+    max-analysis-pixels: ${INK_MAX_ANALYSIS_PIXELS:1000000}
+    rgb-image-max-edge: ${INK_RGB_IMAGE_MAX_EDGE:512}
+    absolute-max-file-bytes: ${INK_ABSOLUTE_MAX_BYTES:536870912}
+    size-tolerance-min-ratio: ${INK_SIZE_TOL_MIN:0.01}
+    size-tolerance-max-ratio: ${INK_SIZE_TOL_MAX:2.5}
+    analysis-icc-profile: ${INK_ANALYSIS_ICC:FOGRA39.icc}

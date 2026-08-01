@@ -40,12 +40,8 @@ public class RoleController {
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     @Operation(
             operationId = "listRoles",
-            summary = "Listar roles",
-            description = """
-                    Devuelve el catálogo de roles (`code` + `name`).
-                    Usar `code` (p. ej. ADMINISTRADOR) o `name` (p. ej. Administrador)
-                    en el campo `role` de POST /api/v1/users o /api/v1/users/register.
-                    """
+            summary = "Obtiene el catálogo de roles disponibles.",
+            description = "Obtiene el catálogo de roles disponibles."
     )
     @ApiResponse(
             responseCode = "200",

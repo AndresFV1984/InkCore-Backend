@@ -69,14 +69,8 @@ public class FinishingProcessController {
     @PreAuthorize("isAuthenticated()")
     @Operation(
             operationId = "registerFinishingProcess",
-            summary = "Registrar proceso de acabado",
-            description = """
-                    Crea un proceso de acabado (formulario Nueva operación de acabado).
-                    `POST /api/v1/finishing-processes/register`
-                    Obligatorios: companyId, name.
-                    Opcionales: minCost, valuePerCm2 (default 0), quickAccess (default false), state (default true).
-                    Si name ya existe en la misma empresa → 409 CONFLICT.
-                    """
+            summary = "Crea un proceso de acabado nuevo.",
+            description = "Crea un proceso de acabado nuevo."
     )
     @ApiResponse(
             responseCode = "201",
@@ -150,12 +144,8 @@ public class FinishingProcessController {
     @PreAuthorize("isAuthenticated()")
     @Operation(
             operationId = "updateFinishingProcess",
-            summary = "Actualizar proceso de acabado",
-            description = """
-                    `PUT /api/v1/finishing-processes/update/{finishingProcessId}`
-                    El body no incluye `companyId`.
-                    Obligatorios: name, quickAccess, state.
-                    """
+            summary = "Actualiza los datos de un proceso de acabado existente.",
+            description = "Actualiza los datos de un proceso de acabado existente."
     )
     @ApiResponse(
             responseCode = "200",
@@ -181,12 +171,8 @@ public class FinishingProcessController {
     @PreAuthorize("isAuthenticated()")
     @Operation(
             operationId = "listFinishingProcesses",
-            summary = "Listar procesos de acabado",
-            description = """
-                    `GET /api/v1/finishing-processes/list`
-                    Query: `companyId`, `state`, `page`, `size`.
-                    Orden: acceso rápido primero, luego nombre.
-                    """
+            summary = "Obtiene el listado paginado de procesos de acabado.",
+            description = "Obtiene el listado paginado de procesos de acabado."
     )
     @ApiResponse(
             responseCode = "200",
@@ -218,8 +204,8 @@ public class FinishingProcessController {
     @PreAuthorize("isAuthenticated()")
     @Operation(
             operationId = "getFinishingProcess",
-            summary = "Consultar proceso de acabado por ID",
-            description = "`GET /api/v1/finishing-processes/get/{finishingProcessId}`"
+            summary = "Consulta el detalle de un proceso de acabado por su identificador.",
+            description = "Consulta el detalle de un proceso de acabado por su identificador."
     )
     @ApiResponse(
             responseCode = "200",

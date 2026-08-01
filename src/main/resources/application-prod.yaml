@@ -86,8 +86,8 @@ server:
   servlet:
     context-path: ${APP_CONTEXT:/InkCore-backend}
   tomcat:
-    max-http-form-post-size: 6MB
-    max-swallow-size: 6MB
+    max-http-form-post-size: 55MB
+    max-swallow-size: 55MB
     threads:
       max: ${SERVER_TOMCAT_THREADS_MAX:100}
       min-spare: ${SERVER_TOMCAT_THREADS_MIN_SPARE:20}
@@ -137,6 +137,13 @@ security:
     lock-duration-minutes: ${PASSWORD_LOCK_DURATION_MINUTES:15}
     expiration-days: ${PASSWORD_EXPIRATION_DAYS:90}
     warning-days: ${PASSWORD_WARNING_DAYS:7}
+
+# Caché de perfiles ICC (memory por defecto; redis solo si refresh-token.store.type=redis)
+inkcore:
+  color-conversion:
+    icc-cache:
+      type: ${ICC_CACHE_TYPE:memory}
+      ttl-seconds: ${ICC_CACHE_TTL_SECONDS:86400}
 
 # Orígenes solo por env (nunca * ni localhost hardcodeado).
 # Ejemplo: CORS_ALLOWED_ORIGINS=https://app.ejemplo.com,https://admin.ejemplo.com

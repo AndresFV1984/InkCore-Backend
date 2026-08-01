@@ -30,3 +30,31 @@ security:
       type: memory
   dev:
     permit-all: true
+
+inkcore:
+  color-conversion:
+    source-icc-profile: sRGB.icc
+    destination-icc-profile: FOGRA39.icc
+    pdf-enabled: true
+    min-image-resolution-dpi: 72
+    brightness-lift: 0
+    vibrance-boost: 0
+    soft-proof-brightness-match: false
+    icc-cache:
+      type: memory
+      ttl-seconds: 3600
+  ink-estimation:
+    default-width-cm: 70
+    default-height-cm: 100
+    default-dpi: 72
+    default-grams-per-cm2-at-full-coverage: 0.00021
+    channel-grams-per-cm2:
+      cyan: 0.00021
+      magenta: 0.00021
+      yellow: 0.00020
+      black: 0.00022
+      spot: 0.00025
+    max-analysis-pixels: 250000
+    rgb-image-max-edge: 256
+    absolute-max-file-bytes: 10485760
+    analysis-icc-profile: FOGRA39.icc

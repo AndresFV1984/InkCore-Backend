@@ -50,11 +50,8 @@ public class AuthController {
     @PostMapping("/login")
     @Operation(
             operationId = "authLogin",
-            summary = "Iniciar sesión",
-            description = """
-                    Alias público de `POST /api/v1/users/login`.
-                    No requiere Authorization. Emite access JWT + refresh opaco en headers del envelope.
-                    """
+            summary = "Autentica al usuario y retorna access/refresh tokens.",
+            description = "Autentica al usuario y retorna access/refresh tokens."
     )
     @ApiResponse(
             responseCode = "200",
@@ -144,12 +141,8 @@ public class AuthController {
     @PostMapping("/refresh")
     @Operation(
             operationId = "refresh",
-            summary = "Renovar access token",
-            description = """
-                    Emite un nuevo access JWT a partir de un refresh token opaco válido.
-                    Público (sin Authorization). Si `rotate-on-refresh=true`, rota el refresh.
-                    Tokens van en headers del envelope; `data` es null.
-                    """
+            summary = "Renueva el access token usando un refresh token válido.",
+            description = "Renueva el access token usando un refresh token válido."
     )
     @ApiResponse(
             responseCode = "200",

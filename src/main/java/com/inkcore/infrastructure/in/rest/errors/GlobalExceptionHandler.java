@@ -2,6 +2,16 @@ package com.inkcore.infrastructure.in.rest.errors;
 
 import com.inkcore.domain.bankaccount.exception.BankAccountAlreadyExistsException;
 import com.inkcore.domain.client.exception.ClientAlreadyExistsException;
+import com.inkcore.domain.cutlayout.exception.CutLayoutAlreadyExistsException;
+import com.inkcore.domain.papertype.exception.PaperTypeAlreadyExistsException;
+import com.inkcore.domain.colorconversion.exception.ColorConversionFailedException;
+import com.inkcore.domain.colorconversion.exception.ConversionIntegrityException;
+import com.inkcore.domain.colorconversion.exception.GhostscriptNotAvailableException;
+import com.inkcore.domain.colorconversion.exception.IccProfileNotFoundException;
+import com.inkcore.domain.colorconversion.exception.UnsupportedColorFileException;
+import com.inkcore.domain.inkestimation.exception.InkEstimationFailedException;
+import com.inkcore.domain.inkestimation.exception.InkFileTooLargeException;
+import com.inkcore.domain.inkestimation.exception.UnsupportedInkFileException;
 import com.inkcore.domain.finish.exception.FinishAlreadyExistsException;
 import com.inkcore.domain.finishingprocess.exception.FinishingProcessAlreadyExistsException;
 import com.inkcore.domain.seller.exception.SellerAlreadyExistsException;
@@ -30,6 +40,7 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -154,6 +165,32 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(CutLayoutAlreadyExistsException.class)
+    public ResponseEntity<ApiErrorEnvelope> handleCutLayoutExists(
+            CutLayoutAlreadyExistsException ex,
+            HttpServletRequest request
+    ) {
+        return responseFactory.error(
+                request,
+                HttpStatus.CONFLICT,
+                ex.getMessage(),
+                List.of(ex.getCode())
+        );
+    }
+
+    @ExceptionHandler(PaperTypeAlreadyExistsException.class)
+    public ResponseEntity<ApiErrorEnvelope> handlePaperTypeExists(
+            PaperTypeAlreadyExistsException ex,
+            HttpServletRequest request
+    ) {
+        return responseFactory.error(
+                request,
+                HttpStatus.CONFLICT,
+                ex.getMessage(),
+                List.of(ex.getCode())
+        );
+    }
+
     @ExceptionHandler(FinishingProcessAlreadyExistsException.class)
     public ResponseEntity<ApiErrorEnvelope> handleFinishingProcessExists(
             FinishingProcessAlreadyExistsException ex,
@@ -164,6 +201,68 @@ public class GlobalExceptionHandler {
                 HttpStatus.CONFLICT,
                 ex.getMessage(),
                 List.of(ex.getCode())
+        );
+    }
+
+    @ExceptionHandler(ConversionIntegrityException.class)
+    public ResponseEntity<ApiErrorEnvelope> handleConversionIntegrity(
+            ConversionIntegrityException ex,
+            HttpServletRequest request
+    ) {
+        return responseFactory.error(
+                request,
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                ex.getMessage(),
+                List.of(ex.getCode(), "INTEGRITY_GUARANTEE_FAILED")
+        );
+    }
+
+    @ExceptionHandler({
+            UnsupportedColorFileException.class,
+            IccProfileNotFoundException.class,
+            GhostscriptNotAvailableException.class,
+            ColorConversionFailedException.class,
+            UnsupportedInkFileException.class,
+            InkEstimationFailedException.class
+    })
+    public ResponseEntity<ApiErrorEnvelope> handleColorConversionDomain(
+            DomainException ex,
+            HttpServletRequest request
+    ) {
+        HttpStatus status = (ex instanceof UnsupportedColorFileException || ex instanceof UnsupportedInkFileException)
+                ? HttpStatus.BAD_REQUEST
+                : HttpStatus.UNPROCESSABLE_ENTITY;
+        return responseFactory.error(
+                request,
+                status,
+                ex.getMessage(),
+                List.of(ex.getCode())
+        );
+    }
+
+    @ExceptionHandler(InkFileTooLargeException.class)
+    public ResponseEntity<ApiErrorEnvelope> handleInkFileTooLarge(
+            InkFileTooLargeException ex,
+            HttpServletRequest request
+    ) {
+        return responseFactory.error(
+                request,
+                HttpStatus.PAYLOAD_TOO_LARGE,
+                ex.getMessage(),
+                List.of(ex.getCode())
+        );
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiErrorEnvelope> handleMaxUpload(
+            MaxUploadSizeExceededException ex,
+            HttpServletRequest request
+    ) {
+        return responseFactory.error(
+                request,
+                HttpStatus.PAYLOAD_TOO_LARGE,
+                "El archivo supera el tamaño máximo permitido",
+                null
         );
     }
 

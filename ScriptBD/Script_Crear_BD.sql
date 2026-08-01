@@ -587,3 +587,127 @@ COMMENT ON COLUMN indicolors.finishing_processes.creation_date IS 'Fecha de regi
 GRANT ALL PRIVILEGES ON TABLE indicolors.finishing_processes TO indicolors_owner;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.finishing_processes TO indicolors_app;
 
+-- ============================================
+-- 23. CREAR TABLA DESPIECES (formulario "Nuevo despiece")
+-- ============================================
+CREATE TABLE indicolors.cut_layouts (
+    cut_layout_id     CHARACTER VARYING(64)  NOT NULL DEFAULT gen_random_uuid()::text,
+    company_id        CHARACTER VARYING(64)  NOT NULL,
+    name              CHARACTER VARYING(150) NOT NULL,
+    width             NUMERIC(10,2)           NOT NULL,
+    height            NUMERIC(10,2)           NOT NULL,
+    unit              CHARACTER VARYING(10)   NOT NULL DEFAULT 'cm',
+    pieces_per_sheet  INTEGER                 NOT NULL,
+    state             BOOLEAN                 NOT NULL DEFAULT TRUE,
+    creation_date     DATE                    NOT NULL DEFAULT CURRENT_DATE,
+    CONSTRAINT cut_layouts_pkey PRIMARY KEY (cut_layout_id),
+    CONSTRAINT cut_layouts_company_fk
+        FOREIGN KEY (company_id) REFERENCES indicolors.companies (company_id),
+    CONSTRAINT cut_layouts_name_company_unique UNIQUE (company_id, name),
+    CONSTRAINT cut_layouts_width_check CHECK (width > 0),
+    CONSTRAINT cut_layouts_height_check CHECK (height > 0),
+    CONSTRAINT cut_layouts_pieces_per_sheet_check CHECK (pieces_per_sheet > 0),
+    CONSTRAINT cut_layouts_unit_check CHECK (unit IN ('cm', 'mm', 'in'))
+);
+
+-- 23.1 ÍNDICES DESPIECES
+CREATE INDEX idx_cut_layouts_company_id ON indicolors.cut_layouts (company_id);
+CREATE INDEX idx_cut_layouts_name ON indicolors.cut_layouts (name);
+CREATE INDEX idx_cut_layouts_state ON indicolors.cut_layouts (state);
+CREATE INDEX idx_cut_layouts_company_state ON indicolors.cut_layouts (company_id, state);
+
+-- 23.2 COMENTARIOS DESPIECES
+COMMENT ON TABLE indicolors.cut_layouts IS 'Catálogo de Despieces / diseños de corte (ej. Etiqueta 10x5 cm), usados para calcular piezas por pliego al configurar órdenes de producción';
+COMMENT ON COLUMN indicolors.cut_layouts.cut_layout_id IS 'Identificador único del despiece';
+COMMENT ON COLUMN indicolors.cut_layouts.company_id IS 'Identificador de la empresa dueña del despiece';
+COMMENT ON COLUMN indicolors.cut_layouts.name IS 'Nombre del despiece (ej. Etiqueta); sin medidas, se muestran aparte';
+COMMENT ON COLUMN indicolors.cut_layouts.width IS 'Ancho de la pieza';
+COMMENT ON COLUMN indicolors.cut_layouts.height IS 'Alto de la pieza';
+COMMENT ON COLUMN indicolors.cut_layouts.unit IS 'Unidad de medida del ancho/alto: cm, mm o in';
+COMMENT ON COLUMN indicolors.cut_layouts.pieces_per_sheet IS 'Cantidad de piezas que caben en un pliego';
+COMMENT ON COLUMN indicolors.cut_layouts.state IS 'True=Activo, False=Inactivo';
+COMMENT ON COLUMN indicolors.cut_layouts.creation_date IS 'Fecha de registro del despiece en el sistema';
+
+-- 23.3 PERMISOS DESPIECES
+GRANT ALL PRIVILEGES ON TABLE indicolors.cut_layouts TO indicolors_owner;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.cut_layouts TO indicolors_app;
+
+-- ============================================
+-- 24. CREAR TABLA TIPOS DE PAPEL (formulario "Nuevo tipo de papel")
+-- ============================================
+CREATE TABLE indicolors.paper_types (
+    paper_type_id   CHARACTER VARYING(64)  NOT NULL DEFAULT gen_random_uuid()::text,
+    company_id      CHARACTER VARYING(64)  NOT NULL,
+    name            CHARACTER VARYING(150) NOT NULL,
+    width           NUMERIC(10,2)           NOT NULL,
+    height          NUMERIC(10,2)           NOT NULL,
+    unit            CHARACTER VARYING(10)   NOT NULL DEFAULT 'cm',
+    sheet_value     NUMERIC(12,2)           NOT NULL,
+    package_unit    INTEGER                 NOT NULL,
+    is_coated       BOOLEAN                 NOT NULL DEFAULT FALSE,
+    state           BOOLEAN                 NOT NULL DEFAULT TRUE,
+    creation_date   DATE                    NOT NULL DEFAULT CURRENT_DATE,
+    CONSTRAINT paper_types_pkey PRIMARY KEY (paper_type_id),
+    CONSTRAINT paper_types_company_fk
+        FOREIGN KEY (company_id) REFERENCES indicolors.companies (company_id),
+    CONSTRAINT paper_types_name_company_unique UNIQUE (company_id, name),
+    CONSTRAINT paper_types_width_check CHECK (width > 0),
+    CONSTRAINT paper_types_height_check CHECK (height > 0),
+    CONSTRAINT paper_types_unit_check CHECK (unit IN ('cm', 'mm', 'in')),
+    CONSTRAINT paper_types_sheet_value_check CHECK (sheet_value >= 0),
+    CONSTRAINT paper_types_package_unit_check CHECK (package_unit > 0)
+);
+
+-- 24.1 ÍNDICES TIPOS DE PAPEL
+CREATE INDEX idx_paper_types_company_id ON indicolors.paper_types (company_id);
+CREATE INDEX idx_paper_types_name ON indicolors.paper_types (name);
+CREATE INDEX idx_paper_types_state ON indicolors.paper_types (state);
+CREATE INDEX idx_paper_types_company_state ON indicolors.paper_types (company_id, state);
+CREATE INDEX idx_paper_types_is_coated ON indicolors.paper_types (is_coated);
+
+-- 24.2 COMENTARIOS TIPOS DE PAPEL
+COMMENT ON TABLE indicolors.paper_types IS 'Catálogo de Tipos de papel, usados al configurar órdenes de producción';
+COMMENT ON COLUMN indicolors.paper_types.paper_type_id IS 'Identificador único del tipo de papel';
+COMMENT ON COLUMN indicolors.paper_types.company_id IS 'Identificador de la empresa dueña del tipo de papel';
+COMMENT ON COLUMN indicolors.paper_types.name IS 'Nombre del tipo de papel';
+COMMENT ON COLUMN indicolors.paper_types.width IS 'Ancho de la hoja/pliego';
+COMMENT ON COLUMN indicolors.paper_types.height IS 'Alto de la hoja/pliego';
+COMMENT ON COLUMN indicolors.paper_types.unit IS 'Unidad de medida del ancho/alto: cm, mm o in';
+COMMENT ON COLUMN indicolors.paper_types.sheet_value IS 'Valor de la hoja/pliego';
+COMMENT ON COLUMN indicolors.paper_types.package_unit IS 'Cantidad de hojas por unidad de empaque';
+COMMENT ON COLUMN indicolors.paper_types.is_coated IS 'True=Papel esmaltado (tiene recubrimiento esmaltado)';
+COMMENT ON COLUMN indicolors.paper_types.state IS 'True=Activo, False=Inactivo';
+COMMENT ON COLUMN indicolors.paper_types.creation_date IS 'Fecha de registro del tipo de papel en el sistema';
+
+-- 24.3 PERMISOS TIPOS DE PAPEL
+GRANT ALL PRIVILEGES ON TABLE indicolors.paper_types TO indicolors_owner;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.paper_types TO indicolors_app;
+
+-- ============================================
+-- 25. TIPOS DE PAPEL <-> DESPIECES (muchos a muchos, con valor de corte)
+-- ============================================
+CREATE TABLE indicolors.paper_type_cut_layouts (
+    paper_type_id CHARACTER VARYING(64) NOT NULL,
+    cut_layout_id CHARACTER VARYING(64) NOT NULL,
+    cut_value     NUMERIC(12,2),
+    assigned_at   TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
+    CONSTRAINT paper_type_cut_layouts_pkey PRIMARY KEY (paper_type_id, cut_layout_id),
+    CONSTRAINT paper_type_cut_layouts_paper_type_fk
+        FOREIGN KEY (paper_type_id) REFERENCES indicolors.paper_types (paper_type_id) ON DELETE CASCADE,
+    CONSTRAINT paper_type_cut_layouts_cut_layout_fk
+        FOREIGN KEY (cut_layout_id) REFERENCES indicolors.cut_layouts (cut_layout_id) ON DELETE CASCADE,
+    CONSTRAINT paper_type_cut_layouts_cut_value_check
+        CHECK (cut_value IS NULL OR cut_value >= 0)
+);
+
+CREATE INDEX idx_paper_type_cut_layouts_cut_layout_id ON indicolors.paper_type_cut_layouts (cut_layout_id);
+
+COMMENT ON TABLE indicolors.paper_type_cut_layouts IS 'Relación N:M entre tipos de papel y despieces por pliego, con el valor de corte asociado a cada combinación';
+COMMENT ON COLUMN indicolors.paper_type_cut_layouts.paper_type_id IS 'Identificador del tipo de papel';
+COMMENT ON COLUMN indicolors.paper_type_cut_layouts.cut_layout_id IS 'Identificador del despiece por pliego asociado';
+COMMENT ON COLUMN indicolors.paper_type_cut_layouts.cut_value IS 'Valor de corte para este despiece en este tipo de papel específico';
+
+-- 25.1 PERMISOS TIPOS DE PAPEL <-> DESPIECES
+GRANT ALL PRIVILEGES ON TABLE indicolors.paper_type_cut_layouts TO indicolors_owner;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.paper_type_cut_layouts TO indicolors_app;
+

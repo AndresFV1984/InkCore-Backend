@@ -69,13 +69,8 @@ public class SellerController {
     @PreAuthorize("isAuthenticated()")
     @Operation(
             operationId = "registerSeller",
-            summary = "Registrar vendedor",
-            description = """
-                    Crea un vendedor (formulario Nuevo vendedor).
-                    Obligatorios: companyId, fullName, documentType (CC, CE, TI, PA, NIT), identification, email, department, city.
-                    Opcionales: phone, address, state.
-                    Si identification ya existe en la misma empresa → 409 CONFLICT.
-                    """
+            summary = "Crea un vendedor nuevo.",
+            description = "Crea un vendedor nuevo."
     )
     @ApiResponse(
             responseCode = "201",
@@ -161,13 +156,8 @@ public class SellerController {
     @PreAuthorize("isAuthenticated()")
     @Operation(
             operationId = "updateSeller",
-            summary = "Actualizar vendedor",
-            description = """
-                    Actualiza datos del vendedor. `sellerId` va en la ruta; el body no incluye `companyId`.
-                    Obligatorios: fullName, documentType, identification, email, department, city, state.
-                    Opcionales: phone, address.
-                    Si identification ya existe en la misma empresa → 409 CONFLICT.
-                    """
+            summary = "Actualiza los datos de un vendedor existente.",
+            description = "Actualiza los datos de un vendedor existente."
     )
     @ApiResponse(
             responseCode = "200",
@@ -253,12 +243,8 @@ public class SellerController {
     @PreAuthorize("isAuthenticated()")
     @Operation(
             operationId = "listSellers",
-            summary = "Listar vendedores",
-            description = """
-                    Query opcionales: `companyId`, `state` (true=activos, false=inactivos, ausente=todos),
-                    `page` (0-based, default 0), `size` (default 20, máx 100).
-                    Respuesta paginada: `{ content, page, size, totalElements, totalPages, hasNext }`.
-                    """
+            summary = "Obtiene el listado paginado de vendedores.",
+            description = "Obtiene el listado paginado de vendedores."
     )
     @ApiResponse(
             responseCode = "200",
@@ -333,7 +319,8 @@ public class SellerController {
     @PreAuthorize("isAuthenticated()")
     @Operation(
             operationId = "getSeller",
-            summary = "Consultar vendedor por ID"
+            summary = "Consulta el detalle de un vendedor por su identificador.",
+            description = "Consulta el detalle de un vendedor por su identificador."
     )
     @ApiResponse(
             responseCode = "200",

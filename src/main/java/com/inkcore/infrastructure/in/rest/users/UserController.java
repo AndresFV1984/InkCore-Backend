@@ -77,12 +77,8 @@ public class UserController {
     @PostMapping("/login")
     @Operation(
             operationId = "login",
-            summary = "Iniciar sesión",
-            description = """
-                    Autentica con correo y contraseña (público, sin Bearer).
-                    Emite access JWT + refresh opaco en `headers` del envelope
-                    (`token`, `tokenAccesExpira`, `refreshToken`, `tokenRefresExpira`).
-                    """
+            summary = "Autentica al usuario y retorna access/refresh tokens.",
+            description = "Autentica al usuario y retorna access/refresh tokens."
     )
     @ApiResponse(
             responseCode = "200",
@@ -175,14 +171,8 @@ public class UserController {
     @PreAuthorize("hasAuthority('PERMISSION_USUARIO_CREAR') or hasRole('ADMINISTRADOR')")
     @Operation(
             operationId = "createUser",
-            summary = "Crear usuario",
-            description = """
-                    Crea un usuario. No emite tokens (usar login).
-                    Requiere `PERMISSION_USUARIO_CREAR` o rol `ADMINISTRADOR`.
-                    Enviar `role` (código o nombre, p. ej. `ADMINISTRADOR`); crea `user_roles`
-                    y toma los permisos del rol en BD. Alias: `roleName`.
-                    Si el rol no existe → 404 ROLE_NOT_FOUND.
-                    """
+            summary = "Crea un usuario nuevo en el sistema.",
+            description = "Crea un usuario nuevo en el sistema."
     )
     @ApiResponse(
             responseCode = "201",
@@ -287,12 +277,8 @@ public class UserController {
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     @Operation(
             operationId = "registerUser",
-            summary = "Registrar usuario (formulario completo)",
-            description = """
-                    Crea un usuario. El campo `role` es obligatorio (también acepta `roleCode` / `roleName`).
-                    Crea la relación en `user_roles` y toma los permisos del rol en BD.
-                    Preferir `POST /api/v1/users` para el contrato simplificado.
-                    """
+            summary = "Registra un usuario con el formulario completo (roles incluidos).",
+            description = "Registra un usuario con el formulario completo (roles incluidos)."
     )
     @ApiResponse(
             responseCode = "201",
@@ -386,14 +372,8 @@ public class UserController {
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     @Operation(
             operationId = "updateUser",
-            summary = "Actualizar usuario",
-            description = """
-                    Actualiza datos personales, rol y estado.
-                    Enviar `role` (código o nombre); alias `roleCode`.
-                    La contraseña es opcional: si no se envía (o va vacía), se conserva la actual;
-                    si se envía, debe tener mínimo 6 caracteres.
-                    Respuesta con documentType/department anidados y roles[{role, permissions}].
-                    """
+            summary = "Actualiza los datos de un usuario existente.",
+            description = "Actualiza los datos de un usuario existente."
     )
     @ApiResponse(
             responseCode = "200",
@@ -449,13 +429,8 @@ public class UserController {
     @PreAuthorize("hasAuthority('PERMISSION_USUARIO_VER') or hasRole('ADMINISTRADOR')")
     @Operation(
             operationId = "listUsers",
-            summary = "Listar usuarios",
-            description = """
-                    Devuelve usuarios paginados (page/size) con datos para Directorio y edición.
-                    Query: `state` (opcional), `page` (default 0), `size` (default 20, máx 100).
-                    data = { content, page, size, totalElements, totalPages, hasNext }.
-                    Requiere JWT con `PERMISSION_USUARIO_VER` o rol `ADMINISTRADOR`.
-                    """
+            summary = "Obtiene el listado paginado de usuarios.",
+            description = "Obtiene el listado paginado de usuarios."
     )
     @ApiResponse(
             responseCode = "200",
@@ -536,8 +511,8 @@ public class UserController {
     @PreAuthorize("isAuthenticated()")
     @Operation(
             operationId = "profileUser",
-            summary = "Mi perfil",
-            description = "Devuelve el usuario autenticado según el claim `sub` del JWT."
+            summary = "Devuelve el perfil del usuario autenticado.",
+            description = "Devuelve el perfil del usuario autenticado."
     )
     @ApiResponse(
             responseCode = "200",
@@ -561,8 +536,8 @@ public class UserController {
     @PreAuthorize("hasRole('ADMINISTRADOR') or authentication.name == #userId")
     @Operation(
             operationId = "getUser",
-            summary = "Consultar usuario por ID",
-            description = "Detalle de un usuario. ADMINISTRADOR puede consultar cualquiera; el resto solo su propia cuenta."
+            summary = "Consulta el detalle de un usuario por su identificador.",
+            description = "Consulta el detalle de un usuario por su identificador."
     )
     @ApiResponse(
             responseCode = "200",

@@ -43,11 +43,8 @@ public class PermissionController {
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     @Operation(
             operationId = "listPermissions",
-            summary = "Listar permisos",
-            description = """
-                    Devuelve el catálogo de permisos (`code` + `name`).
-                    Usar los valores de `code` en el arreglo `permissionCodes` al registrar o actualizar usuarios.
-                    """
+            summary = "Obtiene el catálogo de permisos disponibles.",
+            description = "Obtiene el catálogo de permisos disponibles."
     )
     @ApiResponse(
             responseCode = "200",

@@ -69,14 +69,8 @@ public class ClientController {
     @PreAuthorize("isAuthenticated()")
     @Operation(
             operationId = "registerClient",
-            summary = "Registrar cliente",
-            description = """
-                    Crea un cliente (formulario Nuevo cliente).
-                    Obligatorios: companyId, name, department, city.
-                    Opcionales: documentType (CC, CE, TI, PA, NIT), identification, address, phone, email, contactPerson, state.
-                    Si se envía identification y ya existe en la misma empresa → 409 CONFLICT.
-                    Respuesta con documentType anidado `{ documentType, identificationNumber }`.
-                    """
+            summary = "Crea un cliente nuevo.",
+            description = "Crea un cliente nuevo."
     )
     @ApiResponse(
             responseCode = "201",
@@ -164,14 +158,8 @@ public class ClientController {
     @PreAuthorize("isAuthenticated()")
     @Operation(
             operationId = "updateClient",
-            summary = "Actualizar cliente",
-            description = """
-                    Actualiza datos del cliente. `clientId` va en la ruta; el body no incluye `companyId`.
-                    Obligatorios: name, department, city, state.
-                    Opcionales: documentType (CC, CE, TI, PA, NIT), identification, address, phone, email, contactPerson.
-                    Si identification ya existe en la misma empresa → 409 CONFLICT.
-                    Respuesta con documentType anidado `{ documentType, identificationNumber }`.
-                    """
+            summary = "Actualiza los datos de un cliente existente.",
+            description = "Actualiza los datos de un cliente existente."
     )
     @ApiResponse(
             responseCode = "200",
@@ -260,12 +248,8 @@ public class ClientController {
     @PreAuthorize("isAuthenticated()")
     @Operation(
             operationId = "listClients",
-            summary = "Listar clientes",
-            description = """
-                    Query opcionales: `companyId`, `state` (true=activos, false=inactivos, ausente=todos),
-                    `page` (0-based, default 0), `size` (default 20, máx 100).
-                    Respuesta paginada: `{ content, page, size, totalElements, totalPages, hasNext }`.
-                    """
+            summary = "Obtiene el listado paginado de clientes.",
+            description = "Obtiene el listado paginado de clientes."
     )
     @ApiResponse(
             responseCode = "200",
@@ -341,7 +325,8 @@ public class ClientController {
     @PreAuthorize("isAuthenticated()")
     @Operation(
             operationId = "getClient",
-            summary = "Consultar cliente por ID"
+            summary = "Consulta el detalle de un cliente por su identificador.",
+            description = "Consulta el detalle de un cliente por su identificador."
     )
     @ApiResponse(
             responseCode = "200",

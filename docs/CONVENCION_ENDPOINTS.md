@@ -23,6 +23,8 @@ Context path de la aplicación: `/InkCore-backend` (configurable con `APP_CONTEX
 | `update` | Modificación | PUT / PATCH |
 | `delete` | Baja | DELETE |
 | `search` | Búsqueda con query params | GET |
+| `convert` | Transformación de archivo (p. ej. color RGB→CMYK) | POST |
+| `estimate` | Cálculo / estimación (p. ej. consumo de tinta) | POST |
 
 No usar sinónimos fuera de esta tabla (`create`, `fetch`, etc.).
 
@@ -42,10 +44,22 @@ No usar sinónimos fuera de esta tabla (`create`, `fetch`, etc.).
 | GET | `/api/v1/clients/get/{clientId}` | `getClient` | Cliente por ID (JWT) |
 | GET | `/api/v1/roles/list` | `listRoles` | Catálogo de roles (ADMIN) |
 | GET | `/api/v1/permissions/list` | `listPermissions` | Catálogo de permisos (ADMIN) |
+| POST | `/api/v1/color-conversions/convert` | `convertColorSpace` | Convertir RGB→CMYK (multipart; iccProfile catálogo FOGRA/GRACoL/SWOP; ajustes opcionales; JWT) |
+| GET | `/api/v1/color-conversions/list` | `listColorConversionIccProfiles` | Listar perfiles ICC de destino (disponibilidad en servidor; JWT) |
+| POST | `/api/v1/ink-estimates/estimate` | `estimateInkConsumption` | Estimar tinta CMYK+spot; `pages` opcional (máx. 2, 1-based); multipart; JWT |
+| POST | `/api/v1/cut-layouts/register` | `registerCutLayout` | Registrar despiece (JWT) |
+| PUT | `/api/v1/cut-layouts/update/{cutLayoutId}` | `updateCutLayout` | Actualizar despiece (JWT) |
+| GET | `/api/v1/cut-layouts/list` | `listCutLayouts` | Listar despieces (JWT; filtros `companyId`, `state`) |
+| GET | `/api/v1/cut-layouts/get/{cutLayoutId}` | `getCutLayout` | Despiece por ID (JWT) |
+| POST | `/api/v1/paper-types/register` | `registerPaperType` | Registrar tipo de papel (JWT; despieces opcionales) |
+| PUT | `/api/v1/paper-types/update/{paperTypeId}` | `updatePaperType` | Actualizar tipo de papel (JWT) |
+| GET | `/api/v1/paper-types/list` | `listPaperTypes` | Listar tipos de papel (JWT; filtros `companyId`, `state`) |
+| GET | `/api/v1/paper-types/get/{paperTypeId}` | `getPaperType` | Tipo de papel por ID (JWT) |
 
 ## Contrato de respuesta (Swagger)
 
-- **Éxito:** `ApiSuccessEnvelope` → `headers`, `timestamp`, `data`
+- **Éxito (JSON):** `ApiSuccessEnvelope` → `headers`, `timestamp`, `data`
+- **Éxito (conversión de color):** archivo binario (`image/tiff` o `application/pdf`) + cabeceras `X-*`
 - **Error:** `ApiErrorEnvelope` → `headers`, `timestamp`, `path`, `message`, `errors`
 
 ## Checklist para nuevos endpoints

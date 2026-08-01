@@ -69,14 +69,8 @@ public class BankAccountController {
     @PreAuthorize("isAuthenticated()")
     @Operation(
             operationId = "registerBankAccount",
-            summary = "Registrar cuenta bancaria",
-            description = """
-                    Crea una cuenta bancaria (formulario Nueva cuenta bancaria).
-                    Obligatorios: companyId, bankName, accountType (Ahorros|Corriente), accountNumber, holderName.
-                    Opcionales: holderNit, includeInPdf (default true), isPrimary (default false), state (default true).
-                    Si accountNumber ya existe en la misma empresa → 409 CONFLICT.
-                    Si isPrimary=true, se desmarca la principal anterior de la compañía.
-                    """
+            summary = "Crea una cuenta bancaria nueva.",
+            description = "Crea una cuenta bancaria nueva."
     )
     @ApiResponse(
             responseCode = "201",
@@ -156,13 +150,8 @@ public class BankAccountController {
     @PreAuthorize("isAuthenticated()")
     @Operation(
             operationId = "updateBankAccount",
-            summary = "Actualizar cuenta bancaria",
-            description = """
-                    Actualiza datos de la cuenta. `accountId` va en la ruta; el body no incluye `companyId`.
-                    Obligatorios: bankName, accountType, accountNumber, holderName, includeInPdf, isPrimary, state.
-                    Opcional: holderNit.
-                    Si accountNumber ya existe en la misma empresa → 409 CONFLICT.
-                    """
+            summary = "Actualiza los datos de una cuenta bancaria existente.",
+            description = "Actualiza los datos de una cuenta bancaria existente."
     )
     @ApiResponse(
             responseCode = "200",
@@ -242,13 +231,8 @@ public class BankAccountController {
     @PreAuthorize("isAuthenticated()")
     @Operation(
             operationId = "listBankAccounts",
-            summary = "Listar cuentas bancarias",
-            description = """
-                    Query opcionales: `companyId`, `state` (true=activas, false=inactivas, ausente=todas),
-                    `page` (0-based, default 0), `size` (default 20, máx 100).
-                    Orden: principal primero, luego banco y número.
-                    Respuesta paginada: `{ content, page, size, totalElements, totalPages, hasNext }`.
-                    """
+            summary = "Obtiene el listado paginado de cuentas bancarias.",
+            description = "Obtiene el listado paginado de cuentas bancarias."
     )
     @ApiResponse(
             responseCode = "200",
@@ -318,7 +302,8 @@ public class BankAccountController {
     @PreAuthorize("isAuthenticated()")
     @Operation(
             operationId = "getBankAccount",
-            summary = "Consultar cuenta bancaria por ID"
+            summary = "Consulta el detalle de una cuenta bancaria por su identificador.",
+            description = "Consulta el detalle de una cuenta bancaria por su identificador."
     )
     @ApiResponse(
             responseCode = "200",

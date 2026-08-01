@@ -69,14 +69,8 @@ public class FinishController {
     @PreAuthorize("isAuthenticated()")
     @Operation(
             operationId = "registerFinishedProduct",
-            summary = "Registrar producto terminado",
-            description = """
-                    Crea un producto terminado (formulario Nuevo terminado).
-                    `POST /api/v1/finished-products/register`
-                    Obligatorios: companyId, name.
-                    Opcionales: minCost, valuePerCm2 (default 0), quickAccess (default false), state (default true).
-                    Si name ya existe en la misma empresa → 409 CONFLICT.
-                    """
+            summary = "Crea un producto terminado nuevo.",
+            description = "Crea un producto terminado nuevo."
     )
     @ApiResponse(
             responseCode = "201",
@@ -150,15 +144,8 @@ public class FinishController {
     @PreAuthorize("isAuthenticated()")
     @Operation(
             operationId = "updateFinishedProduct",
-            summary = "Actualizar producto terminado",
-            description = """
-                    Actualiza un producto terminado.
-                    `PUT /api/v1/finished-products/update/{finishedProductId}`
-                    El body no incluye `companyId`.
-                    Obligatorios: name, quickAccess, state.
-                    Opcionales: minCost, valuePerCm2.
-                    Si name ya existe en la misma empresa → 409 CONFLICT.
-                    """
+            summary = "Actualiza los datos de un producto terminado existente.",
+            description = "Actualiza los datos de un producto terminado existente."
     )
     @ApiResponse(
             responseCode = "200",
@@ -232,12 +219,8 @@ public class FinishController {
     @PreAuthorize("isAuthenticated()")
     @Operation(
             operationId = "listFinishedProducts",
-            summary = "Listar productos terminados",
-            description = """
-                    `GET /api/v1/finished-products/list`
-                    Query opcionales: `companyId`, `state`, `page` (0-based), `size` (máx 100).
-                    Orden: acceso rápido primero, luego nombre.
-                    """
+            summary = "Obtiene el listado paginado de productos terminados.",
+            description = "Obtiene el listado paginado de productos terminados."
     )
     @ApiResponse(
             responseCode = "200",
@@ -304,8 +287,8 @@ public class FinishController {
     @PreAuthorize("isAuthenticated()")
     @Operation(
             operationId = "getFinishedProduct",
-            summary = "Consultar producto terminado por ID",
-            description = "`GET /api/v1/finished-products/get/{finishedProductId}`"
+            summary = "Consulta el detalle de un producto terminado por su identificador.",
+            description = "Consulta el detalle de un producto terminado por su identificador."
     )
     @ApiResponse(
             responseCode = "200",
