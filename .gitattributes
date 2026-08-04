@@ -1,2 +1,12 @@
 /mvnw text eol=lf
 *.cmd text eol=crlf
+
+# Perfiles ICC binarios (nunca text/eol — corrupte el magic acsp)
+*.icc binary
+*.icm binary
+*.ICC binary
+*.ICM binary
+
+# Nativas LittleCMS empaquetadas para JNA (win32-x86-64 / linux-x86-64)
+*.dll binary
+*.so binary

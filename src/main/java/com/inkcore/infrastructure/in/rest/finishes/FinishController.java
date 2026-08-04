@@ -66,7 +66,7 @@ public class FinishController {
     }
 
     @PostMapping("/register")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "registerFinishedProduct",
             summary = "Crea un producto terminado nuevo.",
@@ -141,7 +141,7 @@ public class FinishController {
     }
 
     @PutMapping("/update/{finishedProductId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "updateFinishedProduct",
             summary = "Actualiza los datos de un producto terminado existente.",
@@ -216,7 +216,7 @@ public class FinishController {
     }
 
     @GetMapping("/list")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "listFinishedProducts",
             summary = "Obtiene el listado paginado de productos terminados.",
@@ -284,7 +284,7 @@ public class FinishController {
     }
 
     @GetMapping("/get/{finishedProductId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "getFinishedProduct",
             summary = "Consulta el detalle de un producto terminado por su identificador.",

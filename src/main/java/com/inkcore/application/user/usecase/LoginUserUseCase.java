@@ -11,7 +11,6 @@ import com.inkcore.domain.user.model.User;
 import com.inkcore.domain.user.ports.out.UserRepositoryPort;
 import com.inkcore.infrastructure.config.PasswordPolicyProperties;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -21,6 +20,10 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Login sin {@code @Transactional} envolvente: BCrypt no debe retener conexión JDBC.
+ * Lectura y updates usan transacciones cortas en el adapter.
+ */
 @Service
 public class LoginUserUseCase {
 
@@ -47,10 +50,10 @@ public class LoginUserUseCase {
         this.clock = clock;
     }
 
-    @Transactional
     public LoginResult execute(LoginUserCommand command) {
         LocalDateTime now = LocalDateTime.now(clock);
 
+        // JOIN FETCH ya materializa roles/permisos en el agregado (sin lazy fuera de TX).
         User user = userRepository.findByMailIgnoreCase(command.mail())
                 .orElseThrow(InvalidCredentialsException::new);
 
@@ -70,6 +73,7 @@ public class LoginUserUseCase {
             throw new InvalidCredentialsException();
         }
 
+        // BCrypt fuera de TX JDBC (coste dominante del login).
         if (!passwordHasher.matches(command.rawPassword(), user.getPasswordHash())) {
             User updated = user.registerFailedLogin(
                     passwordPolicy.getMaxFailedAttempts(),
@@ -86,14 +90,13 @@ public class LoginUserUseCase {
             throw new InvalidCredentialsException();
         }
 
-        List<String> rolesForToken = user.getRoleCodes();
-        List<String> permissionsForToken = user.getPermissionCodes();
-
+        long accessTtlSeconds = accessTokenPort.getAccessExpirationSeconds();
+        long refreshTtlSeconds = accessTokenPort.getRefreshExpirationSeconds();
         String accessToken = accessTokenPort.generateToken(
                 user.getUserId(),
                 user.getTokenVersion(),
-                rolesForToken,
-                permissionsForToken
+                user.getRoleCodes(),
+                user.getPermissionCodes()
         );
         String refreshToken = accessTokenPort.generateRefreshToken();
 
@@ -105,7 +108,7 @@ public class LoginUserUseCase {
                 loggedIn.getLastLoginAt()
         );
 
-        Duration refreshTtl = Duration.ofSeconds(accessTokenPort.getRefreshExpirationSeconds());
+        Duration refreshTtl = Duration.ofSeconds(refreshTtlSeconds);
         Instant refreshExpiresAt = Instant.now(clock).plus(refreshTtl);
         refreshTokenStore.save(
                 new RefreshTokenRecord(
@@ -120,8 +123,8 @@ public class LoginUserUseCase {
         return new LoginResult(
                 accessToken,
                 refreshToken,
-                accessTokenPort.getAccessExpirationSeconds(),
-                accessTokenPort.getRefreshExpirationSeconds(),
+                accessTtlSeconds,
+                refreshTtlSeconds,
                 loggedIn,
                 buildPasswordWarning(loggedIn, now),
                 buildRoles(loggedIn)

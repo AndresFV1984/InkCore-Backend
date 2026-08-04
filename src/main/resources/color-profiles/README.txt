@@ -17,3 +17,27 @@ No incluido (licencia / no en registry publico usado):
 
 Los alias se resuelven en codigo al archivo canonico instalado.
 Produccion: elegir el perfil que indique la imprenta/CTP (COLOR_DEST_ICC).
+
+## LittleCMS (lcms2) — CMM nativo
+
+La conversion RGB↔CMYK (CTP, soft-proof y estimacion de tintas) usa LittleCMS 2 via JNA.
+
+### Sin instalacion manual
+Los binarios van en el proyecto y en el JAR. JNA los extrae en runtime:
+
+  src/main/resources/win32-x86-64/lcms2.dll
+  src/main/resources/linux-x86-64/liblcms2.so
+
+No hace falta instalar lcms2 en Windows, Linux ni Docker, ni configurar PATH.
+Licencia MIT: LICENSE-lcms2.txt junto a cada binario.
+
+### Override (solo diagnostico)
+- `inkcore.color-conversion.lcms-library-path` / `LCMS_LIBRARY_PATH` = ruta a otra DLL/SO.
+  Por defecto vacio: se usa el recurso empaquetado.
+
+### Config
+- `inkcore.color-conversion.black-point-compensation` / `COLOR_BLACK_POINT_COMPENSATION` (default true)
+- `inkcore.color-conversion.lcms-library-path` / `LCMS_LIBRARY_PATH` (opcional)
+
+Si lcms2 no carga: CTP y estimacion de tinta fallan con mensaje claro (sin fallback naive).
+

@@ -34,22 +34,35 @@ public class ColorConversionProperties {
     private boolean preferEmbeddedPdfImages = true;
 
     /**
-     * Empuje hacia blanco en RGB (0–0.15) antes de convertir a CMYK.
-     * Default 0 (fidelidad CTP): no altera el original. Solo 0.02–0.05 si la prensa oscurece.
+     * Empuje hacia blanco en RGB (0–0.20) antes de convertir a CMYK.
+     * Default comercial 0.12. CTP: 0 vía env o qualityPreset=FIDELITY.
      */
-    private float brightnessLift = 0f;
+    private float brightnessLift = 0.12f;
 
     /**
-     * Refuerzo de saturación HSB en RGB (0–0.25) antes del CMYK.
-     * Default 0 (fidelidad CTP): no altera el original. Valores &gt;0 son creativos, no colorimétricos.
+     * Refuerzo de saturación HSB en RGB (0–0.35) antes del CMYK.
+     * Default comercial 0.28. CTP: 0.
      */
-    private float vibranceBoost = 0f;
+    private float vibranceBoost = 0.28f;
 
     /**
-     * Si true, escala tinta CMYK tras soft-proof para igualar luma percibida.
-     * Default false: la conversión ICC pura no se retoca (mejor para CTP/RIP).
+     * Si true, recupera brillo/croma tras soft-proof.
+     * Default true (comercial). CTP: false.
      */
-    private boolean softProofBrightnessMatch = false;
+    private boolean softProofBrightnessMatch = true;
+
+    /**
+     * Black Point Compensation (LittleCMS). Recomendado true para acercarse a Photoshop
+     * con intent Relative Colorimetric; también útil con Perceptual según perfil.
+     */
+    private boolean blackPointCompensation = true;
+
+    /**
+     * Override opcional a la nativa lcms2. Por defecto JNA carga desde classpath
+     * ({@code win32-x86-64/lcms2.dll} / {@code linux-x86-64/liblcms2.so}).
+     * Ej. {@code C:/Tools/lcms2.dll}. Vacío = classpath / PATH / sistema.
+     */
+    private String lcmsLibraryPath = "";
 
     private final IccCache iccCache = new IccCache();
 
@@ -115,6 +128,22 @@ public class ColorConversionProperties {
 
     public void setSoftProofBrightnessMatch(boolean softProofBrightnessMatch) {
         this.softProofBrightnessMatch = softProofBrightnessMatch;
+    }
+
+    public boolean isBlackPointCompensation() {
+        return blackPointCompensation;
+    }
+
+    public void setBlackPointCompensation(boolean blackPointCompensation) {
+        this.blackPointCompensation = blackPointCompensation;
+    }
+
+    public String getLcmsLibraryPath() {
+        return lcmsLibraryPath;
+    }
+
+    public void setLcmsLibraryPath(String lcmsLibraryPath) {
+        this.lcmsLibraryPath = lcmsLibraryPath;
     }
 
     public IccCache getIccCache() {

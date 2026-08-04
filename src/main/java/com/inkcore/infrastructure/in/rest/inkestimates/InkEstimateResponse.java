@@ -10,7 +10,8 @@ import java.util.List;
         name = "InkEstimateResponse",
         description = """
                 Resultado de estimación comercial de consumo de tinta.
-                El archivo no se devuelve ni se guarda en disco (solo historial de metadatos en BD).
+                RGB→CMYK vía LittleCMS (`colorEngine`). El archivo no se devuelve ni se guarda
+                (solo historial de metadatos en BD).
                 Gramos por tinta = (coveragePercent/100) × areaCm2 × factor_canal × sheetCount.
                 """
 )
@@ -56,7 +57,10 @@ public record InkEstimateResponse(
         int heightPx,
 
         @Schema(
-                description = "Perfil ICC usado para RGB→CMYK. Canales CMYK/spot nativos no pasan por este perfil.",
+                description = """
+                        Perfil ICC de destino usado por LittleCMS en RGB→CMYK.
+                        Canales CMYK/spot nativos no pasan por este perfil.
+                        """,
                 example = "FOGRA39.icc"
         )
         String iccProfileUsed,
@@ -68,10 +72,10 @@ public record InkEstimateResponse(
         List<InkCoverageResponse> processInks,
 
         @Schema(description = """
-                Tintas spot SOLO si en las páginas seleccionadas hay pintura Separation/DeviceN
-                con cobertura > 0 (consumo real). Nunca lista Pantones a 0%.
-                Si el PDF declara el Pantone en recursos pero pinta en CMYK, no aparece aquí:
-                el azul va en processInks (C/M/Y/K).
+                Tintas spot reportables de las páginas seleccionadas: nombre/referencia literal del PDF
+                siempre que existan en recursos Separation/DeviceN, aunque coveragePercent sea 0
+                (Pantone declarado pero arte aplanado a CMYK; coverageMeasured=false y gramos=0).
+                Si hubo pintura spot real, coverageMeasured=true y coveragePercent > 0.
                 En multi-página, coveragePercent es la SUMA de las páginas seleccionadas.
                 """)
         List<InkCoverageResponse> spotInks,
@@ -113,7 +117,7 @@ public record InkEstimateResponse(
         @Schema(
                 description = """
                         true si se inventariaron Separation/DeviceN en recursos del PDF (páginas analizadas).
-                        Si true y hasSpotColors=false, se puede afirmar que no hay Pantone/spot reportable
+                        Si true y hasSpotColors=false, no hay Pantone/spot reportable
                         (se excluyen All/None y marcas técnicas). En raster siempre false.
                         """,
                 example = "true"
@@ -123,7 +127,8 @@ public record InkEstimateResponse(
         @Schema(
                 description = """
                         true si en las páginas analizadas hay Separation/DeviceN reportables
-                        (Pantones/spots reales del PDF). No usa metadatos XMP sueltos.
+                        (inventario y/o pintura medida), aunque la cobertura sea 0%.
+                        No usa metadatos XMP sueltos.
                         """,
                 example = "true"
         )
@@ -131,13 +136,23 @@ public record InkEstimateResponse(
 
         @Schema(
                 description = """
-                        Nombres exactos de spots con cobertura > 0 en las páginas seleccionadas
-                        (mismo criterio que spotInks). Vacío si solo hay Pantones declarados
-                        en recursos pero el arte está en CMYK.
+                        Nombres exactos de spots reportables en las páginas seleccionadas
+                        (mismo criterio que spotInks; incluye cobertura 0%).
                         """,
                 example = "[\"PANTONE 185 C\"]"
         )
-        List<String> declaredSpotColorNames
+        List<String> declaredSpotColorNames,
+
+        @Schema(
+                description = """
+                        Motor RGB→CMYK usado en la estimación.
+                        Siempre `littlecms` en respuestas exitosas (CMM nativo + BPC).
+                        Si lcms2/perfiles fallan, el endpoint responde error (no degrada).
+                        """,
+                allowableValues = {"littlecms"},
+                example = "littlecms"
+        )
+        String colorEngine
 ) {
     public static InkEstimateResponse from(InkEstimateResult result) {
         return new InkEstimateResponse(
@@ -165,7 +180,8 @@ public record InkEstimateResponse(
                 result.getPagesAnalyzed(),
                 result.isSpotInventoryVerified(),
                 result.hasSpotColors(),
-                result.getDeclaredSpotColorNames()
+                result.getDeclaredSpotColorNames(),
+                result.getColorEngine()
         );
     }
 
@@ -201,8 +217,8 @@ public record InkEstimateResponse(
 
             @Schema(
                     description = """
-                            true si se midió pintura Separation/DeviceN con cobertura > 0.
-                            Los spots a 0% / solo inventariados no se incluyen en spotInks.
+                            true si se midió pintura Separation/DeviceN en las páginas seleccionadas.
+                            false si el spot solo aparece en inventario (cobertura típica 0%, gramos 0).
                             """,
                     example = "true"
             )

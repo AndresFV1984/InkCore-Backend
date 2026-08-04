@@ -1,6 +1,7 @@
 package com.inkcore.infrastructure.in.rest.colorconversions;
 
 import com.inkcore.domain.colorconversion.model.OutputFormat;
+import com.inkcore.domain.colorconversion.model.QualityPreset;
 import com.inkcore.domain.colorconversion.model.RenderingIntent;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.springframework.web.multipart.MultipartFile;
@@ -8,7 +9,17 @@ import org.springframework.web.multipart.MultipartFile;
 /**
  * Schema OpenAPI del body multipart (archivo binario + opciones).
  */
-@Schema(name = "ColorConversionRequest", requiredProperties = {"file"})
+@Schema(
+        name = "ColorConversionRequest",
+        requiredProperties = {"file"},
+        description = """
+                Multipart de conversión (CMM LittleCMS + ICC). Para calidad comercial en UI enviar:
+                renderingIntent=PERCEPTUAL, outputFormat=TIFF, iccProfile=FOGRA39.icc,
+                brightnessLift=0.12, vibranceBoost=0.28, softProofBrightnessMatch=true,
+                blackPointCompensation=true (o omitir; default servidor true).
+                Overrides explícitos ganan sobre qualityPreset.
+                """
+)
 public class ColorConversionRequest {
 
     @Schema(
@@ -20,7 +31,7 @@ public class ColorConversionRequest {
     public MultipartFile file;
 
     @Schema(
-            description = "Intent ICC. PERCEPTUAL = fotos (default). RELATIVE_COLORIMETRIC = logos/colores planos",
+            description = "Intent ICC. PERCEPTUAL = fotos (recomendado). RELATIVE_COLORIMETRIC = logos/colores planos",
             implementation = RenderingIntent.class,
             example = "PERCEPTUAL",
             defaultValue = "PERCEPTUAL",
@@ -54,7 +65,7 @@ public class ColorConversionRequest {
     @Schema(
             description = """
                     Formato de salida CMYK (opcional).
-                    TIFF = TIFF CMYK LZW + ICC embebido (default si la entrada es imagen).
+                    TIFF = TIFF CMYK LZW + ICC embebido (recomendado preprensa; default si la entrada es imagen).
                     PDF = PDF CMYK con ICCBased + OutputIntent (default si la entrada es PDF).
                     PDF→TIFF rasteriza a DPI configurado (pierde vectores; calidad de impresión ~300 dpi).
                     """,
@@ -67,38 +78,69 @@ public class ColorConversionRequest {
 
     @Schema(
             description = """
-                    Empuje hacia blanco en RGB (0–0.15) antes del CMYK.
-                    Omítase o 0 = fidelidad CTP (default servidor). Valores bajos (0.02–0.05) si la prensa oscurece.
+                    Empuje hacia blanco en RGB (0–0.20) antes del CMYK.
+                    Recomendado comercial: 0.12. CTP puro: 0. Si se omite, usa qualityPreset o default servidor.
                     """,
-            example = "0",
-            defaultValue = "0",
+            example = "0.12",
+            defaultValue = "0.12",
             minimum = "0",
-            maximum = "0.15",
+            maximum = "0.20",
             requiredMode = Schema.RequiredMode.NOT_REQUIRED
     )
     public Float brightnessLift;
 
     @Schema(
             description = """
-                    Refuerzo de saturación HSB (0–0.25) antes del CMYK.
-                    Omítase o 0 = fidelidad CTP. 0.10–0.18 para fotos comerciales más vivas.
+                    Refuerzo de saturación HSB (0–0.35) antes del CMYK.
+                    Recomendado comercial: 0.28 (rango útil 0.22–0.35). CTP puro: 0.
+                    Si se omite, usa qualityPreset o default servidor.
                     """,
-            example = "0",
-            defaultValue = "0",
+            example = "0.28",
+            defaultValue = "0.28",
             minimum = "0",
-            maximum = "0.25",
+            maximum = "0.35",
             requiredMode = Schema.RequiredMode.NOT_REQUIRED
     )
     public Float vibranceBoost;
 
     @Schema(
             description = """
-                    Si true, escala tinta CMYK tras soft-proof para recuperar brillo percibido.
-                    false (default CTP) = conversión ICC pura sin retocar separaciones.
+                    Si true, tras la conversión ICC recupera brillo y croma del contenido
+                    (pasadas globales + corrección adaptativa por píxel; reduce K preferentemente).
+                    El target es el RGB con lift/vibrance aplicados (no el original crudo).
+                    Recomendado comercial/fotos: true. CTP puro: false.
+                    Si se omite, usa qualityPreset o default servidor.
                     """,
-            example = "false",
-            defaultValue = "false",
+            example = "true",
+            defaultValue = "true",
             requiredMode = Schema.RequiredMode.NOT_REQUIRED
     )
     public Boolean softProofBrightnessMatch;
+
+    @Schema(
+            description = """
+                    Preset de calidad. Solo aplica a los ajustes no enviados explícitamente.
+                    FIDELITY = lift 0 / vibrance 0 / softProof false.
+                    COMMERCIAL = 0.12 / 0.28 / true.
+                    VIVID = 0.16 / 0.35 / true.
+                    Para UI comercial preferir overrides o qualityPreset=COMMERCIAL.
+                    """,
+            implementation = QualityPreset.class,
+            example = "COMMERCIAL",
+            allowableValues = {"FIDELITY", "COMMERCIAL", "VIVID"},
+            requiredMode = Schema.RequiredMode.NOT_REQUIRED
+    )
+    public QualityPreset qualityPreset;
+
+    @Schema(
+            description = """
+                    Black Point Compensation (LittleCMS). Default servidor true si se omite.
+                    Acerca la separación a Photoshop Convert to Profile (sobre todo con Relative).
+                    Aplica a RGB→CMYK y al soft-proof CMYK→RGB del preview.
+                    """,
+            example = "true",
+            defaultValue = "true",
+            requiredMode = Schema.RequiredMode.NOT_REQUIRED
+    )
+    public Boolean blackPointCompensation;
 }

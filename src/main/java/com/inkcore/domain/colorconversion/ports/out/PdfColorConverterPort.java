@@ -1,6 +1,7 @@
 package com.inkcore.domain.colorconversion.ports.out;
 
 import com.inkcore.domain.colorconversion.model.ConversionRequest;
+import com.inkcore.domain.colorconversion.model.CmykPdfConversion;
 import com.inkcore.domain.colorconversion.model.RasterImageInfo;
 
 /**
@@ -12,9 +13,9 @@ public interface PdfColorConverterPort {
 
     /**
      * Convierte una imagen raster (TIFF/JPG/PNG) a un PDF CMYK de una página
-     * (ICCBased + OutputIntent con el perfil de destino).
+     * (ICCBased + OutputIntent con el perfil de destino) + preview soft-proof.
      */
-    byte[] convertRasterImageToCmykPdf(
+    CmykPdfConversion convertRasterImageToCmykPdf(
             ConversionRequest request,
             String sourceIccProfileName,
             String destinationIccProfileName

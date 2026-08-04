@@ -66,7 +66,7 @@ public class BankAccountController {
     }
 
     @PostMapping("/register")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "registerBankAccount",
             summary = "Crea una cuenta bancaria nueva.",
@@ -147,7 +147,7 @@ public class BankAccountController {
     }
 
     @PutMapping("/update/{accountId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "updateBankAccount",
             summary = "Actualiza los datos de una cuenta bancaria existente.",
@@ -228,7 +228,7 @@ public class BankAccountController {
     }
 
     @GetMapping("/list")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "listBankAccounts",
             summary = "Obtiene el listado paginado de cuentas bancarias.",
@@ -299,7 +299,7 @@ public class BankAccountController {
     }
 
     @GetMapping("/get/{accountId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "getBankAccount",
             summary = "Consulta el detalle de una cuenta bancaria por su identificador.",

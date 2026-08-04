@@ -66,7 +66,7 @@ public class ClientController {
     }
 
     @PostMapping("/register")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "registerClient",
             summary = "Crea un cliente nuevo.",
@@ -155,7 +155,7 @@ public class ClientController {
     }
 
     @PutMapping("/update/{clientId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "updateClient",
             summary = "Actualiza los datos de un cliente existente.",
@@ -245,7 +245,7 @@ public class ClientController {
     }
 
     @GetMapping("/list")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "listClients",
             summary = "Obtiene el listado paginado de clientes.",
@@ -322,7 +322,7 @@ public class ClientController {
     }
 
     @GetMapping("/get/{clientId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "getClient",
             summary = "Consulta el detalle de un cliente por su identificador.",

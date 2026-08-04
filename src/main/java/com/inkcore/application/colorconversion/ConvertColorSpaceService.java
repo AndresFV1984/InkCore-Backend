@@ -128,10 +128,14 @@ public class ConvertColorSpaceService implements ConvertColorSpaceUseCase {
     ) {
         long started = System.nanoTime();
         RasterImageInfo inputInfo = imageColorConverter.readInfo(request.getFileBytes(), request.getOriginalFileName());
-        byte[] converted = imageColorConverter.convertToCmykTiff(request, sourceProfile, destinationProfile);
+        var conversion = imageColorConverter.convertToCmykTiff(request, sourceProfile, destinationProfile);
+        byte[] converted = conversion.tiffBytes();
         RasterImageInfo outputInfo = imageColorConverter.readTiffInfo(converted);
         assertImageIntegrity(inputInfo, outputInfo);
         long durationMs = (System.nanoTime() - started) / 1_000_000L;
+        byte[] preview = conversion.previewJpeg() != null
+                ? conversion.previewJpeg()
+                : softProofPreview(converted);
         return buildResult(
                 converted,
                 toCmykFileName(request.getOriginalFileName(), ".tif"),
@@ -140,7 +144,9 @@ public class ConvertColorSpaceService implements ConvertColorSpaceUseCase {
                 destinationProfile,
                 durationMs,
                 outputInfo.getWidthPx(),
-                outputInfo.getHeightPx()
+                outputInfo.getHeightPx(),
+                preview,
+                conversion.softProofLumaRatio()
         );
     }
 
@@ -151,7 +157,8 @@ public class ConvertColorSpaceService implements ConvertColorSpaceUseCase {
     ) {
         long started = System.nanoTime();
         RasterImageInfo inputInfo = imageColorConverter.readInfo(request.getFileBytes(), request.getOriginalFileName());
-        byte[] converted = pdfColorConverter.convertRasterImageToCmykPdf(request, sourceProfile, destinationProfile);
+        var conversion = pdfColorConverter.convertRasterImageToCmykPdf(request, sourceProfile, destinationProfile);
+        byte[] converted = conversion.pdfBytes();
         RasterImageInfo outputInfo = pdfColorConverter.readInfo(converted);
         // Misma resolución espacial (px); el PDF es 1 página con la imagen
         if (inputInfo.getWidthPx() != outputInfo.getWidthPx() || inputInfo.getHeightPx() != outputInfo.getHeightPx()) {
@@ -174,7 +181,9 @@ public class ConvertColorSpaceService implements ConvertColorSpaceUseCase {
                 destinationProfile,
                 durationMs,
                 inputInfo.getWidthPx(),
-                inputInfo.getHeightPx()
+                inputInfo.getHeightPx(),
+                conversion.previewJpeg(),
+                conversion.softProofLumaRatio()
         );
     }
 
@@ -201,7 +210,8 @@ public class ConvertColorSpaceService implements ConvertColorSpaceUseCase {
                 destinationProfile,
                 durationMs,
                 outputInfo.getWidthPx(),
-                outputInfo.getHeightPx()
+                outputInfo.getHeightPx(),
+                null
         );
     }
 
@@ -231,7 +241,34 @@ public class ConvertColorSpaceService implements ConvertColorSpaceUseCase {
                 destinationProfile,
                 durationMs,
                 outputInfo.getWidthPx(),
-                outputInfo.getHeightPx()
+                outputInfo.getHeightPx(),
+                softProofPreview(converted)
+        );
+    }
+
+    private byte[] softProofPreview(byte[] cmykTiff) {
+        try {
+            return imageColorConverter.softProofRgbJpeg(cmykTiff, 0.95f);
+        } catch (RuntimeException ex) {
+            // Preview es best-effort: la conversión CMYK sigue siendo válida
+            return null;
+        }
+    }
+
+    private ConversionResult buildResult(
+            byte[] converted,
+            String fileName,
+            String mimeType,
+            ConversionRequest request,
+            String destinationProfile,
+            long durationMs,
+            int widthPx,
+            int heightPx,
+            byte[] previewRgbJpeg
+    ) {
+        return buildResult(
+                converted, fileName, mimeType, request, destinationProfile,
+                durationMs, widthPx, heightPx, previewRgbJpeg, null
         );
     }
 
@@ -243,7 +280,9 @@ public class ConvertColorSpaceService implements ConvertColorSpaceUseCase {
             String destinationProfile,
             long durationMs,
             int widthPx,
-            int heightPx
+            int heightPx,
+            byte[] previewRgbJpeg,
+            Double softProofLumaRatio
     ) {
         return new ConversionResult(
                 converted,
@@ -258,7 +297,11 @@ public class ConvertColorSpaceService implements ConvertColorSpaceUseCase {
                 destinationProfile,
                 request.resolveBrightnessLift(properties.getBrightnessLift()),
                 request.resolveVibranceBoost(properties.getVibranceBoost()),
-                request.resolveSoftProofBrightnessMatch(properties.isSoftProofBrightnessMatch())
+                request.resolveSoftProofBrightnessMatch(properties.isSoftProofBrightnessMatch()),
+                request.getQualityPreset(),
+                previewRgbJpeg,
+                previewRgbJpeg != null ? "image/jpeg" : null,
+                softProofLumaRatio
         );
     }
 

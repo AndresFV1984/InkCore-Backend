@@ -4,6 +4,7 @@ import com.inkcore.domain.colorconversion.model.ConversionRequest;
 import com.inkcore.domain.colorconversion.model.ConversionResult;
 import com.inkcore.domain.colorconversion.model.IccProfileInfo;
 import com.inkcore.domain.colorconversion.model.OutputFormat;
+import com.inkcore.domain.colorconversion.model.QualityPreset;
 import com.inkcore.domain.colorconversion.model.RenderingIntent;
 import com.inkcore.domain.colorconversion.ports.in.ConvertColorSpaceUseCase;
 import com.inkcore.domain.colorconversion.ports.in.ListIccProfilesUseCase;
@@ -43,7 +44,15 @@ import java.util.Locale;
 
 @RestController
 @RequestMapping("/api/v1/color-conversions")
-@Tag(name = "Conversión de color", description = "Conversión RGB → CMYK con perfiles ICC")
+@Tag(
+        name = "Conversión de color",
+        description = """
+                Conversión RGB → CMYK con LittleCMS (lcms2 empaquetado) + perfiles ICC.
+                Convert: multipart → JSON con fileBase64 (CMYK) y previewRgbBase64 (JPEG soft-proof para UI).
+                Defaults de calidad comercial: brightnessLift=0.12, vibranceBoost=0.28,
+                softProofBrightnessMatch=true, blackPointCompensation=true (o qualityPreset=COMMERCIAL).
+                """
+)
 @SecurityRequirement(name = "bearerAuth")
 public class ColorConversionController {
 
@@ -62,7 +71,7 @@ public class ColorConversionController {
     }
 
     @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "listColorConversionIccProfiles",
             summary = "Listar perfiles ICC de destino",
@@ -139,31 +148,97 @@ public class ColorConversionController {
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE
     )
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "convertColorSpace",
             summary = "Convertir archivo RGB a CMYK",
             description = """
-                    Multipart binario → envelope JSON (`headers`, `timestamp`, `data.fileBase64`).
-                    `outputFormat`: TIFF o PDF (cualquier combinación entrada/salida).
-                    `iccProfile`: perfil CMYK del catálogo (FOGRA39/51/47/52, GRACoL, SWOP, Japan Color).
-                    Ver GET /color-conversions/list para disponibilidad.
-                    Ajustes opcionales (defaults CTP = fidelidad): `brightnessLift` (0–0.15),
-                    `vibranceBoost` (0–0.25), `softProofBrightnessMatch` (true|false).
-                    PDF→TIFF rasteriza (~300 dpi); se acepta pérdida de vectores.
-                    No se guarda el archivo en disco.
+                    Multipart binario → envelope JSON (`headers`, `timestamp`, `data`).
+
+                    CMM: LittleCMS 2 (nativa empaquetada en el JAR; sin instalación manual).
+                    Soft-proof y separación ICC usan el mismo motor.
+
+                    ## Contrato front (calidad)
+
+                    **Request recomendado (fotos / comercial):**
+                    - `renderingIntent=PERCEPTUAL`
+                    - `outputFormat=TIFF`
+                    - `iccProfile=FOGRA39.icc` (o el del catálogo / imprenta)
+                    - `brightnessLift=0.12` (rango 0–0.20)
+                    - `vibranceBoost=0.28` (rango 0–0.35)
+                    - `softProofBrightnessMatch=true` (recupera brillo/croma del contenido tras ICC)
+                    - `blackPointCompensation=true` (default servidor; acerca a Photoshop Convert to Profile)
+                    Alternativa corta: `qualityPreset=COMMERCIAL`.
+
+                    **Más punch:** `qualityPreset=VIVID` (lift 0.16 / vibrance 0.35 / softProof true).
+
+                    **CTP puro (sin retoque):** `qualityPreset=FIDELITY` o lift=0, vibrance=0, softProof=false.
+
+                    **Prioridad:** overrides explícitos (`brightnessLift` / `vibranceBoost` /
+                    `softProofBrightnessMatch` / `blackPointCompensation`) ganan sobre `qualityPreset`.
+
+                    ## Respuesta — uso obligatorio
+
+                    - **Vista previa UI:** `data.previewRgbBase64` + `data.previewContentType` (`image/jpeg`).
+                      No renderizar el TIFF/PDF CMYK en el navegador.
+                    - **Descarga / CTP:** `data.fileBase64` + `data.contentType` + `data.fileName`.
+
+                    ## Otros
+
+                    - `iccProfile`: catálogo en GET `/color-conversions/list` (`available=true`).
+                    - PDF→TIFF rasteriza (~300 dpi; se acepta pérdida de vectores).
+                    - No se guarda el archivo en disco.
+                    - Si LittleCMS no carga: error claro (no hay fallback silencioso en CTP).
                     """
     )
     @ApiResponse(
             responseCode = "200",
-            description = "Conversión exitosa (envelope JSON). contentType/fileName según outputFormat.",
+            description = """
+                    Conversión exitosa. Usar previewRgbBase64 para UI y fileBase64 para descarga.
+                    contentType/fileName según outputFormat.
+                    """,
             content = @Content(
                     mediaType = MediaType.APPLICATION_JSON_VALUE,
                     schema = @Schema(implementation = ColorConversionSuccessEnvelope.class),
                     examples = {
                             @ExampleObject(
-                                    name = "SalidaTiff",
-                                    summary = "Respuesta TIFF CMYK (CTP)",
+                                    name = "SalidaTiffComercial",
+                                    summary = "TIFF + preview RGB (calidad comercial)",
+                                    value = """
+                                            {
+                                              "headers": {
+                                                "correlationId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                                                "statusCode": 200,
+                                                "code": "OK",
+                                                "description": "Success"
+                                              },
+                                              "timestamp": "2026-07-30T12:00:00Z",
+                                              "data": {
+                                                "fileName": "foto_CMYK.tif",
+                                                "contentType": "image/tiff",
+                                                "fileBase64": "SUkqAAgAAAASAP4ABAABAAAAAAAAAAABBAABAAAAwAkAAAEBBAABAAAA",
+                                                "originalSizeBytes": 1048576,
+                                                "finalSizeBytes": 1400000,
+                                                "widthPx": 2400,
+                                                "heightPx": 3000,
+                                                "processingTimeMs": 850,
+                                                "renderingIntent": "PERCEPTUAL",
+                                                "iccProfile": "FOGRA39.icc",
+                                                "brightnessLift": 0.12,
+                                                "vibranceBoost": 0.28,
+                                                "softProofBrightnessMatch": true,
+                                                "qualityPreset": null,
+                                                "previewRgbBase64": "/9j/4AAQSkZJRgABAQAAAQABAAD",
+                                                "previewContentType": "image/jpeg",
+                                                "softProofLumaRatio": 0.97,
+                                                "sizeIncreaseExpected": true
+                                              }
+                                            }
+                                            """
+                            ),
+                            @ExampleObject(
+                                    name = "SalidaTiffCtp",
+                                    summary = "TIFF CTP fidelidad (sin retoque)",
                                     value = """
                                             {
                                               "headers": {
@@ -187,6 +262,10 @@ public class ColorConversionController {
                                                 "brightnessLift": 0,
                                                 "vibranceBoost": 0,
                                                 "softProofBrightnessMatch": false,
+                                                "qualityPreset": "FIDELITY",
+                                                "previewRgbBase64": "/9j/4AAQSkZJRgABAQAAAQABAAD",
+                                                "previewContentType": "image/jpeg",
+                                                "softProofLumaRatio": null,
                                                 "sizeIncreaseExpected": true
                                               }
                                             }
@@ -194,7 +273,7 @@ public class ColorConversionController {
                             ),
                             @ExampleObject(
                                     name = "SalidaPdf",
-                                    summary = "Respuesta PDF CMYK",
+                                    summary = "Respuesta PDF CMYK (sin preview RGB)",
                                     value = """
                                             {
                                               "headers": {
@@ -218,6 +297,9 @@ public class ColorConversionController {
                                                 "brightnessLift": 0,
                                                 "vibranceBoost": 0,
                                                 "softProofBrightnessMatch": false,
+                                                "qualityPreset": null,
+                                                "previewRgbBase64": null,
+                                                "previewContentType": null,
                                                 "sizeIncreaseExpected": true
                                               }
                                             }
@@ -291,36 +373,63 @@ public class ColorConversionController {
                             @Encoding(name = "outputFormat", contentType = "text/plain"),
                             @Encoding(name = "brightnessLift", contentType = "text/plain"),
                             @Encoding(name = "vibranceBoost", contentType = "text/plain"),
-                            @Encoding(name = "softProofBrightnessMatch", contentType = "text/plain")
+                            @Encoding(name = "softProofBrightnessMatch", contentType = "text/plain"),
+                            @Encoding(name = "qualityPreset", contentType = "text/plain"),
+                            @Encoding(name = "blackPointCompensation", contentType = "text/plain")
                     },
                     examples = {
                             @ExampleObject(
-                                    name = "CtpFidelidad",
-                                    summary = "Imagen → TIFF CTP (defaults fidelidad)",
-                                    value = """
-                                            {
-                                              "file": "arte_rgb.tif",
-                                              "renderingIntent": "PERCEPTUAL",
-                                              "iccProfile": "FOGRA39.icc",
-                                              "outputFormat": "TIFF",
-                                              "brightnessLift": 0,
-                                              "vibranceBoost": 0,
-                                              "softProofBrightnessMatch": false
-                                            }
-                                            """
-                            ),
-                            @ExampleObject(
-                                    name = "FotoComercial",
-                                    summary = "Foto → TIFF más viva",
+                                    name = "FotoComercialExplicito",
+                                    summary = "Recomendado front: overrides comerciales (calidad UI)",
                                     value = """
                                             {
                                               "file": "foto_rgb.jpg",
                                               "renderingIntent": "PERCEPTUAL",
                                               "iccProfile": "FOGRA39.icc",
                                               "outputFormat": "TIFF",
-                                              "brightnessLift": 0.03,
-                                              "vibranceBoost": 0.15,
-                                              "softProofBrightnessMatch": true
+                                              "brightnessLift": 0.12,
+                                              "vibranceBoost": 0.28,
+                                              "softProofBrightnessMatch": true,
+                                              "blackPointCompensation": true
+                                            }
+                                            """
+                            ),
+                            @ExampleObject(
+                                    name = "FotoComercialPreset",
+                                    summary = "Atajo: qualityPreset=COMMERCIAL",
+                                    value = """
+                                            {
+                                              "file": "foto_rgb.jpg",
+                                              "renderingIntent": "PERCEPTUAL",
+                                              "iccProfile": "FOGRA39.icc",
+                                              "outputFormat": "TIFF",
+                                              "qualityPreset": "COMMERCIAL"
+                                            }
+                                            """
+                            ),
+                            @ExampleObject(
+                                    name = "CtpFidelidad",
+                                    summary = "Imagen → TIFF CTP (sin retoque)",
+                                    value = """
+                                            {
+                                              "file": "arte_rgb.tif",
+                                              "renderingIntent": "PERCEPTUAL",
+                                              "iccProfile": "FOGRA39.icc",
+                                              "outputFormat": "TIFF",
+                                              "qualityPreset": "FIDELITY"
+                                            }
+                                            """
+                            ),
+                            @ExampleObject(
+                                    name = "Vivid",
+                                    summary = "Máximo realce (qualityPreset=VIVID)",
+                                    value = """
+                                            {
+                                              "file": "foto_rgb.jpg",
+                                              "renderingIntent": "PERCEPTUAL",
+                                              "iccProfile": "FOGRA39.icc",
+                                              "outputFormat": "TIFF",
+                                              "qualityPreset": "VIVID"
                                             }
                                             """
                             ),
@@ -356,7 +465,8 @@ public class ColorConversionController {
                                               "file": "arte_rgb.pdf",
                                               "renderingIntent": "PERCEPTUAL",
                                               "iccProfile": "FOGRA39.icc",
-                                              "outputFormat": "TIFF"
+                                              "outputFormat": "TIFF",
+                                              "qualityPreset": "COMMERCIAL"
                                             }
                                             """
                             )
@@ -378,6 +488,10 @@ public class ColorConversionController {
             @RequestParam(value = "vibranceBoost", required = false) String vibranceBoost,
             @Parameter(hidden = true)
             @RequestParam(value = "softProofBrightnessMatch", required = false) String softProofBrightnessMatch,
+            @Parameter(hidden = true)
+            @RequestParam(value = "qualityPreset", required = false) String qualityPreset,
+            @Parameter(hidden = true)
+            @RequestParam(value = "blackPointCompensation", required = false) String blackPointCompensation,
             @Parameter(hidden = true) Authentication authentication,
             HttpServletRequest httpRequest
     ) throws IOException {
@@ -396,7 +510,9 @@ public class ColorConversionController {
                 OutputFormat.fromParam(outputFormat),
                 ConversionRequest.parseBrightnessLift(brightnessLift),
                 ConversionRequest.parseVibranceBoost(vibranceBoost),
-                ConversionRequest.parseSoftProofBrightnessMatch(softProofBrightnessMatch)
+                ConversionRequest.parseSoftProofBrightnessMatch(softProofBrightnessMatch),
+                QualityPreset.fromParam(qualityPreset),
+                ConversionRequest.parseBlackPointCompensation(blackPointCompensation)
         );
         ConversionResult result = convertColorSpaceUseCase.convert(request);
         return responseFactory.okStandard(httpRequest, ColorConversionResponse.from(result));

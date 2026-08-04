@@ -36,7 +36,8 @@ class PdfColorConverterIntegrityIT {
         properties.setPdfEnabled(true);
         properties.setMinImageResolutionDpi(72);
         IccProfileLoader loader = new IccProfileLoader(new InMemoryIccProfileCacheAdapter(properties));
-        ImageColorConverterAdapter imageConverter = new ImageColorConverterAdapter(loader, properties);
+        assumeTrue(ColorConversionTestSupport.littleCms(properties).isNativeAvailable(), "lcms2 nativo requerido");
+        ImageColorConverterAdapter imageConverter = ColorConversionTestSupport.imageAdapter(loader, properties);
         adapter = new PdfColorConverterAdapter(properties, imageConverter);
     }
 

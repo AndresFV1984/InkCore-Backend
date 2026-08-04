@@ -508,7 +508,7 @@ public class UserController {
     }
 
     @GetMapping("/profile")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "profileUser",
             summary = "Devuelve el perfil del usuario autenticado.",
@@ -533,7 +533,7 @@ public class UserController {
     }
 
     @GetMapping("/get/{userId}")
-    @PreAuthorize("hasRole('ADMINISTRADOR') or authentication.name == #userId")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or (hasRole('OPERADOR') and authentication.name == #userId)")
     @Operation(
             operationId = "getUser",
             summary = "Consulta el detalle de un usuario por su identificador.",

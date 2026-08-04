@@ -144,6 +144,9 @@ security:
 # Caché de perfiles ICC (local: memoria; Redis solo si refresh-token.store.type=redis)
 inkcore:
   color-conversion:
+    brightness-lift: ${COLOR_BRIGHTNESS_LIFT:0.12}
+    vibrance-boost: ${COLOR_VIBRANCE_BOOST:0.28}
+    soft-proof-brightness-match: ${COLOR_SOFT_PROOF_BRIGHTNESS_MATCH:true}
     icc-cache:
       type: ${ICC_CACHE_TYPE:memory}
       ttl-seconds: ${ICC_CACHE_TTL_SECONDS:86400}

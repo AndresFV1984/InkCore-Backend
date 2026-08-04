@@ -21,7 +21,7 @@ public class InkEstimateMultipartSchema {
             description = """
                     Archivo de preprensa.
                     PDF: cobertura vectorial/texto DeviceCMYK + Separation/DeviceN e imágenes CMYK nativas (PDFBox).
-                    Raster: TIFF CMYK nativo preferido; JPG/PNG/WEBP/GIF vía RGB→ICC.
+                    Raster: TIFF CMYK nativo preferido; JPG/PNG/WEBP/GIF vía RGB→LittleCMS+ICC.
                     Extensiones: .jpg, .jpeg, .png, .tif, .tiff, .webp, .gif, .pdf
                     """,
             type = "string",
@@ -83,7 +83,7 @@ public class InkEstimateMultipartSchema {
 
     @Schema(
             description = """
-                    Perfil ICC de destino para RGB→CMYK (colores/imágenes RGB en PDF o raster RGB).
+                    Perfil ICC de destino para RGB→CMYK vía LittleCMS (colores/imágenes RGB en PDF o raster RGB).
                     Debe existir en el servidor (GET /color-conversions/list). Default FOGRA39.icc (CTP Colombia).
                     No aplica a canales DeviceCMYK / Separation nativos (se leen directos).
                     """,

@@ -47,13 +47,21 @@ public class InkEstimationProperties {
     /**
      * Tope de píxeles al estimar cobertura de rasters (JPG/PNG/TIFF).
      * Imágenes mayores se reducen antes del ICC (estimación, no CTP).
+     * Default BALANCED: 2_000_000.
      */
-    private int maxAnalysisPixels = 1_000_000;
+    private int maxAnalysisPixels = 2_000_000;
 
     /**
      * Lado máximo (px) al muestrear imágenes RGB embebidas en PDF.
+     * Default BALANCED: 1024.
      */
-    private int rgbImageMaxEdge = 512;
+    private int rgbImageMaxEdge = 1024;
+
+    /**
+     * Black Point Compensation (LittleCMS) en RGB→CMYK de estimación.
+     * Independiente del flag de convert; default true.
+     */
+    private boolean blackPointCompensation = true;
 
     public double getDefaultWidthCm() {
         return defaultWidthCm;
@@ -141,6 +149,14 @@ public class InkEstimationProperties {
 
     public void setRgbImageMaxEdge(int rgbImageMaxEdge) {
         this.rgbImageMaxEdge = rgbImageMaxEdge;
+    }
+
+    public boolean isBlackPointCompensation() {
+        return blackPointCompensation;
+    }
+
+    public void setBlackPointCompensation(boolean blackPointCompensation) {
+        this.blackPointCompensation = blackPointCompensation;
     }
 
     /**

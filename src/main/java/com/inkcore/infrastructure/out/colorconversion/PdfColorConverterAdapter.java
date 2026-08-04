@@ -3,6 +3,7 @@ package com.inkcore.infrastructure.out.colorconversion;
 import com.inkcore.domain.colorconversion.exception.ColorConversionFailedException;
 import com.inkcore.domain.colorconversion.exception.UnsupportedColorFileException;
 import com.inkcore.domain.colorconversion.model.ConversionRequest;
+import com.inkcore.domain.colorconversion.model.CmykPdfConversion;
 import com.inkcore.domain.colorconversion.model.RasterImageInfo;
 import com.inkcore.domain.colorconversion.ports.out.PdfColorConverterPort;
 import com.inkcore.infrastructure.config.ColorConversionProperties;
@@ -120,7 +121,7 @@ public class PdfColorConverterAdapter implements PdfColorConverterPort {
     }
 
     @Override
-    public byte[] convertRasterImageToCmykPdf(
+    public CmykPdfConversion convertRasterImageToCmykPdf(
             ConversionRequest request,
             String sourceIccProfileName,
             String destinationIccProfileName
@@ -131,13 +132,15 @@ public class PdfColorConverterAdapter implements PdfColorConverterPort {
                     imageColorConverter.loadRasterHighFidelity(request.getFileBytes());
             double dpi = resolveDpi(loaded.xDpi(), loaded.yDpi());
 
-            BufferedImage cmyk = imageColorConverter.convertRgbToCmykBufferedImage(
-                    loaded.image(),
-                    request.getRenderingIntent(),
-                    sourceIccProfileName,
-                    destinationIccProfileName,
-                    request
-            );
+            ImageColorConverterAdapter.RgbToCmykArtifacts artifacts =
+                    imageColorConverter.convertRgbToCmykWithArtifacts(
+                            loaded.image(),
+                            request.getRenderingIntent(),
+                            sourceIccProfileName,
+                            destinationIccProfileName,
+                            request
+                    );
+            BufferedImage cmyk = artifacts.cmyk();
 
             float widthPts = (float) (cmyk.getWidth() * 72.0 / dpi);
             float heightPts = (float) (cmyk.getHeight() * 72.0 / dpi);
@@ -152,7 +155,11 @@ public class PdfColorConverterAdapter implements PdfColorConverterPort {
                     contents.drawImage(image, 0, 0, widthPts, heightPts);
                 }
                 addCmykOutputIntent(output, destinationIccBytes, destinationIccProfileName);
-                return savePdf(output);
+                return new CmykPdfConversion(
+                        savePdf(output),
+                        artifacts.previewJpeg(),
+                        artifacts.softProofLumaRatio()
+                );
             }
         } catch (UnsupportedColorFileException | ColorConversionFailedException ex) {
             throw ex;

@@ -11,6 +11,8 @@ import com.inkcore.infrastructure.config.InkEstimationProperties;
 import com.inkcore.infrastructure.out.colorconversion.IccProfileLoader;
 import com.inkcore.infrastructure.out.colorconversion.ImageColorConverterAdapter;
 import com.inkcore.infrastructure.out.colorconversion.PdfColorConverterAdapter;
+import com.inkcore.infrastructure.out.colorconversion.lcms.LittleCmsColorConverter;
+import com.inkcore.infrastructure.out.colorconversion.lcms.LcmsNativeUnavailableException;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.io.RandomAccessReadBuffer;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -31,7 +33,7 @@ import java.util.Map;
  * Analiza cobertura CMYK/spot.
  * <ul>
  *   <li>Raster: downscale + ICC rápido (o TIFF CMYK nativo)</li>
- *   <li>PDF: {@link PdfInkCoverageEngine} + {@link FastInkRgbToCmyk} (sin ICC por píxel)</li>
+ *   <li>PDF: {@link PdfInkCoverageEngine} + {@link FastInkRgbToCmyk} (LittleCMS)</li>
  * </ul>
  */
 @Component
@@ -40,17 +42,20 @@ public class InkCoverageAnalyzerAdapter implements InkCoverageAnalyzerPort {
     private final ImageColorConverterAdapter imageColorConverter;
     private final PdfColorConverterAdapter pdfColorConverter;
     private final IccProfileLoader iccProfileLoader;
+    private final LittleCmsColorConverter littleCms;
     private final InkEstimationProperties properties;
 
     public InkCoverageAnalyzerAdapter(
             ImageColorConverterAdapter imageColorConverter,
             PdfColorConverterAdapter pdfColorConverter,
             IccProfileLoader iccProfileLoader,
+            LittleCmsColorConverter littleCms,
             InkEstimationProperties properties
     ) {
         this.imageColorConverter = imageColorConverter;
         this.pdfColorConverter = pdfColorConverter;
         this.iccProfileLoader = iccProfileLoader;
+        this.littleCms = littleCms;
         this.properties = properties;
     }
 
@@ -64,6 +69,8 @@ public class InkCoverageAnalyzerAdapter implements InkCoverageAnalyzerPort {
             return analyzeRaster(request, dpi, destinationIccProfile);
         } catch (UnsupportedInkFileException | InkEstimationFailedException ex) {
             throw ex;
+        } catch (LcmsNativeUnavailableException ex) {
+            throw new InkEstimationFailedException(ex.getMessage(), ex);
         } catch (Exception ex) {
             throw new InkEstimationFailedException("Fallo al analizar cobertura de tinta: " + ex.getMessage(), ex);
         }
@@ -89,25 +96,44 @@ public class InkCoverageAnalyzerAdapter implements InkCoverageAnalyzerPort {
                 ? properties.getRgbImageMaxEdge()
                 : FastInkRgbToCmyk.DEFAULT_IMAGE_MAX_EDGE;
 
-        FastInkRgbToCmyk converter = new FastInkRgbToCmyk(iccProfileLoader, destinationIccProfile, imageMaxEdge);
-        boolean nativeCmyk = isCmyk(source);
-        BufferedImage cmyk = converter.prepareRasterForCoverage(source, nativeCmyk, maxPixels);
-
-        double[] means01 = FastInkRgbToCmyk.meanChannels01(cmyk.getRaster());
-        double[] means = new double[]{means01[0] * 100, means01[1] * 100, means01[2] * 100, means01[3] * 100};
-        List<RawInkCoverage> process = processInksFromMeans(means);
-        return new InkCoverageAnalysis(
-                cmyk.getWidth(),
-                cmyk.getHeight(),
-                effectiveDpi,
+        try (FastInkRgbToCmyk converter = new FastInkRgbToCmyk(
+                iccProfileLoader,
+                littleCms,
                 destinationIccProfile,
-                process,
-                List.of(),
-                List.of(),
-                false,
-                false,
-                List.of()
-        );
+                imageMaxEdge,
+                properties.isBlackPointCompensation()
+        )) {
+            boolean nativeCmyk = isCmyk(source);
+            double[] means01;
+            int width;
+            int height;
+            if (nativeCmyk) {
+                BufferedImage working = FastInkRgbToCmyk.scaleToMaxPixels(source, maxPixels);
+                means01 = FastInkRgbToCmyk.meanChannels01(working.getRaster());
+                width = working.getWidth();
+                height = working.getHeight();
+            } else {
+                BufferedImage working = converter.prepareRgbForCoverage(source, maxPixels);
+                means01 = converter.meanCmyk01(working, false);
+                width = working.getWidth();
+                height = working.getHeight();
+            }
+            double[] means = new double[]{means01[0] * 100, means01[1] * 100, means01[2] * 100, means01[3] * 100};
+            List<RawInkCoverage> process = processInksFromMeans(means);
+            return new InkCoverageAnalysis(
+                    width,
+                    height,
+                    effectiveDpi,
+                    destinationIccProfile,
+                    process,
+                    List.of(),
+                    List.of(),
+                    false,
+                    false,
+                    List.of(),
+                    converter.colorEngine()
+            );
+        }
     }
 
     private InkCoverageAnalysis analyzePdf(
@@ -122,7 +148,6 @@ public class InkCoverageAnalyzerAdapter implements InkCoverageAnalyzerPort {
         int imageMaxEdge = properties.getRgbImageMaxEdge() > 0
                 ? properties.getRgbImageMaxEdge()
                 : FastInkRgbToCmyk.DEFAULT_IMAGE_MAX_EDGE;
-        FastInkRgbToCmyk rgbToCmyk = new FastInkRgbToCmyk(iccProfileLoader, destinationIccProfile, imageMaxEdge);
 
         // Suma de coberturas % por página (cada página = un lado al tamaño widthCm×heightCm).
         // No promediar: si no, 2 páginas diluyen y dan MENOS tinta que 1 sola.
@@ -131,7 +156,14 @@ public class InkCoverageAnalyzerAdapter implements InkCoverageAnalyzerPort {
         int heightPx = 0;
         Map<String, MergedSpot> spots = new LinkedHashMap<>();
 
-        try (PDDocument doc = Loader.loadPDF(new RandomAccessReadBuffer(request.getFileBytes()))) {
+        try (FastInkRgbToCmyk rgbToCmyk = new FastInkRgbToCmyk(
+                iccProfileLoader,
+                littleCms,
+                destinationIccProfile,
+                imageMaxEdge,
+                properties.isBlackPointCompensation()
+        );
+             PDDocument doc = Loader.loadPDF(new RandomAccessReadBuffer(request.getFileBytes()))) {
             int pages = doc.getNumberOfPages();
             if (pages < 1) {
                 throw new InkEstimationFailedException("El PDF no contiene páginas");
@@ -191,12 +223,13 @@ public class InkCoverageAnalyzerAdapter implements InkCoverageAnalyzerPort {
             }
 
             if (analyzed.isEmpty()) {
-                throw new InkEstimationFailedException("No quedó ninguna página para analizar con pages=" 
+                throw new InkEstimationFailedException("No quedó ninguna página para analizar con pages="
                         + InkPageSelection.describe(selected));
             }
 
             List<RawInkCoverage> process = processInksFromMeans(coverageSum);
-            // Solo spots con pintura medible > 0 en las páginas seleccionadas (nunca listar a 0%)
+            // Inventario + pintura: siempre devolver nombre/referencia aunque cobertura sea 0%
+            // (p. ej. Pantone declarado en recursos pero arte aplanado a CMYK).
             LinkedHashSet<String> declaredNames = new LinkedHashSet<>();
             List<RawInkCoverage> spotList = new ArrayList<>();
             for (MergedSpot spot : spots.values()) {
@@ -204,11 +237,18 @@ public class InkCoverageAnalyzerAdapter implements InkCoverageAnalyzerPort {
                 if (exact == null) {
                     continue;
                 }
-                double cov = round2(spot.coverageSumPercent);
-                if (spot.measured && cov > 0.0) {
-                    declaredNames.add(exact);
-                    spotList.add(new RawInkCoverage(exact, "SPOT", cov, spot.swatchHex, true));
+                if (!spot.fromInventory && !spot.measured) {
+                    continue;
                 }
+                double cov = round2(spot.coverageSumPercent);
+                declaredNames.add(exact);
+                spotList.add(new RawInkCoverage(
+                        exact,
+                        "SPOT",
+                        cov,
+                        spot.swatchHex,
+                        spot.measured
+                ));
             }
 
             boolean hasSpot = !declaredNames.isEmpty();
@@ -222,7 +262,8 @@ public class InkCoverageAnalyzerAdapter implements InkCoverageAnalyzerPort {
                     analyzed,
                     true,
                     hasSpot,
-                    List.copyOf(declaredNames)
+                    List.copyOf(declaredNames),
+                    rgbToCmyk.colorEngine()
             );
         }
     }

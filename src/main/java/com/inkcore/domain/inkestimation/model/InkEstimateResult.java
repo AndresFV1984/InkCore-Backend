@@ -30,6 +30,7 @@ public final class InkEstimateResult {
     private final boolean spotInventoryVerified;
     private final boolean hasSpotColors;
     private final List<String> declaredSpotColorNames;
+    private final String colorEngine;
 
     public InkEstimateResult(
             String originalFileName,
@@ -56,7 +57,8 @@ public final class InkEstimateResult {
             List<Integer> pagesAnalyzed,
             boolean spotInventoryVerified,
             boolean hasSpotColors,
-            List<String> declaredSpotColorNames
+            List<String> declaredSpotColorNames,
+            String colorEngine
     ) {
         this.originalFileName = Objects.requireNonNull(originalFileName);
         this.contentType = contentType;
@@ -85,6 +87,7 @@ public final class InkEstimateResult {
         this.declaredSpotColorNames = declaredSpotColorNames == null
                 ? List.of()
                 : List.copyOf(declaredSpotColorNames);
+        this.colorEngine = colorEngine == null || colorEngine.isBlank() ? "littlecms" : colorEngine;
     }
 
     public String getOriginalFileName() {
@@ -189,5 +192,12 @@ public final class InkEstimateResult {
      */
     public List<String> getDeclaredSpotColorNames() {
         return declaredSpotColorNames;
+    }
+
+    /**
+     * Motor de color RGB→CMYK: {@code littlecms} (obligatorio en respuestas OK).
+     */
+    public String getColorEngine() {
+        return colorEngine;
     }
 }

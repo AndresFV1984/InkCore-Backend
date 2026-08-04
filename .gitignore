@@ -35,3 +35,8 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Nativas LittleCMS (JNA) — deben versionarse en el repo ###
+# No ignorar *.dll / *.so bajo resources (JNA: win32-x86-64, linux-x86-64)
+!src/main/resources/win32-x86-64/**
+!src/main/resources/linux-x86-64/**

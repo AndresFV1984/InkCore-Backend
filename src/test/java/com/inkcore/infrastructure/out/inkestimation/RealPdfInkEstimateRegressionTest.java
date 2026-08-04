@@ -8,9 +8,11 @@ import com.inkcore.domain.inkestimation.model.InkEstimateResult;
 import com.inkcore.infrastructure.config.ColorConversionProperties;
 import com.inkcore.infrastructure.config.InkEstimationProperties;
 import com.inkcore.infrastructure.out.cache.InMemoryIccProfileCacheAdapter;
+import com.inkcore.infrastructure.out.colorconversion.ColorConversionTestSupport;
 import com.inkcore.infrastructure.out.colorconversion.IccProfileLoader;
 import com.inkcore.infrastructure.out.colorconversion.ImageColorConverterAdapter;
 import com.inkcore.infrastructure.out.colorconversion.PdfColorConverterAdapter;
+import com.inkcore.infrastructure.out.colorconversion.lcms.LittleCmsColorConverter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIf;
@@ -42,11 +44,13 @@ class RealPdfInkEstimateRegressionTest {
         colorProps.setPdfEnabled(true);
         InkEstimationProperties inkProps = new InkEstimationProperties();
         IccProfileLoader icc = new IccProfileLoader(new InMemoryIccProfileCacheAdapter(colorProps));
-        ImageColorConverterAdapter images = new ImageColorConverterAdapter(icc, colorProps);
+        LittleCmsColorConverter lcms = ColorConversionTestSupport.littleCms(colorProps);
+        ImageColorConverterAdapter images = new ImageColorConverterAdapter(icc, colorProps, lcms);
         analyzer = new InkCoverageAnalyzerAdapter(
                 images,
                 new PdfColorConverterAdapter(colorProps, images),
                 icc,
+                lcms,
                 inkProps
         );
         density = InkDensityFactors.uniform(0.00021);
@@ -54,7 +58,7 @@ class RealPdfInkEstimateRegressionTest {
 
     @Test
     @EnabledIf("sampleExists")
-    void flattenedPantones_notListedAtZero_andTwoPages_sum() throws Exception {
+    void flattenedPantones_listedAtZero_andTwoPages_sum() throws Exception {
         byte[] bytes = Files.readAllBytes(SAMPLE);
 
         InkEstimateResult page1 = estimate(bytes, List.of(1));
@@ -62,11 +66,26 @@ class RealPdfInkEstimateRegressionTest {
         InkEstimateResult both = estimate(bytes, List.of(1, 2));
 
         assertTrue(page1.isSpotInventoryVerified());
-        // Este PDF declara Pantones en recursos de p.1 pero pinta en CMYK → no listar a 0%
-        assertFalse(page1.hasSpotColors());
-        assertTrue(page1.getSpotInks().isEmpty(), "No debe listar Pantones a 0%: " + page1.getSpotInks());
-        assertTrue(page1.getDeclaredSpotColorNames().isEmpty());
-        assertTrue(page2.getSpotInks().isEmpty());
+        // Este PDF declara Pantones en recursos de p.1 pero pinta en CMYK → listar a 0% (sin gramos)
+        assertTrue(page1.hasSpotColors());
+        assertFalse(page1.getSpotInks().isEmpty(), "Debe listar Pantones inventariados a 0%: " + page1.getSpotInks());
+        assertTrue(
+                page1.getDeclaredSpotColorNames().contains("PANTONE Medium Blue C"),
+                "faltó Medium Blue C: " + page1.getDeclaredSpotColorNames()
+        );
+        assertTrue(
+                page1.getDeclaredSpotColorNames().contains("PANTONE 2925 C"),
+                "faltó 2925 C: " + page1.getDeclaredSpotColorNames()
+        );
+        assertTrue(
+                page1.getDeclaredSpotColorNames().contains("PANTONE 2915 C"),
+                "faltó 2915 C: " + page1.getDeclaredSpotColorNames()
+        );
+        assertTrue(
+                page1.getSpotInks().stream().allMatch(s -> s.getCoveragePercent() == 0.0 && !s.isCoverageMeasured()),
+                "Inventario aplanado a CMYK: cobertura 0 y coverageMeasured=false: " + page1.getSpotInks()
+        );
+        assertEquals(0.0, page1.getSpotGramsPerSheet(), 1e-9);
 
         double sumSides = page1.getTotalGramsPerSheet() + page2.getTotalGramsPerSheet();
         assertTrue(

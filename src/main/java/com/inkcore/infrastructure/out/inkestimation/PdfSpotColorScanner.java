@@ -85,20 +85,36 @@ final class PdfSpotColorScanner {
             return;
         }
         for (COSName name : resources.getColorSpaceNames()) {
-            register(resources.getColorSpace(name), found);
+            try {
+                register(resources.getColorSpace(name), found);
+            } catch (Exception ignored) {
+                // ICC / Separation ilegible: no tumbar inventario
+            }
         }
         for (COSName name : resources.getXObjectNames()) {
-            PDXObject xObject = resources.getXObject(name);
-            if (xObject instanceof PDFormXObject form) {
-                collect(form.getResources(), found, depth + 1);
-            } else if (xObject instanceof PDImageXObject image) {
-                register(image.getColorSpace(), found);
+            try {
+                PDXObject xObject = resources.getXObject(name);
+                if (xObject instanceof PDFormXObject form) {
+                    collect(form.getResources(), found, depth + 1);
+                } else if (xObject instanceof PDImageXObject image) {
+                    try {
+                        register(image.getColorSpace(), found);
+                    } catch (Exception ignored) {
+                        // imagen con ICC inválido
+                    }
+                }
+            } catch (Exception ignored) {
+                // XObject no legible
             }
         }
         for (COSName name : resources.getPatternNames()) {
-            PDAbstractPattern pattern = resources.getPattern(name);
-            if (pattern instanceof PDTilingPattern tiling) {
-                collect(tiling.getResources(), found, depth + 1);
+            try {
+                PDAbstractPattern pattern = resources.getPattern(name);
+                if (pattern instanceof PDTilingPattern tiling) {
+                    collect(tiling.getResources(), found, depth + 1);
+                }
+            } catch (Exception ignored) {
+                // patrón no legible
             }
         }
     }

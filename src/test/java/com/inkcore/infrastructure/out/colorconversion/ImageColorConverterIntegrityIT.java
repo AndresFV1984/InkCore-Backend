@@ -33,7 +33,8 @@ class ImageColorConverterIntegrityIT {
         ColorConversionProperties properties = new ColorConversionProperties();
         IccProfileCachePort cache = new InMemoryIccProfileCacheAdapter(properties);
         IccProfileLoader loader = new IccProfileLoader(cache);
-        adapter = new ImageColorConverterAdapter(loader, properties);
+        assumeTrue(ColorConversionTestSupport.littleCms(properties).isNativeAvailable(), "lcms2 nativo requerido");
+        adapter = ColorConversionTestSupport.imageAdapter(loader, properties);
     }
 
     @Test
@@ -44,7 +45,7 @@ class ImageColorConverterIntegrityIT {
         );
 
         RasterImageInfo input = adapter.readInfo(png, "sample.png");
-        byte[] tiff = adapter.convertToCmykTiff(request, "sRGB.icc", "FOGRA39.icc");
+        byte[] tiff = adapter.convertToCmykTiff(request, "sRGB.icc", "FOGRA39.icc").tiffBytes();
         RasterImageInfo output = adapter.readTiffInfo(tiff);
 
         assertEquals(input.getWidthPx(), output.getWidthPx());

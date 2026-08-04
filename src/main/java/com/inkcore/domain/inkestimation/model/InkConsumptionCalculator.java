@@ -73,7 +73,8 @@ public final class InkConsumptionCalculator {
                 analysis.pagesAnalyzed(),
                 analysis.spotInventoryVerified(),
                 analysis.hasSpotColors(),
-                analysis.declaredSpotColorNames()
+                analysis.declaredSpotColorNames(),
+                analysis.colorEngine()
         );
     }
 

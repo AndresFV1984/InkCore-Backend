@@ -45,12 +45,13 @@ inkcore:
     pdf-enabled: ${COLOR_PDF_ENABLED:true}
     min-image-resolution-dpi: ${COLOR_MIN_DPI:600}
     prefer-embedded-pdf-images: ${COLOR_PREFER_EMBEDDED_PDF_IMAGES:true}
-    # Fidelidad CTP: 0 = no alterar RGB. Solo subir si la prensa oscurece (0.02–0.05).
-    brightness-lift: ${COLOR_BRIGHTNESS_LIFT:0}
-    # Fidelidad CTP: 0 = no alterar saturación. >0 es creativo (fotos comerciales).
-    vibrance-boost: ${COLOR_VIBRANCE_BOOST:0}
-    # Fidelidad CTP: false = no escalar tinta tras soft-proof (conversión ICC pura).
-    soft-proof-brightness-match: ${COLOR_SOFT_PROOF_BRIGHTNESS_MATCH:false}
+    # Calidad comercial por defecto (fotos). CTP puro: env vars a 0/0/false o qualityPreset=FIDELITY.
+    brightness-lift: ${COLOR_BRIGHTNESS_LIFT:0.12}
+    vibrance-boost: ${COLOR_VIBRANCE_BOOST:0.28}
+    soft-proof-brightness-match: ${COLOR_SOFT_PROOF_BRIGHTNESS_MATCH:true}
+    # LittleCMS (lcms2): BPC. Nativa empaquetada en el JAR (JNA). Override opcional:
+    black-point-compensation: ${COLOR_BLACK_POINT_COMPENSATION:true}
+    lcms-library-path: ${LCMS_LIBRARY_PATH:}
 
   # Estimación de consumo de tinta (formulario "Estimar tintas")
   # Método libre: PDFBox + ICC color.org (sin Ghostscript AGPL ni RIP de pago)
@@ -66,9 +67,12 @@ inkcore:
       yellow: ${INK_G_CM2_Y:0.00020}
       black: ${INK_G_CM2_K:0.00022}
       spot: ${INK_G_CM2_SPOT:0.00025}
-    # Performance: downscale antes de ICC (estimación, no CTP)
-    max-analysis-pixels: ${INK_MAX_ANALYSIS_PIXELS:1000000}
-    rgb-image-max-edge: ${INK_RGB_IMAGE_MAX_EDGE:512}
+    # Precisión RGB→CMYK (BALANCED). Subir = más precisión / más CPU. Bajar = más rápido.
+    # FAST≈1e6/512 · BALANCED≈2e6/1024 · HIGH≈4e6/2048 (respetar RAM del host)
+    max-analysis-pixels: ${INK_MAX_ANALYSIS_PIXELS:4000000}
+    rgb-image-max-edge: ${INK_RGB_IMAGE_MAX_EDGE:2048}
+    # BPC LittleCMS en estimación (independiente de color-conversion.*)
+    black-point-compensation: ${INK_BLACK_POINT_COMPENSATION:true}
     absolute-max-file-bytes: ${INK_ABSOLUTE_MAX_BYTES:536870912}
     size-tolerance-min-ratio: ${INK_SIZE_TOL_MIN:0.01}
     size-tolerance-max-ratio: ${INK_SIZE_TOL_MAX:2.5}

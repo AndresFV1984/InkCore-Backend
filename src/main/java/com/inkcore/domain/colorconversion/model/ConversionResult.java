@@ -17,6 +17,11 @@ public final class ConversionResult {
     private final float brightnessLift;
     private final float vibranceBoost;
     private final boolean softProofBrightnessMatch;
+    private final QualityPreset qualityPreset;
+    private final byte[] previewRgbBytes;
+    private final String previewMimeType;
+    /** luma(soft-proof CMYK→RGB) / luma(RGB original). Null si no se midió. */
+    private final Double softProofLumaRatio;
 
     public ConversionResult(
             byte[] convertedBytes,
@@ -43,7 +48,11 @@ public final class ConversionResult {
                 iccProfileUsed,
                 0f,
                 0f,
-                false
+                false,
+                null,
+                null,
+                null,
+                null
         );
     }
 
@@ -62,6 +71,85 @@ public final class ConversionResult {
             float vibranceBoost,
             boolean softProofBrightnessMatch
     ) {
+        this(
+                convertedBytes,
+                outputFileName,
+                outputMimeType,
+                originalSizeBytes,
+                finalSizeBytes,
+                processingTimeMs,
+                widthPx,
+                heightPx,
+                renderingIntent,
+                iccProfileUsed,
+                brightnessLift,
+                vibranceBoost,
+                softProofBrightnessMatch,
+                null,
+                null,
+                null,
+                null
+        );
+    }
+
+    public ConversionResult(
+            byte[] convertedBytes,
+            String outputFileName,
+            String outputMimeType,
+            long originalSizeBytes,
+            long finalSizeBytes,
+            long processingTimeMs,
+            int widthPx,
+            int heightPx,
+            RenderingIntent renderingIntent,
+            String iccProfileUsed,
+            float brightnessLift,
+            float vibranceBoost,
+            boolean softProofBrightnessMatch,
+            QualityPreset qualityPreset,
+            byte[] previewRgbBytes,
+            String previewMimeType
+    ) {
+        this(
+                convertedBytes,
+                outputFileName,
+                outputMimeType,
+                originalSizeBytes,
+                finalSizeBytes,
+                processingTimeMs,
+                widthPx,
+                heightPx,
+                renderingIntent,
+                iccProfileUsed,
+                brightnessLift,
+                vibranceBoost,
+                softProofBrightnessMatch,
+                qualityPreset,
+                previewRgbBytes,
+                previewMimeType,
+                null
+        );
+    }
+
+    public ConversionResult(
+            byte[] convertedBytes,
+            String outputFileName,
+            String outputMimeType,
+            long originalSizeBytes,
+            long finalSizeBytes,
+            long processingTimeMs,
+            int widthPx,
+            int heightPx,
+            RenderingIntent renderingIntent,
+            String iccProfileUsed,
+            float brightnessLift,
+            float vibranceBoost,
+            boolean softProofBrightnessMatch,
+            QualityPreset qualityPreset,
+            byte[] previewRgbBytes,
+            String previewMimeType,
+            Double softProofLumaRatio
+    ) {
         this.convertedBytes = Objects.requireNonNull(convertedBytes, "convertedBytes");
         this.outputFileName = Objects.requireNonNull(outputFileName, "outputFileName");
         this.outputMimeType = Objects.requireNonNull(outputMimeType, "outputMimeType");
@@ -75,6 +163,10 @@ public final class ConversionResult {
         this.brightnessLift = brightnessLift;
         this.vibranceBoost = vibranceBoost;
         this.softProofBrightnessMatch = softProofBrightnessMatch;
+        this.qualityPreset = qualityPreset;
+        this.previewRgbBytes = previewRgbBytes;
+        this.previewMimeType = previewMimeType;
+        this.softProofLumaRatio = softProofLumaRatio;
     }
 
     public byte[] getConvertedBytes() {
@@ -127,5 +219,21 @@ public final class ConversionResult {
 
     public boolean isSoftProofBrightnessMatch() {
         return softProofBrightnessMatch;
+    }
+
+    public QualityPreset getQualityPreset() {
+        return qualityPreset;
+    }
+
+    public byte[] getPreviewRgbBytes() {
+        return previewRgbBytes;
+    }
+
+    public String getPreviewMimeType() {
+        return previewMimeType;
+    }
+
+    public Double getSoftProofLumaRatio() {
+        return softProofLumaRatio;
     }
 }

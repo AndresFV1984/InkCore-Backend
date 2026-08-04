@@ -7,21 +7,26 @@ import java.util.Base64;
 
 @Schema(
         name = "ColorConversionResponse",
-        description = "Resultado de la conversión. El archivo CMYK va en fileBase64; el front lo decodifica para descargar. No se guarda en disco."
+        description = """
+                Resultado de la conversión (CMM LittleCMS + ICC).
+                - previewRgbBase64 + previewContentType: soft-proof JPEG (LittleCMS CMYK→RGB) para el navegador.
+                - fileBase64 + contentType + fileName: archivo CMYK (TIFF/PDF) para descarga/CTP.
+                No se guarda en disco.
+                """
 )
 public record ColorConversionResponse(
-        @Schema(description = "Nombre del archivo convertido (.tif o .pdf según outputFormat)", example = "arte_CMYK.tif")
+        @Schema(description = "Nombre del archivo convertido (.tif o .pdf según outputFormat)", example = "foto_CMYK.tif")
         String fileName,
 
         @Schema(
-                description = "MIME del archivo convertido",
+                description = "MIME del archivo CMYK (descarga/CTP). No usar para preview en navegador.",
                 allowableValues = {"image/tiff", "application/pdf"},
                 example = "image/tiff"
         )
         String contentType,
 
         @Schema(
-                description = "Contenido del archivo CMYK en Base64 (decodificar en el cliente para descargar)",
+                description = "Archivo CMYK en Base64 para descarga/CTP (no para <img>)",
                 example = "SUkqAAgAAAASAP4ABAABAAAAAAAAAAABBAABAAAAwAkAAAEBBAABAAAA"
         )
         String fileBase64,
@@ -32,10 +37,10 @@ public record ColorConversionResponse(
         @Schema(description = "Tamaño del archivo convertido en bytes", example = "1400000")
         long finalSizeBytes,
 
-        @Schema(description = "Ancho en píxeles", example = "2400")
+        @Schema(description = "Ancho en píxeles (igual a la entrada)", example = "2400")
         int widthPx,
 
-        @Schema(description = "Alto en píxeles", example = "3000")
+        @Schema(description = "Alto en píxeles (igual a la entrada)", example = "3000")
         int heightPx,
 
         @Schema(description = "Tiempo de procesamiento en milisegundos", example = "850")
@@ -51,19 +56,58 @@ public record ColorConversionResponse(
         @Schema(description = "Perfil ICC de destino usado", example = "FOGRA39.icc")
         String iccProfile,
 
-        @Schema(description = "brightnessLift efectivo aplicado (0–0.15)", example = "0", minimum = "0", maximum = "0.15")
+        @Schema(description = "brightnessLift efectivo aplicado (0–0.20)", example = "0.12", minimum = "0", maximum = "0.20")
         float brightnessLift,
 
-        @Schema(description = "vibranceBoost efectivo aplicado (0–0.25)", example = "0", minimum = "0", maximum = "0.25")
+        @Schema(description = "vibranceBoost efectivo aplicado (0–0.35)", example = "0.28", minimum = "0", maximum = "0.35")
         float vibranceBoost,
 
-        @Schema(description = "softProofBrightnessMatch efectivo aplicado", example = "false")
+        @Schema(description = """
+                softProofBrightnessMatch efectivo. Si true, el backend recuperó brillo/croma
+                del contenido tras soft-proof (global + por píxel).
+                """, example = "true")
         boolean softProofBrightnessMatch,
 
-        @Schema(description = "true si el aumento de peso es esperado por CMYK", example = "true")
+        @Schema(
+                description = "Preset solicitado en el request (null si no se envió)",
+                allowableValues = {"FIDELITY", "COMMERCIAL", "VIVID"},
+                example = "COMMERCIAL",
+                nullable = true
+        )
+        String qualityPreset,
+
+        @Schema(
+                description = """
+                        Soft-proof RGB JPEG en Base64 a resolución nativa.
+                        Usar en <img src=\"data:image/jpeg;base64,...\">. Null en salidas PDF.
+                        """,
+                example = "/9j/4AAQSkZJRgABAQAAAQABAAD..."
+        )
+        String previewRgbBase64,
+
+        @Schema(
+                description = "MIME del preview para UI",
+                allowableValues = {"image/jpeg"},
+                example = "image/jpeg",
+                nullable = true
+        )
+        String previewContentType,
+
+        @Schema(
+                description = """
+                        Relación luma(soft-proof CMYK→RGB) / luma(RGB original) sobre el contenido.
+                        Ideal ~0.95–1.05 cuando softProofBrightnessMatch=true. Null en PDF o si no se midió.
+                        """,
+                example = "0.97",
+                nullable = true
+        )
+        Double softProofLumaRatio,
+
+        @Schema(description = "true si el aumento de peso es esperado por CMYK (4 canales)", example = "true")
         boolean sizeIncreaseExpected
 ) {
     public static ColorConversionResponse from(ConversionResult result) {
+        byte[] preview = result.getPreviewRgbBytes();
         return new ColorConversionResponse(
                 result.getOutputFileName(),
                 result.getOutputMimeType(),
@@ -78,6 +122,10 @@ public record ColorConversionResponse(
                 result.getBrightnessLift(),
                 result.getVibranceBoost(),
                 result.isSoftProofBrightnessMatch(),
+                result.getQualityPreset() == null ? null : result.getQualityPreset().name(),
+                preview == null || preview.length == 0 ? null : Base64.getEncoder().encodeToString(preview),
+                result.getPreviewMimeType(),
+                result.getSoftProofLumaRatio(),
                 true
         );
     }

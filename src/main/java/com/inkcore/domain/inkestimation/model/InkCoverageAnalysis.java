@@ -12,8 +12,9 @@ public record InkCoverageAnalysis(
         String iccProfileUsed,
         List<RawInkCoverage> processInks,
         /**
-         * Spots con cobertura medida &gt; 0 en las páginas seleccionadas.
-         * No incluye pantones solo declarados en recursos (sin pintura Separation).
+         * Spots reportables hallados en las páginas seleccionadas (inventario Separation/DeviceN
+         * y/o pintura medida). Puede incluir cobertura 0% si el Pantone está declarado pero
+         * el arte se pintó en CMYK ({@code coverageMeasured=false}).
          */
         List<RawInkCoverage> spotInks,
         /** Páginas PDF analizadas (1-based). Vacía en rasters. */
@@ -23,19 +24,26 @@ public record InkCoverageAnalysis(
          */
         boolean spotInventoryVerified,
         /**
-         * true si hay al menos un spot con cobertura &gt; 0 en las páginas seleccionadas.
+         * true si hay al menos un spot reportable (inventario o medido) en las páginas seleccionadas.
          */
         boolean hasSpotColors,
         /**
-         * Nombres exactos de spots con cobertura &gt; 0 (alineado con spotInks).
+         * Nombres exactos de spots reportables (alineado con spotInks; incluye 0%).
          */
-        List<String> declaredSpotColorNames
+        List<String> declaredSpotColorNames,
+        /**
+         * Motor de color usado para RGB→CMYK de proceso: {@code littlecms}.
+         */
+        String colorEngine
 ) {
     public InkCoverageAnalysis {
         pagesAnalyzed = pagesAnalyzed == null ? List.of() : List.copyOf(pagesAnalyzed);
         processInks = processInks == null ? List.of() : List.copyOf(processInks);
         spotInks = spotInks == null ? List.of() : List.copyOf(spotInks);
         declaredSpotColorNames = declaredSpotColorNames == null ? List.of() : List.copyOf(declaredSpotColorNames);
+        if (colorEngine == null || colorEngine.isBlank()) {
+            colorEngine = "littlecms";
+        }
     }
 
     /** Compatibilidad tests/raster. */
@@ -57,7 +65,8 @@ public record InkCoverageAnalysis(
                 List.of(),
                 false,
                 !spotInks.isEmpty(),
-                List.of()
+                List.of(),
+                "littlecms"
         );
     }
 
@@ -80,7 +89,36 @@ public record InkCoverageAnalysis(
                 pagesAnalyzed,
                 false,
                 spotInks != null && !spotInks.isEmpty(),
-                List.of()
+                List.of(),
+                "littlecms"
+        );
+    }
+
+    /** Compatibilidad tests con inventario/spots y sin colorEngine. */
+    public InkCoverageAnalysis(
+            int widthPx,
+            int heightPx,
+            int dpiUsed,
+            String iccProfileUsed,
+            List<RawInkCoverage> processInks,
+            List<RawInkCoverage> spotInks,
+            List<Integer> pagesAnalyzed,
+            boolean spotInventoryVerified,
+            boolean hasSpotColors,
+            List<String> declaredSpotColorNames
+    ) {
+        this(
+                widthPx,
+                heightPx,
+                dpiUsed,
+                iccProfileUsed,
+                processInks,
+                spotInks,
+                pagesAnalyzed,
+                spotInventoryVerified,
+                hasSpotColors,
+                declaredSpotColorNames,
+                "littlecms"
         );
     }
 

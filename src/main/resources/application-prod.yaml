@@ -141,6 +141,10 @@ security:
 # Caché de perfiles ICC (memory por defecto; redis solo si refresh-token.store.type=redis)
 inkcore:
   color-conversion:
+    # Defaults comerciales (brillo/croma). CTP: COLOR_BRIGHTNESS_LIFT=0 COLOR_VIBRANCE_BOOST=0 COLOR_SOFT_PROOF_BRIGHTNESS_MATCH=false
+    brightness-lift: ${COLOR_BRIGHTNESS_LIFT:0.12}
+    vibrance-boost: ${COLOR_VIBRANCE_BOOST:0.28}
+    soft-proof-brightness-match: ${COLOR_SOFT_PROOF_BRIGHTNESS_MATCH:true}
     icc-cache:
       type: ${ICC_CACHE_TYPE:memory}
       ttl-seconds: ${ICC_CACHE_TTL_SECONDS:86400}

@@ -24,14 +24,14 @@ public interface JpaUserRepository extends JpaRepository<UserEntity, String> {
     Optional<UserEntity> findByIdWithRoles(@Param("id") String id);
 
     /**
-     * Login: igualdad case-insensitive sobre mail ya normalizado (trim en adapter).
-     * Evita TRIM() sobre la columna para poder usar índice funcional LOWER(mail).
+     * Login: mail ya viene trim+lower desde el adapter.
+     * Usa índice funcional {@code idx_users_mail_lower} (LOWER(mail) = :mail).
      */
     @Query("""
             SELECT DISTINCT u FROM UserEntity u
             LEFT JOIN FETCH u.roles r
             LEFT JOIN FETCH r.permissions
-            WHERE LOWER(u.mail) = LOWER(:mail)
+            WHERE LOWER(u.mail) = :mail
             """)
     Optional<UserEntity> findByMailFetchRoles(@Param("mail") String mail);
 
@@ -60,7 +60,11 @@ public interface JpaUserRepository extends JpaRepository<UserEntity, String> {
     @Query("UPDATE UserEntity u SET u.lastLoginAt = :at WHERE u.userId = :id")
     void updateLastLoginAt(@Param("id") String id, @Param("at") LocalDateTime at);
 
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    /**
+     * Update puntual en TX corta del adapter. Sin flush automático del PC completo:
+     * el método suele ser la única operación de la transacción.
+     */
+    @Modifying(clearAutomatically = true)
     @Query("""
             UPDATE UserEntity u
             SET u.failedAttempts = :failedAttempts,

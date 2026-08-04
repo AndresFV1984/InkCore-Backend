@@ -3,16 +3,16 @@ package com.inkcore.infrastructure.out.colorconversion;
 import java.awt.color.ColorSpace;
 
 /**
- * ColorSpace CMYK ligero solo para <em>escribir</em> TIFF ya convertido.
+ * ColorSpace CMYK ligero solo para <em>escribir</em> / buffers ya convertidos.
  * Evita colgar TwelveMonkeys/ImageIO al serializar perfiles ICC grandes (FOGRA ~200KB)
  * desde un {@link java.awt.color.ICC_ColorSpace} en el ColorModel.
  * <p>
- * Los valores de píxel ya fueron convertidos con el perfil ICC real; este espacio
- * no se usa para ColorConvertOp de producción.
+ * Los valores de píxel ya fueron convertidos con el perfil ICC real (LittleCMS);
+ * este espacio no ejecuta la conversión de producción.
  */
-final class DeviceCmykColorSpace extends ColorSpace {
+public final class DeviceCmykColorSpace extends ColorSpace {
 
-    static final DeviceCmykColorSpace INSTANCE = new DeviceCmykColorSpace();
+    public static final DeviceCmykColorSpace INSTANCE = new DeviceCmykColorSpace();
 
     private DeviceCmykColorSpace() {
         super(TYPE_CMYK, 4);

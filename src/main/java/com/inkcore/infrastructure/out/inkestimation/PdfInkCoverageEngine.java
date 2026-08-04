@@ -103,15 +103,22 @@ final class PdfInkCoverageEngine extends PDFGraphicsStreamEngine {
         AffineTransform at = ctm.createAffineTransform();
         // Imagen unitaria 0..1 en espacio de usuario del XObject
         Shape imageRect = at.createTransformedShape(new Rectangle2D.Float(0, 0, 1, 1));
-        Area painted = clipToCurrent(new Area(imageRect));
-        double paintedArea = Math.abs(areaOf(painted));
+        double paintedArea = clippedAreaFast(imageRect);
         if (paintedArea <= 0) {
             return;
         }
 
-        PDColorSpace cs = image.getColorSpace();
-        if (cs instanceof PDDeviceCMYK
-                || (cs instanceof PDICCBased icc && icc.getNumberOfComponents() == 4)) {
+        PDColorSpace cs;
+        try {
+            cs = image.getColorSpace();
+        } catch (Exception ex) {
+            // ICC embebido inválido: estimar vía raster crudo/RGB seguro
+            accumulateRgbImageSafe(image, paintedArea);
+            return;
+        }
+
+        Integer iccComponents = iccComponentCount(cs);
+        if (cs instanceof PDDeviceCMYK || (iccComponents != null && iccComponents == 4)) {
             accumulateNativeCmykImage(image, paintedArea);
             return;
         }
@@ -120,7 +127,13 @@ final class PdfInkCoverageEngine extends PDFGraphicsStreamEngine {
             return;
         }
         // Indexed / Pattern con Separation debajo
-        PDColorSpace unwrapped = PdfSpotColorSpaces.unwrap(cs);
+        PDColorSpace unwrapped;
+        try {
+            unwrapped = PdfSpotColorSpaces.unwrap(cs);
+        } catch (Exception ex) {
+            accumulateRgbImageSafe(image, paintedArea);
+            return;
+        }
         if (unwrapped instanceof PDSeparation sep) {
             accumulateSeparationImage(image, sep, paintedArea);
             return;
@@ -133,16 +146,8 @@ final class PdfInkCoverageEngine extends PDFGraphicsStreamEngine {
             accumulateDeviceNImage(image, deviceN, paintedArea);
             return;
         }
-        // RGB / Gray / otros: decode con subsampling + ICC por lote
-        int w = Math.max(1, image.getWidth());
-        int h = Math.max(1, image.getHeight());
-        int maxEdge = Math.max(w, h);
-        int subsample = maxEdge <= 512 ? 1 : (int) Math.ceil(maxEdge / 512.0);
-        BufferedImage rgb = image.getImage(null, subsample);
-        if (rgb == null) {
-            return;
-        }
-        accumulateRgbImage(rgb, paintedArea);
+        // RGB / Gray / ICC RGB/Gray / otros: decode tolerante a ICC inválido
+        accumulateRgbImageSafe(image, paintedArea);
     }
 
     @Override
@@ -263,8 +268,7 @@ final class PdfInkCoverageEngine extends PDFGraphicsStreamEngine {
         if (bounds.getWidth() <= 0 || bounds.getHeight() <= 0) {
             return;
         }
-        Area painted = clipToCurrent(new Area(bounds));
-        double a = Math.abs(areaOf(painted));
+        double a = clippedAreaFast(bounds);
         if (a <= 0) {
             return;
         }
@@ -292,26 +296,53 @@ final class PdfInkCoverageEngine extends PDFGraphicsStreamEngine {
         if (shape == null || color == null) {
             return;
         }
-        Area painted = clipToCurrent(new Area(shape));
-        double a = Math.abs(areaOf(painted));
+        double a = clippedAreaFast(shape);
         if (a <= 0) {
             return;
         }
         applyColor(color, a);
     }
 
+    /**
+     * Área pintada tras clip. Evita crear {@link Area} / intersect cuando el clip
+     * no recorta (caso típico: clip = página). Misma geometría que antes cuando sí hay corte.
+     */
+    private double clippedAreaFast(Shape shape) {
+        Area clip = getGraphicsState().getCurrentClippingPath();
+        if (clip == null || clip.isEmpty()) {
+            return Math.abs(areaOfShape(shape));
+        }
+        Rectangle2D bounds = shape.getBounds2D();
+        if (bounds.getWidth() > 0 && bounds.getHeight() > 0 && clip.contains(bounds)) {
+            return Math.abs(areaOfShape(shape));
+        }
+        Area painted = new Area(shape);
+        painted.intersect(clip);
+        return Math.abs(areaOf(painted));
+    }
+
     private void applyColor(PDColor color, double area) throws IOException {
         if (color == null) {
             return;
         }
-        PDColorSpace cs = PdfSpotColorSpaces.unwrap(color.getColorSpace());
-        float[] components = color.getComponents();
+        PDColorSpace cs;
+        float[] components;
+        try {
+            cs = PdfSpotColorSpaces.unwrap(color.getColorSpace());
+            components = color.getComponents();
+        } catch (Exception ex) {
+            return;
+        }
         if (cs instanceof PDSeparation sep) {
             float tint = components.length > 0 ? components[0] : 1f;
             // Indexed→Separation: el componente es índice; si venía de Indexed ya unwrapeamos
             // y los componentes pueden no ser tint 0–1. Si el color original era Indexed, tint≈1 en práctica.
-            if (color.getColorSpace() instanceof PDIndexed) {
-                tint = 1f;
+            try {
+                if (color.getColorSpace() instanceof PDIndexed) {
+                    tint = 1f;
+                }
+            } catch (Exception ignored) {
+                // espacio original ilegible
             }
             applySeparation(sep, tint, area);
             return;
@@ -334,18 +365,19 @@ final class PdfInkCoverageEngine extends PDFGraphicsStreamEngine {
             addProcess(new float[]{0, 0, 0, 1f - g}, area);
             return;
         }
-        if (cs instanceof PDDeviceRGB || (cs instanceof PDICCBased icc && icc.getNumberOfComponents() == 3)) {
+        Integer iccN = iccComponentCount(cs);
+        if (cs instanceof PDDeviceRGB || (iccN != null && iccN == 3)) {
             float r = components.length > 0 ? components[0] : 0f;
             float g = components.length > 1 ? components[1] : 0f;
             float b = components.length > 2 ? components[2] : 0f;
             addProcess(rgbToCmyk.toCmyk(r, g, b), area);
             return;
         }
-        if (cs instanceof PDICCBased icc && icc.getNumberOfComponents() == 4) {
+        if (iccN != null && iccN == 4) {
             addProcess(components, area);
             return;
         }
-        if (cs instanceof PDICCBased icc && icc.getNumberOfComponents() == 1) {
+        if (iccN != null && iccN == 1) {
             float g = components.length > 0 ? components[0] : 0f;
             addProcess(new float[]{0, 0, 0, 1f - g}, area);
             return;
@@ -354,7 +386,7 @@ final class PdfInkCoverageEngine extends PDFGraphicsStreamEngine {
             float[] rgb = color.getColorSpace().toRGB(components);
             addProcess(rgbToCmyk.toCmyk(rgb[0], rgb[1], rgb[2]), area);
         } catch (Exception ignored) {
-            // color no resoluble
+            // color no resoluble / ICC inválido
         }
     }
 
@@ -424,12 +456,15 @@ final class PdfInkCoverageEngine extends PDFGraphicsStreamEngine {
     }
 
     private void accumulateNativeCmykImage(PDImageXObject image, double paintedArea) throws IOException {
-        WritableRaster raw = image.getRawRaster();
+        WritableRaster raw;
+        try {
+            raw = image.getRawRaster();
+        } catch (Exception ex) {
+            accumulateRgbImageSafe(image, paintedArea);
+            return;
+        }
         if (raw == null) {
-            BufferedImage fallback = image.getImage();
-            if (fallback != null) {
-                accumulateRgbImage(fallback, paintedArea);
-            }
+            accumulateRgbImageSafe(image, paintedArea);
             return;
         }
         int bands = Math.min(4, raw.getNumBands());
@@ -457,13 +492,17 @@ final class PdfInkCoverageEngine extends PDFGraphicsStreamEngine {
 
     private void accumulateSeparationImage(PDImageXObject image, PDSeparation sep, double paintedArea)
             throws IOException {
-        WritableRaster raw = image.getRawRaster();
-        double meanTint;
-        if (raw != null) {
-            meanTint = meanBand(raw, 0);
-        } else {
-            BufferedImage img = image.getImage();
-            meanTint = img == null ? 0 : meanBand(img.getRaster(), 0);
+        double meanTint = 0;
+        try {
+            WritableRaster raw = image.getRawRaster();
+            if (raw != null) {
+                meanTint = meanBand(raw, 0);
+            } else {
+                BufferedImage img = decodeImageIgnoringBadIcc(image, 1);
+                meanTint = img == null ? 0 : meanBand(img.getRaster(), 0);
+            }
+        } catch (Exception ignored) {
+            meanTint = 0;
         }
         applySeparation(sep, (float) meanTint, paintedArea);
     }
@@ -490,6 +529,85 @@ final class PdfInkCoverageEngine extends PDFGraphicsStreamEngine {
         }
     }
 
+    private void accumulateRgbImageSafe(PDImageXObject image, double paintedArea) {
+        int w = Math.max(1, image.getWidth());
+        int h = Math.max(1, image.getHeight());
+        int maxEdge = Math.max(w, h);
+        int subsample = maxEdge <= 512 ? 1 : (int) Math.ceil(maxEdge / 512.0);
+        BufferedImage rgb = decodeImageIgnoringBadIcc(image, subsample);
+        if (rgb == null) {
+            return;
+        }
+        accumulateRgbImage(rgb, paintedArea);
+    }
+
+    /**
+     * Decodifica imagen tolerando perfiles ICC embebidos corruptos
+     * ({@code CMMException: Invalid ICC Profile Data}).
+     */
+    private static BufferedImage decodeImageIgnoringBadIcc(PDImageXObject image, int subsample) {
+        try {
+            return image.getImage(null, subsample);
+        } catch (Exception ignored) {
+            // continuar con fallbacks
+        }
+        try {
+            return image.getOpaqueImage(null, subsample);
+        } catch (Exception ignored) {
+            // continuar
+        }
+        try {
+            return rgbFromRawRaster(image);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private static BufferedImage rgbFromRawRaster(PDImageXObject image) throws IOException {
+        WritableRaster raw = image.getRawRaster();
+        if (raw == null) {
+            return null;
+        }
+        int w = raw.getWidth();
+        int h = raw.getHeight();
+        int bands = raw.getNumBands();
+        double max = sampleMax(raw);
+        BufferedImage out = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int r;
+                int g;
+                int b;
+                if (bands >= 3) {
+                    r = clamp255Byte(raw.getSample(x, y, 0) / max);
+                    g = clamp255Byte(raw.getSample(x, y, 1) / max);
+                    b = clamp255Byte(raw.getSample(x, y, 2) / max);
+                } else {
+                    int gray = clamp255Byte(raw.getSample(x, y, 0) / max);
+                    r = g = b = gray;
+                }
+                out.setRGB(x, y, (r << 16) | (g << 8) | b);
+            }
+        }
+        return out;
+    }
+
+    /** null si no es ICC o si el perfil es ilegible. */
+    private static Integer iccComponentCount(PDColorSpace cs) {
+        if (!(cs instanceof PDICCBased icc)) {
+            return null;
+        }
+        try {
+            return icc.getNumberOfComponents();
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    private static int clamp255Byte(double v01) {
+        return Math.max(0, Math.min(255, (int) Math.round(v01 * 255.0)));
+    }
+
     private Area clipToCurrent(Area shape) {
         Area clip = getGraphicsState().getCurrentClippingPath();
         if (clip == null || clip.isEmpty()) {
@@ -503,6 +621,25 @@ final class PdfInkCoverageEngine extends PDFGraphicsStreamEngine {
         Area out = new Area(shape);
         out.intersect(clip);
         return out;
+    }
+
+    private static double areaOfShape(Shape shape) {
+        if (shape == null) {
+            return 0;
+        }
+        if (shape instanceof Rectangle2D rect) {
+            return Math.abs(rect.getWidth() * rect.getHeight());
+        }
+        Rectangle2D bounds = shape.getBounds2D();
+        if (shape instanceof Area area) {
+            return areaOf(area);
+        }
+        // Path directo (sin envolver en Area): mismo shoelace que antes
+        double shoelace = Math.abs(shoelace(shape));
+        if (shoelace <= 0) {
+            return Math.abs(bounds.getWidth() * bounds.getHeight());
+        }
+        return shoelace;
     }
 
     private static double areaOf(Area area) {

@@ -66,7 +66,7 @@ public class SellerController {
     }
 
     @PostMapping("/register")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "registerSeller",
             summary = "Crea un vendedor nuevo.",
@@ -153,7 +153,7 @@ public class SellerController {
     }
 
     @PutMapping("/update/{sellerId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "updateSeller",
             summary = "Actualiza los datos de un vendedor existente.",
@@ -240,7 +240,7 @@ public class SellerController {
     }
 
     @GetMapping("/list")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "listSellers",
             summary = "Obtiene el listado paginado de vendedores.",
@@ -316,7 +316,7 @@ public class SellerController {
     }
 
     @GetMapping("/get/{sellerId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "getSeller",
             summary = "Consulta el detalle de un vendedor por su identificador.",

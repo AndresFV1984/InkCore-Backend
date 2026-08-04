@@ -66,7 +66,7 @@ public class CutLayoutController {
     }
 
     @PostMapping("/register")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "registerCutLayout",
             summary = "Crea un despiece nuevo.",
@@ -143,7 +143,7 @@ public class CutLayoutController {
     }
 
     @PutMapping("/update/{cutLayoutId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "updateCutLayout",
             summary = "Actualiza los datos de un despiece existente.",
@@ -220,7 +220,7 @@ public class CutLayoutController {
     }
 
     @GetMapping("/list")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "listCutLayouts",
             summary = "Obtiene el listado paginado de despieces.",
@@ -289,7 +289,7 @@ public class CutLayoutController {
     }
 
     @GetMapping("/get/{cutLayoutId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "getCutLayout",
             summary = "Consulta el detalle de un despiece por su identificador.",

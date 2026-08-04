@@ -1,105 +1,195 @@
 package com.inkcore.infrastructure.out.inkestimation;
 
+import com.inkcore.domain.colorconversion.model.RenderingIntent;
+import com.inkcore.domain.inkestimation.exception.InkEstimationFailedException;
 import com.inkcore.infrastructure.out.colorconversion.IccProfileLoader;
+import com.inkcore.infrastructure.out.colorconversion.lcms.LcmsRgbToCmykSession;
+import com.inkcore.infrastructure.out.colorconversion.lcms.LittleCmsColorConverter;
+import com.inkcore.infrastructure.out.colorconversion.lcms.LcmsNativeUnavailableException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
-import java.awt.Transparency;
-import java.awt.color.ICC_ColorSpace;
-import java.awt.color.ICC_Profile;
 import java.awt.image.BufferedImage;
-import java.awt.image.ColorConvertOp;
-import java.awt.image.ComponentColorModel;
 import java.awt.image.DataBuffer;
 import java.awt.image.WritableRaster;
 import java.util.HashMap;
 import java.util.Map;
 
 /**
- * RGB→CMYK orientado a estimación de tinta (rápido): perfiles ICC cargados una vez,
- * conversión por ColorSpace (vectores) + ColorConvertOp por imagen (raster),
- * caché por RGB empaquetado. No aplica vibrance/soft-proof (innecesario para cobertura %).
+ * RGB→CMYK orientado a estimación: sesión LittleCMS reutilizable + downscale + BPC.
+ * La media CMYK muestrea los mismos puntos que antes, pero solo convierte esos píxeles (misma calidad, menos CPU).
  */
-final class FastInkRgbToCmyk implements RgbToCmykConverter {
+final class FastInkRgbToCmyk implements RgbToCmykConverter, AutoCloseable {
 
-    /** Máximo lado al muestrear imágenes RGB embebidas en PDF. */
-    static final int DEFAULT_IMAGE_MAX_EDGE = 512;
+    private static final Logger log = LoggerFactory.getLogger(FastInkRgbToCmyk.class);
 
-    /** Tope de píxeles al estimar raster de alta resolución. */
-    static final int DEFAULT_RASTER_MAX_PIXELS = 1_000_000;
+    static final int DEFAULT_IMAGE_MAX_EDGE = 1024;
+    static final int DEFAULT_RASTER_MAX_PIXELS = 2_000_000;
 
-    private final ICC_ColorSpace srgbCs;
-    private final ICC_ColorSpace cmykCs;
-    private final ColorConvertOp imageOp;
+    private final LcmsRgbToCmykSession session;
     private final Map<Integer, float[]> colorCache = new HashMap<>(4096);
     private final int imageMaxEdge;
+    private boolean closed;
 
-    FastInkRgbToCmyk(IccProfileLoader loader, String destinationIccProfile, int imageMaxEdge) {
-        ICC_Profile srgb = ICC_Profile.getInstance(loader.loadProfileBytes("sRGB.icc"));
-        ICC_Profile cmyk = ICC_Profile.getInstance(loader.loadProfileBytes(destinationIccProfile));
-        this.srgbCs = new ICC_ColorSpace(srgb);
-        this.cmykCs = new ICC_ColorSpace(cmyk);
-        this.imageOp = new ColorConvertOp(srgbCs, cmykCs, null);
+    FastInkRgbToCmyk(
+            IccProfileLoader loader,
+            LittleCmsColorConverter littleCms,
+            String destinationIccProfile,
+            int imageMaxEdge,
+            boolean blackPointCompensation
+    ) {
+        if (littleCms == null || !littleCms.isNativeAvailable()) {
+            throw new LcmsNativeUnavailableException(
+                    "LittleCMS (lcms2) no está disponible para estimación de tinta. "
+                            + "Verifique que las nativas estén empaquetadas en el JAR."
+            );
+        }
         this.imageMaxEdge = Math.max(64, imageMaxEdge);
+        byte[] srgbIcc;
+        byte[] cmykIcc;
+        try {
+            srgbIcc = loader.loadProfileBytes("sRGB.icc");
+            cmykIcc = loader.loadProfileBytes(destinationIccProfile);
+        } catch (Exception ex) {
+            throw new InkEstimationFailedException(
+                    "Perfiles ICC no disponibles para estimación: " + ex.getMessage(), ex
+            );
+        }
+        if (srgbIcc == null || srgbIcc.length == 0 || cmykIcc == null || cmykIcc.length == 0) {
+            throw new InkEstimationFailedException(
+                    "Perfiles ICC vacíos o ausentes para estimación (sRGB / " + destinationIccProfile + ")"
+            );
+        }
+        this.session = littleCms.openRgbToCmykSession(
+                srgbIcc, cmykIcc, RenderingIntent.PERCEPTUAL, blackPointCompensation
+        );
+        log.debug(
+                "Estimación RGB→CMYK lista (sesión LittleCMS, BPC={}, maxEdge={})",
+                blackPointCompensation, this.imageMaxEdge
+        );
     }
 
-    FastInkRgbToCmyk(IccProfileLoader loader, String destinationIccProfile) {
-        this(loader, destinationIccProfile, DEFAULT_IMAGE_MAX_EDGE);
+    FastInkRgbToCmyk(
+            IccProfileLoader loader,
+            LittleCmsColorConverter littleCms,
+            String destinationIccProfile,
+            int imageMaxEdge
+    ) {
+        this(loader, littleCms, destinationIccProfile, imageMaxEdge, true);
     }
 
+    FastInkRgbToCmyk(IccProfileLoader loader, LittleCmsColorConverter littleCms, String destinationIccProfile) {
+        this(loader, littleCms, destinationIccProfile, DEFAULT_IMAGE_MAX_EDGE, true);
+    }
+
+    String colorEngine() {
+        return LittleCmsColorConverter.ENGINE_LITTLECMS;
+    }
+
+    boolean isLcmsReady() {
+        return true;
+    }
+
+    /**
+     * CMYK 0–1. El array devuelto es de solo lectura (caché interna); no mutar.
+     */
     @Override
     public float[] toCmyk(float r, float g, float b) {
+        ensureOpen();
         int ri = clamp255(Math.round(r * 255f));
         int gi = clamp255(Math.round(g * 255f));
         int bi = clamp255(Math.round(b * 255f));
         int key = (ri << 16) | (gi << 8) | bi;
         float[] cached = colorCache.get(key);
         if (cached != null) {
-            return cached.clone();
+            return cached;
         }
-        float[] xyz = srgbCs.toCIEXYZ(new float[]{ri / 255f, gi / 255f, bi / 255f});
-        float[] cmyk = cmykCs.fromCIEXYZ(xyz);
-        for (int i = 0; i < 4; i++) {
-            cmyk[i] = clamp01(cmyk[i]);
-        }
+        float[] cmyk = session.rgbToCmyk01(ri / 255f, gi / 255f, bi / 255f);
         if (colorCache.size() < 65_536) {
             colorCache.put(key, cmyk);
         }
-        return cmyk.clone();
+        return cmyk;
     }
 
     @Override
     public double[] meanCmyk01FromRgbImage(BufferedImage rgb) {
-        return meanCmyk01(rgb);
+        return meanCmyk01(rgb, true);
     }
 
     /**
-     * Cobertura media C/M/Y/K (0–1) de una imagen RGB, con downscale + una sola conversión ICC.
+     * Media CMYK 0–1. Si {@code applyMaxEdge}, reduce al lado máximo configurado (PDF embebidas).
+     * Misma grilla de muestreo que {@link #meanChannels01}: convierte solo esos píxeles.
      */
-    double[] meanCmyk01(BufferedImage rgb) {
+    double[] meanCmyk01(BufferedImage rgb, boolean applyMaxEdge) {
+        ensureOpen();
         if (rgb == null || rgb.getWidth() <= 0 || rgb.getHeight() <= 0) {
             return new double[]{0, 0, 0, 0};
         }
-        BufferedImage scaled = scaleDown(rgb, imageMaxEdge);
+        BufferedImage scaled = applyMaxEdge ? scaleDown(rgb, imageMaxEdge) : rgb;
         BufferedImage working = toIntRgb(scaled);
-        BufferedImage cmyk = createCmykImage(working.getWidth(), working.getHeight());
-        imageOp.filter(working, cmyk);
-        return meanChannels01(cmyk.getRaster());
+        return meanFromRgbSamples(working);
     }
 
     /**
-     * Prepara un raster grande para estimación: downscale por tope de píxeles + ICC si no es CMYK.
-     * CMYK nativo no se remuestrea por Graphics2D (perdería canales); el mean ya usa step.
+     * Prepara raster RGB para cobertura: solo escala (sin convertir toda la imagen).
+     * Usar {@link #meanCmyk01(BufferedImage, boolean)} para la media.
      */
-    BufferedImage prepareRasterForCoverage(BufferedImage source, boolean alreadyCmyk, int maxPixels) {
-        if (alreadyCmyk) {
-            return source;
+    BufferedImage prepareRgbForCoverage(BufferedImage source, int maxPixels) {
+        return toIntRgb(scaleToMaxPixels(source, maxPixels));
+    }
+
+    private double[] meanFromRgbSamples(BufferedImage rgb) {
+        int w = rgb.getWidth();
+        int h = rgb.getHeight();
+        int step = sampleStep(w, h);
+        int samplesX = (w + step - 1) / step;
+        int samplesY = (h + step - 1) / step;
+        int count = samplesX * samplesY;
+        if (count <= 0) {
+            return new double[]{0, 0, 0, 0};
         }
-        BufferedImage scaled = scaleToMaxPixels(source, maxPixels);
-        BufferedImage working = toIntRgb(scaled);
-        BufferedImage cmyk = createCmykImage(working.getWidth(), working.getHeight());
-        imageOp.filter(working, cmyk);
-        return cmyk;
+        byte[] in = new byte[count * 3];
+        int o = 0;
+        for (int y = 0; y < h; y += step) {
+            for (int x = 0; x < w; x += step) {
+                int px = rgb.getRGB(x, y);
+                in[o++] = (byte) ((px >> 16) & 0xff);
+                in[o++] = (byte) ((px >> 8) & 0xff);
+                in[o++] = (byte) (px & 0xff);
+            }
+        }
+        byte[] out = new byte[count * 4];
+        session.transformRgb8ToCmyk8(in, out, count);
+        double sumC = 0;
+        double sumM = 0;
+        double sumY = 0;
+        double sumK = 0;
+        for (int i = 0; i < count; i++) {
+            int base = i * 4;
+            sumC += (out[base] & 0xff) / 255.0;
+            sumM += (out[base + 1] & 0xff) / 255.0;
+            sumY += (out[base + 2] & 0xff) / 255.0;
+            sumK += (out[base + 3] & 0xff) / 255.0;
+        }
+        return new double[]{sumC / count, sumM / count, sumY / count, sumK / count};
+    }
+
+    @Override
+    public void close() {
+        if (closed) {
+            return;
+        }
+        closed = true;
+        session.close();
+        colorCache.clear();
+    }
+
+    private void ensureOpen() {
+        if (closed) {
+            throw new IllegalStateException("FastInkRgbToCmyk ya cerrado");
+        }
     }
 
     private static BufferedImage scaleDown(BufferedImage source, int maxEdge) {
@@ -139,10 +229,8 @@ final class FastInkRgbToCmyk implements RgbToCmykConverter {
     }
 
     private static BufferedImage toIntRgb(BufferedImage source) {
-        if (source.getType() == BufferedImage.TYPE_INT_RGB || source.getType() == BufferedImage.TYPE_INT_ARGB) {
-            if (source.getType() == BufferedImage.TYPE_INT_RGB) {
-                return source;
-            }
+        if (source.getType() == BufferedImage.TYPE_INT_RGB) {
+            return source;
         }
         BufferedImage rgb = new BufferedImage(source.getWidth(), source.getHeight(), BufferedImage.TYPE_INT_RGB);
         Graphics2D g = rgb.createGraphics();
@@ -154,30 +242,20 @@ final class FastInkRgbToCmyk implements RgbToCmykConverter {
         return rgb;
     }
 
-    private BufferedImage createCmykImage(int w, int h) {
-        int[] bits = {8, 8, 8, 8};
-        ComponentColorModel model = new ComponentColorModel(
-                cmykCs, bits, false, false, Transparency.OPAQUE, DataBuffer.TYPE_BYTE
-        );
-        WritableRaster raster = model.createCompatibleWritableRaster(w, h);
-        return new BufferedImage(model, raster, false, null);
-    }
-
     static double[] meanChannels01(WritableRaster raster) {
         int w = raster.getWidth();
         int h = raster.getHeight();
         int bands = Math.min(4, raster.getNumBands());
-        boolean ushort = raster.getDataBuffer().getDataType() == DataBuffer.TYPE_USHORT;
-        double max = ushort ? 65535.0 : 255.0;
         int step = sampleStep(w, h);
         double[] sum = new double[4];
         long counted = 0;
-        int[] pixel = new int[Math.max(4, bands)];
+        int[] px = new int[Math.max(4, bands)];
+        int max = raster.getDataBuffer().getDataType() == DataBuffer.TYPE_USHORT ? 65535 : 255;
         for (int y = 0; y < h; y += step) {
             for (int x = 0; x < w; x += step) {
-                raster.getPixel(x, y, pixel);
+                raster.getPixel(x, y, px);
                 for (int b = 0; b < 4; b++) {
-                    sum[b] += (b < bands ? pixel[b] : 0) / max;
+                    sum[b] += b < bands ? (px[b] / (double) max) : 0;
                 }
                 counted++;
             }
@@ -197,22 +275,15 @@ final class FastInkRgbToCmyk implements RgbToCmykConverter {
             return 2;
         }
         if (pixels <= 4_000_000L) {
-            return 4;
+            return 3;
         }
-        return Math.max(8, (int) Math.ceil(Math.sqrt(pixels / 250_000.0)));
-    }
-
-    private static float clamp01(float v) {
-        if (v < 0f) {
-            return 0f;
-        }
-        if (v > 1f) {
-            return 1f;
-        }
-        return v;
+        return 4;
     }
 
     private static int clamp255(int v) {
-        return Math.max(0, Math.min(255, v));
+        if (v < 0) {
+            return 0;
+        }
+        return Math.min(255, v);
     }
 }

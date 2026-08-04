@@ -82,8 +82,10 @@ class ConvertColorSpaceServiceTest {
         byte[] output = new byte[]{4, 5, 6, 7};
         RasterImageInfo info = new RasterImageInfo(10, 20, 300.0, 300.0, 8, "LZW", 1);
         when(imageColorConverter.readInfo(eq(input), anyString())).thenReturn(info);
-        when(imageColorConverter.convertToCmykTiff(any(), anyString(), anyString())).thenReturn(output);
+        when(imageColorConverter.convertToCmykTiff(any(), anyString(), anyString()))
+                .thenReturn(new com.inkcore.domain.colorconversion.model.CmykTiffConversion(output, new byte[]{(byte) 0xFF, (byte) 0xD8}));
         when(imageColorConverter.readTiffInfo(output)).thenReturn(info);
+        lenient().when(imageColorConverter.softProofRgbJpeg(any(), any(Float.class))).thenReturn(new byte[]{(byte) 0xFF, (byte) 0xD8});
         when(conversionHistoryRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         ConversionResult result = service.convert(new ConversionRequest(
@@ -93,9 +95,10 @@ class ConvertColorSpaceServiceTest {
         assertEquals("sample_CMYK.tif", result.getOutputFileName());
         assertEquals(4, result.getFinalSizeBytes());
         assertEquals(10, result.getWidthPx());
-        assertEquals(0f, result.getBrightnessLift(), 0.0001f);
-        assertEquals(0f, result.getVibranceBoost(), 0.0001f);
-        assertEquals(false, result.isSoftProofBrightnessMatch());
+        assertEquals(0.12f, result.getBrightnessLift(), 0.0001f);
+        assertEquals(0.28f, result.getVibranceBoost(), 0.0001f);
+        assertEquals(true, result.isSoftProofBrightnessMatch());
+        assertEquals(2, result.getPreviewRgbBytes().length);
         ArgumentCaptor<ConversionHistory> captor = ArgumentCaptor.forClass(ConversionHistory.class);
         verify(conversionHistoryRepository).save(captor.capture());
         assertEquals("user-1", captor.getValue().getUserId());
@@ -107,8 +110,10 @@ class ConvertColorSpaceServiceTest {
         byte[] output = new byte[]{4, 5, 6, 7};
         RasterImageInfo info = new RasterImageInfo(10, 20, 300.0, 300.0, 8, "LZW", 1);
         when(imageColorConverter.readInfo(eq(input), anyString())).thenReturn(info);
-        when(imageColorConverter.convertToCmykTiff(any(), anyString(), anyString())).thenReturn(output);
+        when(imageColorConverter.convertToCmykTiff(any(), anyString(), anyString()))
+                .thenReturn(new com.inkcore.domain.colorconversion.model.CmykTiffConversion(output, new byte[]{1}));
         when(imageColorConverter.readTiffInfo(output)).thenReturn(info);
+        lenient().when(imageColorConverter.softProofRgbJpeg(any(), any(Float.class))).thenReturn(new byte[]{1});
         when(conversionHistoryRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         ConversionResult result = service.convert(new ConversionRequest(
@@ -128,7 +133,10 @@ class ConvertColorSpaceServiceTest {
         RasterImageInfo info = new RasterImageInfo(10, 20, 300.0, 300.0, 8, "LZW", 1);
         RasterImageInfo pdfInfo = new RasterImageInfo(10, 20, 300.0, 300.0, 8, "Flate", 1);
         when(imageColorConverter.readInfo(eq(input), anyString())).thenReturn(info);
-        when(pdfColorConverter.convertRasterImageToCmykPdf(any(), anyString(), anyString())).thenReturn(output);
+        when(pdfColorConverter.convertRasterImageToCmykPdf(any(), anyString(), anyString()))
+                .thenReturn(new com.inkcore.domain.colorconversion.model.CmykPdfConversion(
+                        output, new byte[]{(byte) 0xFF, (byte) 0xD8}, 0.98
+                ));
         when(pdfColorConverter.readInfo(output)).thenReturn(pdfInfo);
         when(conversionHistoryRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -138,6 +146,8 @@ class ConvertColorSpaceServiceTest {
 
         assertEquals("sample_CMYK.pdf", result.getOutputFileName());
         assertEquals("application/pdf", result.getOutputMimeType());
+        assertEquals(2, result.getPreviewRgbBytes().length);
+        assertEquals(0.98, result.getSoftProofLumaRatio(), 0.0001);
         verify(pdfColorConverter).convertRasterImageToCmykPdf(any(), anyString(), anyString());
     }
 
@@ -150,6 +160,7 @@ class ConvertColorSpaceServiceTest {
         when(pdfColorConverter.readInfo(input)).thenReturn(pdfInfo);
         when(pdfColorConverter.convertPdfToCmykTiff(any(), anyString(), anyString())).thenReturn(output);
         when(imageColorConverter.readTiffInfo(output)).thenReturn(tiffInfo);
+        lenient().when(imageColorConverter.softProofRgbJpeg(any(), any(Float.class))).thenReturn(new byte[]{1});
         when(conversionHistoryRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         ConversionResult result = service.convert(new ConversionRequest(

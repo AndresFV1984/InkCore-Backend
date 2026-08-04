@@ -41,7 +41,10 @@ import java.util.Locale;
 @RequestMapping("/api/v1/ink-estimates")
 @Tag(
         name = "Estimación de tinta",
-        description = "Consumo CMYK + spots Separation/DeviceN (PDFBox + ICC libres; factores g/cm² por canal; sin RIP de pago)"
+        description = """
+                Consumo CMYK + spots Separation/DeviceN (PDFBox + LittleCMS para RGB→CMYK;
+                factores g/cm² por canal; sin RIP de pago). Respuesta incluye colorEngine.
+                """
 )
 @SecurityRequirement(name = "bearerAuth")
 public class InkEstimateController {
@@ -65,7 +68,7 @@ public class InkEstimateController {
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE
     )
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "estimateInkConsumption",
             summary = "Estimar consumo de tinta",
@@ -77,10 +80,14 @@ public class InkEstimateController {
                     **PDF (PDFBox Apache 2.0)**
                     - Vectores/texto DeviceCMYK, Separation y DeviceN (área × tint)
                     - Imágenes CMYK/spot nativas vía getRawRaster
-                    - RGB/Gray → ICC (perfil iccProfile / FOGRA39 por defecto)
+                    - RGB/Gray → LittleCMS + ICC (perfil iccProfile / FOGRA39 por defecto)
 
                     **Raster (TwelveMonkeys BSD)**
-                    - TIFF CMYK nativo; JPG/PNG/WEBP/GIF vía RGB→ICC
+                    - TIFF CMYK nativo; JPG/PNG/WEBP/GIF vía RGB→LittleCMS+ICC
+
+                    **Motor de color**
+                    - Exige LittleCMS (`data.colorEngine=littlecms`). Nativa empaquetada en el JAR.
+                    - Si lcms2 o los perfiles ICC fallan → error HTTP (sin fallback naive).
 
                     **Consumo**
                     - gramos = (cobertura%/100) × área_cm² × factor_canal × pliegos
@@ -88,8 +95,9 @@ public class InkEstimateController {
                     - Con gramsPerCm2: mismo factor uniforme en todos los canales
                     - PDF multi-página: cobertura/gramos = SUMA de páginas seleccionadas
                       (cada página = un lado al tamaño width×height); no se promedia
-                    - Spots: solo si hay pintura Separation/DeviceN con % > 0 en páginas elegidas
-                      (no se listan Pantones a 0% aunque existan en recursos)
+                    - Spots: se listan nombre/referencia si hay Separation/DeviceN en recursos
+                      de las páginas elegidas, aunque cobertura sea 0% (arte aplanado a CMYK);
+                      gramos spot solo si coverageMeasured=true
                     - Estimación comercial (no sustituye medición de plancha/RIP)
                     - PDF multi-trabajo: parámetro opcional pages (1-based, máx. 2), p. ej. "1,2" o "3,5"
                     """
@@ -184,7 +192,8 @@ public class InkEstimateController {
                                         "pagesAnalyzed": [1, 2],
                                         "spotInventoryVerified": true,
                                         "hasSpotColors": true,
-                                        "declaredSpotColorNames": ["PANTONE 2925 C", "PANTONE 2915 C"]
+                                        "declaredSpotColorNames": ["PANTONE 2925 C", "PANTONE 2915 C"],
+                                        "colorEngine": "littlecms"
                                       }
                                     }
                                     """

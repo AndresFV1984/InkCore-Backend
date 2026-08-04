@@ -20,20 +20,24 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Emite access tokens (JWT HS256 manual) y refresh tokens opacos (SecureRandom).
+ * Emite access tokens (JWT HS256) y refresh tokens opacos (SecureRandom).
+ * Mac/header cacheados para reducir coste por emisión.
  */
 @Component
 public class JwtTokenService implements AccessTokenPort {
 
     private static final String JWT_HEADER_JSON = "{\"alg\":\"HS256\",\"typ\":\"JWT\"}";
     private static final String HMAC_SHA256 = "HmacSHA256";
+    private static final Base64.Encoder BASE64_URL = Base64.getUrlEncoder().withoutPadding();
 
     private final Clock clock;
     private final byte[] secretBytes;
     private final long accessExpirationSeconds;
     private final long refreshExpirationSeconds;
     private final ObjectMapper objectMapper;
-    private final SecureRandom secureRandom = new SecureRandom();
+    private final SecureRandom secureRandom;
+    private final String headerB64;
+    private final ThreadLocal<Mac> macThreadLocal;
 
     public JwtTokenService(
             Clock clock,
@@ -51,6 +55,9 @@ public class JwtTokenService implements AccessTokenPort {
         this.accessExpirationSeconds = accessExpirationSeconds;
         this.refreshExpirationSeconds = refreshExpirationSeconds;
         this.objectMapper = objectMapper;
+        this.secureRandom = createSecureRandom();
+        this.headerB64 = BASE64_URL.encodeToString(JWT_HEADER_JSON.getBytes(StandardCharsets.UTF_8));
+        this.macThreadLocal = ThreadLocal.withInitial(this::newMac);
     }
 
     @Override
@@ -58,7 +65,7 @@ public class JwtTokenService implements AccessTokenPort {
         long iat = Instant.now(clock).getEpochSecond();
         long exp = iat + accessExpirationSeconds;
 
-        Map<String, Object> payload = new LinkedHashMap<>();
+        Map<String, Object> payload = new LinkedHashMap<>(8);
         payload.put("sub", subject);
         payload.put("iat", iat);
         payload.put("exp", exp);
@@ -66,10 +73,9 @@ public class JwtTokenService implements AccessTokenPort {
         payload.put("roles", roles == null ? List.of() : roles);
         payload.put("permissions", permissions == null ? List.of() : permissions);
 
-        String headerB64 = base64Url(JWT_HEADER_JSON.getBytes(StandardCharsets.UTF_8));
-        String payloadB64 = base64Url(toJsonBytes(payload));
+        String payloadB64 = BASE64_URL.encodeToString(toJsonBytes(payload));
         String signingInput = headerB64 + "." + payloadB64;
-        String signatureB64 = base64Url(hmacSha256(signingInput));
+        String signatureB64 = BASE64_URL.encodeToString(hmacSha256(signingInput));
         return signingInput + "." + signatureB64;
     }
 
@@ -77,7 +83,7 @@ public class JwtTokenService implements AccessTokenPort {
     public String generateRefreshToken() {
         byte[] bytes = new byte[32];
         secureRandom.nextBytes(bytes);
-        return base64Url(bytes);
+        return BASE64_URL.encodeToString(bytes);
     }
 
     @Override
@@ -95,6 +101,13 @@ public class JwtTokenService implements AccessTokenPort {
         return Instant.now(clock).plusSeconds(refreshExpirationSeconds);
     }
 
+    /** Precalienta SecureRandom / Mac (primer login tras arranque). */
+    void warmUp() {
+        byte[] junk = new byte[32];
+        secureRandom.nextBytes(junk);
+        hmacSha256(headerB64 + ".warmup");
+    }
+
     private byte[] toJsonBytes(Map<String, Object> payload) {
         try {
             return objectMapper.writeValueAsBytes(payload);
@@ -104,16 +117,26 @@ public class JwtTokenService implements AccessTokenPort {
     }
 
     private byte[] hmacSha256(String signingInput) {
+        return macThreadLocal.get().doFinal(signingInput.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private Mac newMac() {
         try {
             Mac mac = Mac.getInstance(HMAC_SHA256);
             mac.init(new SecretKeySpec(secretBytes, HMAC_SHA256));
-            return mac.doFinal(signingInput.getBytes(StandardCharsets.UTF_8));
+            return mac;
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {
             throw new IllegalStateException("No se pudo firmar el JWT con HMAC-SHA256", e);
         }
     }
 
-    private static String base64Url(byte[] data) {
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(data);
+    private static SecureRandom createSecureRandom() {
+        try {
+            // Linux/contenedores: no bloquea por entropía baja.
+            return SecureRandom.getInstance("NativePRNGNonBlocking");
+        } catch (NoSuchAlgorithmException ignored) {
+            // Windows y demás: default del JDK (no usar getInstanceStrong aquí).
+            return new SecureRandom();
+        }
     }
 }

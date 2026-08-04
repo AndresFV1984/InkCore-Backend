@@ -35,11 +35,18 @@ public class IccProfileLoader {
 
     public byte[] loadProfileBytes(String profileFileName) {
         String key = resolveExistingFileName(profileFileName);
-        return cache.get(key).orElseGet(() -> {
-            byte[] bytes = readFromClasspath(key);
-            cache.put(key, bytes);
-            return bytes;
-        });
+        java.util.Optional<byte[]> cached = cache.get(key);
+        if (cached.isPresent()) {
+            try {
+                assertValidIccBinary(key, cached.get());
+                return cached.get();
+            } catch (IccProfileNotFoundException ignored) {
+                // Caché (p. ej. Redis) con binario corrupto de un deploy anterior → releer classpath
+            }
+        }
+        byte[] bytes = readFromClasspath(key);
+        cache.put(key, bytes);
+        return bytes;
     }
 
     /**
@@ -131,9 +138,32 @@ public class IccProfileLoader {
             throw new IccProfileNotFoundException(profileFileName);
         }
         try (InputStream in = resource.getInputStream()) {
-            return in.readAllBytes();
+            byte[] bytes = in.readAllBytes();
+            assertValidIccBinary(profileFileName, bytes);
+            return bytes;
         } catch (IOException ex) {
             throw new IccProfileNotFoundException(profileFileName);
+        }
+    }
+
+    /**
+     * Un ICC válido tiene el magic {@code acsp} en offset 36.
+     * Si Maven/Git trató el archivo como texto UTF-8, bytes altos se vuelven {@code EF BF BD}
+     * y Java lanza {@code Invalid ICC Profile Data} en todos los archivos.
+     */
+    static void assertValidIccBinary(String profileFileName, byte[] bytes) {
+        if (bytes == null || bytes.length < 40) {
+            throw new IccProfileNotFoundException(
+                    profileFileName + " (perfil ICC truncado o vacío)"
+            );
+        }
+        boolean acsp = bytes[36] == 'a' && bytes[37] == 'c' && bytes[38] == 's' && bytes[39] == 'p';
+        if (!acsp) {
+            throw new IccProfileNotFoundException(
+                    profileFileName
+                            + " (binario ICC corrupto: falta magic acsp — "
+                            + "revisar filtrado Maven/Git en color-profiles)"
+            );
         }
     }
 

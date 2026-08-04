@@ -69,7 +69,7 @@ public class PaperTypeController {
     }
 
     @PostMapping("/register")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "registerPaperType",
             summary = "Crea un tipo de papel nuevo.",
@@ -162,7 +162,7 @@ public class PaperTypeController {
     }
 
     @PutMapping("/update/{paperTypeId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "updatePaperType",
             summary = "Actualiza los datos de un tipo de papel existente.",
@@ -190,7 +190,7 @@ public class PaperTypeController {
     }
 
     @GetMapping("/list")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "listPaperTypes",
             summary = "Obtiene el listado paginado de tipos de papel.",
@@ -225,7 +225,7 @@ public class PaperTypeController {
     }
 
     @GetMapping("/get/{paperTypeId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "getPaperType",
             summary = "Consulta el detalle de un tipo de papel por su identificador.",

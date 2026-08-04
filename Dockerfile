@@ -10,6 +10,7 @@
 FROM eclipse-temurin:17-jre-jammy AS runtime
 WORKDIR /app
 
+# lcms2 viaja empaquetado en el JAR (linux-x86-64/liblcms2.so); no instalar liblcms2-2 del SO.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/* \

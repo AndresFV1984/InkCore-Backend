@@ -116,10 +116,29 @@
 			<artifactId>pdfbox</artifactId>
 			<version>3.0.4</version>
 		</dependency>
+		<!-- LittleCMS2 (lcms2) vía JNA: CMM con BPC para RGB↔CMYK (CTP + estimación + soft-proof) -->
+		<dependency>
+			<groupId>net.java.dev.jna</groupId>
+			<artifactId>jna</artifactId>
+			<version>5.17.0</version>
+		</dependency>
 	</dependencies>
 
 	<build>
 		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-resources-plugin</artifactId>
+				<configuration>
+					<!-- Binarios ICC: si se filtran como UTF-8 → Invalid ICC Profile Data en todos los archivos -->
+					<nonFilteredFileExtensions>
+						<nonFilteredFileExtension>icc</nonFilteredFileExtension>
+						<nonFilteredFileExtension>icm</nonFilteredFileExtension>
+						<nonFilteredFileExtension>ICC</nonFilteredFileExtension>
+						<nonFilteredFileExtension>ICM</nonFilteredFileExtension>
+					</nonFilteredFileExtensions>
+				</configuration>
+			</plugin>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>

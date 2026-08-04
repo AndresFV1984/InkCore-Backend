@@ -8,14 +8,15 @@ import java.util.Objects;
  * El aumento de peso (~20–40 %) al pasar de 3 a 4 canales es esperado; no comprimir con pérdida.
  * <p>
  * Ajustes creativos opcionales ({@code brightnessLift}, {@code vibranceBoost},
- * {@code softProofBrightnessMatch}): {@code null} = usar defaults del servidor (CTP: 0 / 0 / false).
+ * {@code softProofBrightnessMatch}, {@code qualityPreset}): {@code null} = usar defaults
+ * del servidor / preset (CTP: 0 / 0 / false). Overrides explícitos ganan al preset.
  */
 public final class ConversionRequest {
 
     public static final float BRIGHTNESS_LIFT_MIN = 0f;
-    public static final float BRIGHTNESS_LIFT_MAX = 0.15f;
+    public static final float BRIGHTNESS_LIFT_MAX = 0.20f;
     public static final float VIBRANCE_BOOST_MIN = 0f;
-    public static final float VIBRANCE_BOOST_MAX = 0.25f;
+    public static final float VIBRANCE_BOOST_MAX = 0.35f;
 
     private final byte[] fileBytes;
     private final String originalFileName;
@@ -27,6 +28,8 @@ public final class ConversionRequest {
     private final Float brightnessLift;
     private final Float vibranceBoost;
     private final Boolean softProofBrightnessMatch;
+    private final QualityPreset qualityPreset;
+    private final Boolean blackPointCompensation;
 
     public ConversionRequest(
             byte[] fileBytes,
@@ -37,7 +40,7 @@ public final class ConversionRequest {
             String userId
     ) {
         this(fileBytes, originalFileName, mimeType, renderingIntent, destinationIccProfile, userId, null,
-                null, null, null);
+                null, null, null, null, null);
     }
 
     public ConversionRequest(
@@ -50,7 +53,7 @@ public final class ConversionRequest {
             OutputFormat outputFormat
     ) {
         this(fileBytes, originalFileName, mimeType, renderingIntent, destinationIccProfile, userId, outputFormat,
-                null, null, null);
+                null, null, null, null, null);
     }
 
     public ConversionRequest(
@@ -65,6 +68,41 @@ public final class ConversionRequest {
             Float vibranceBoost,
             Boolean softProofBrightnessMatch
     ) {
+        this(fileBytes, originalFileName, mimeType, renderingIntent, destinationIccProfile, userId, outputFormat,
+                brightnessLift, vibranceBoost, softProofBrightnessMatch, null, null);
+    }
+
+    public ConversionRequest(
+            byte[] fileBytes,
+            String originalFileName,
+            String mimeType,
+            RenderingIntent renderingIntent,
+            String destinationIccProfile,
+            String userId,
+            OutputFormat outputFormat,
+            Float brightnessLift,
+            Float vibranceBoost,
+            Boolean softProofBrightnessMatch,
+            QualityPreset qualityPreset
+    ) {
+        this(fileBytes, originalFileName, mimeType, renderingIntent, destinationIccProfile, userId, outputFormat,
+                brightnessLift, vibranceBoost, softProofBrightnessMatch, qualityPreset, null);
+    }
+
+    public ConversionRequest(
+            byte[] fileBytes,
+            String originalFileName,
+            String mimeType,
+            RenderingIntent renderingIntent,
+            String destinationIccProfile,
+            String userId,
+            OutputFormat outputFormat,
+            Float brightnessLift,
+            Float vibranceBoost,
+            Boolean softProofBrightnessMatch,
+            QualityPreset qualityPreset,
+            Boolean blackPointCompensation
+    ) {
         if (fileBytes == null || fileBytes.length == 0) {
             throw new IllegalArgumentException("El archivo es obligatorio");
         }
@@ -78,6 +116,8 @@ public final class ConversionRequest {
         this.brightnessLift = validateBrightnessLift(brightnessLift);
         this.vibranceBoost = validateVibranceBoost(vibranceBoost);
         this.softProofBrightnessMatch = softProofBrightnessMatch;
+        this.qualityPreset = qualityPreset;
+        this.blackPointCompensation = blackPointCompensation;
     }
 
     public byte[] getFileBytes() {
@@ -108,25 +148,24 @@ public final class ConversionRequest {
         return outputFormat;
     }
 
-    /**
-     * Override de brightness-lift, o {@code null} para default del servidor.
-     */
     public Float getBrightnessLift() {
         return brightnessLift;
     }
 
-    /**
-     * Override de vibrance-boost, o {@code null} para default del servidor.
-     */
     public Float getVibranceBoost() {
         return vibranceBoost;
     }
 
-    /**
-     * Override de soft-proof-brightness-match, o {@code null} para default del servidor.
-     */
     public Boolean getSoftProofBrightnessMatch() {
         return softProofBrightnessMatch;
+    }
+
+    public QualityPreset getQualityPreset() {
+        return qualityPreset;
+    }
+
+    public Boolean getBlackPointCompensation() {
+        return blackPointCompensation;
     }
 
     public long getOriginalSizeBytes() {
@@ -134,15 +173,40 @@ public final class ConversionRequest {
     }
 
     public float resolveBrightnessLift(float serverDefault) {
-        return brightnessLift != null ? brightnessLift : clamp(serverDefault, BRIGHTNESS_LIFT_MIN, BRIGHTNESS_LIFT_MAX);
+        if (brightnessLift != null) {
+            return brightnessLift;
+        }
+        if (qualityPreset != null) {
+            return qualityPreset.brightnessLift();
+        }
+        return clamp(serverDefault, BRIGHTNESS_LIFT_MIN, BRIGHTNESS_LIFT_MAX);
     }
 
     public float resolveVibranceBoost(float serverDefault) {
-        return vibranceBoost != null ? vibranceBoost : clamp(serverDefault, VIBRANCE_BOOST_MIN, VIBRANCE_BOOST_MAX);
+        if (vibranceBoost != null) {
+            return vibranceBoost;
+        }
+        if (qualityPreset != null) {
+            return qualityPreset.vibranceBoost();
+        }
+        return clamp(serverDefault, VIBRANCE_BOOST_MIN, VIBRANCE_BOOST_MAX);
     }
 
     public boolean resolveSoftProofBrightnessMatch(boolean serverDefault) {
-        return softProofBrightnessMatch != null ? softProofBrightnessMatch : serverDefault;
+        if (softProofBrightnessMatch != null) {
+            return softProofBrightnessMatch;
+        }
+        if (qualityPreset != null) {
+            return qualityPreset.softProofBrightnessMatch();
+        }
+        return serverDefault;
+    }
+
+    public boolean resolveBlackPointCompensation(boolean serverDefault) {
+        if (blackPointCompensation != null) {
+            return blackPointCompensation;
+        }
+        return serverDefault;
     }
 
     public static Float parseBrightnessLift(String raw) {
@@ -183,6 +247,20 @@ public final class ConversionRequest {
             case "false", "0", "no" -> false;
             default -> throw new IllegalArgumentException(
                     "softProofBrightnessMatch inválido: use true o false"
+            );
+        };
+    }
+
+    public static Boolean parseBlackPointCompensation(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String normalized = raw.trim().toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "true", "1", "yes", "si", "sí" -> true;
+            case "false", "0", "no" -> false;
+            default -> throw new IllegalArgumentException(
+                    "blackPointCompensation inválido: use true o false"
             );
         };
     }

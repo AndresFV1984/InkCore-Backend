@@ -28,6 +28,8 @@ import java.util.List;
 /**
  * Seguridad con JWT (OAuth2 Resource Server).
  * Públicos: POST /api/v1/users/login, POST /api/v1/auth/login, POST /api/v1/auth/refresh y documentación.
+ * El resto exige JWT; la autorización fina va en {@code @PreAuthorize}
+ * ({@code hasRole('ADMINISTRADOR') or hasRole('OPERADOR')} en negocio).
  * CORS: whitelist vía {@code app.cors} (ver docs/CORS.md); OPTIONS permitido sin JWT.
  * Perfil {@code security.dev.permit-all=true} desactiva la autenticación (solo desarrollo).
  */

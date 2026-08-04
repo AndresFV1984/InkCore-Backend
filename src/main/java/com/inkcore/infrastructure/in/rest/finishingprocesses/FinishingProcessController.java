@@ -66,7 +66,7 @@ public class FinishingProcessController {
     }
 
     @PostMapping("/register")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "registerFinishingProcess",
             summary = "Crea un proceso de acabado nuevo.",
@@ -141,7 +141,7 @@ public class FinishingProcessController {
     }
 
     @PutMapping("/update/{finishingProcessId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "updateFinishingProcess",
             summary = "Actualiza los datos de un proceso de acabado existente.",
@@ -168,7 +168,7 @@ public class FinishingProcessController {
     }
 
     @GetMapping("/list")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "listFinishingProcesses",
             summary = "Obtiene el listado paginado de procesos de acabado.",
@@ -201,7 +201,7 @@ public class FinishingProcessController {
     }
 
     @GetMapping("/get/{finishingProcessId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "getFinishingProcess",
             summary = "Consulta el detalle de un proceso de acabado por su identificador.",
