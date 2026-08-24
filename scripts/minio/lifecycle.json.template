@@ -1,0 +1,22 @@
+{
+  "Rules": [
+    {
+      "ID": "expire-staging-ink-estimates",
+      "Status": "Enabled",
+      "Filter": {
+        "Tag": {
+          "Key": "inkcore-staging",
+          "Value": "true"
+        }
+      },
+      "Expiration": { "Days": __TAG_DAYS__ },
+      "AbortIncompleteMultipartUpload": { "DaysAfterInitiation": 1 }
+    },
+    {
+      "ID": "expire-staging-prefix-fallback",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "tmp/" },
+      "Expiration": { "Days": __FALLBACK_DAYS__ }
+    }
+  ]
+}

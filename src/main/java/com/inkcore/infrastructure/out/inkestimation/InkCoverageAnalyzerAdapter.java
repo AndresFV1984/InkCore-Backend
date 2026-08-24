@@ -22,6 +22,7 @@ import org.springframework.stereotype.Component;
 import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -81,8 +82,7 @@ public class InkCoverageAnalyzerAdapter implements InkCoverageAnalyzerPort {
             int dpi,
             String destinationIccProfile
     ) throws IOException {
-        ImageColorConverterAdapter.LoadedRaster loaded =
-                imageColorConverter.loadRasterHighFidelity(request.getFileBytes());
+        ImageColorConverterAdapter.LoadedRaster loaded = loadRaster(request);
         BufferedImage source = loaded.image();
         int effectiveDpi = dpi;
         if (loaded.xDpi() != null && loaded.xDpi() > 0) {
@@ -163,7 +163,7 @@ public class InkCoverageAnalyzerAdapter implements InkCoverageAnalyzerPort {
                 imageMaxEdge,
                 properties.isBlackPointCompensation()
         );
-             PDDocument doc = Loader.loadPDF(new RandomAccessReadBuffer(request.getFileBytes()))) {
+             PDDocument doc = loadPdf(request)) {
             int pages = doc.getNumberOfPages();
             if (pages < 1) {
                 throw new InkEstimationFailedException("El PDF no contiene páginas");
@@ -275,6 +275,22 @@ public class InkCoverageAnalyzerAdapter implements InkCoverageAnalyzerPort {
                 new RawInkCoverage("Amarillo", "Y", round2(means[2]), "#FFF200", true),
                 new RawInkCoverage("Negro", "K", round2(means[3]), "#231F20", true)
         );
+    }
+
+    private ImageColorConverterAdapter.LoadedRaster loadRaster(InkEstimateRequest request) throws IOException {
+        Path sourceFile = request.getSourceFile();
+        if (sourceFile != null) {
+            return imageColorConverter.loadRasterHighFidelity(sourceFile);
+        }
+        return imageColorConverter.loadRasterHighFidelity(request.getFileBytes());
+    }
+
+    private static PDDocument loadPdf(InkEstimateRequest request) throws IOException {
+        Path sourceFile = request.getSourceFile();
+        if (sourceFile != null) {
+            return Loader.loadPDF(sourceFile.toFile());
+        }
+        return Loader.loadPDF(new RandomAccessReadBuffer(request.getFileBytes()));
     }
 
     /**

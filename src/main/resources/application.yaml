@@ -2,7 +2,7 @@ spring:
   application:
     name: InkCore-backend
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:dev}
+    active: ${SPRING_PROFILES_ACTIVE:docker}
 
   servlet:
     multipart:
@@ -36,7 +36,7 @@ springdoc:
   paths-to-exclude: /error,/error/**
 
 # Conversión RGB→CMYK (perfiles en classpath:/color-profiles/)
-# icc-cache se configura por perfil (application-dev / application-prod)
+# icc-cache se configura por perfil (application-dev / application-docker / application-prod)
 inkcore:
   color-conversion:
     source-icc-profile: ${COLOR_SOURCE_ICC:sRGB.icc}
@@ -77,3 +77,4 @@ inkcore:
     size-tolerance-min-ratio: ${INK_SIZE_TOL_MIN:0.01}
     size-tolerance-max-ratio: ${INK_SIZE_TOL_MAX:2.5}
     analysis-icc-profile: ${INK_ANALYSIS_ICC:FOGRA39.icc}
+    max-concurrent-object-downloads: ${INK_MAX_CONCURRENT_OBJECT_DOWNLOADS:8}

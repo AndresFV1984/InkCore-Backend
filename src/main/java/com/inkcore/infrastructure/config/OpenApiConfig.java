@@ -13,6 +13,12 @@ import org.springframework.context.annotation.Configuration;
 
 import java.util.List;
 
+/**
+ * OpenAPI / Swagger UI.
+ * <p>
+ * {@code Info.description} va vacío (el detalle está en cada {@code @Operation}).
+ * Los {@code Tag} llevan una descripción corta de una línea junto al nombre del grupo.
+ */
 @Configuration
 public class OpenApiConfig {
 
@@ -26,19 +32,8 @@ public class OpenApiConfig {
         return new OpenAPI()
                 .info(new Info()
                         .title("InkCore API")
-                        .description("""
-                                Backend REST InkCore.
-                                Incluye autenticación, usuarios, clientes, vendedores,
-                                cuentas bancarias, productos terminados, acabados, roles, permisos,
-                                conversión de color RGB→CMYK (LittleCMS + ICC; TIFF/PDF) y estimación
-                                de consumo de tinta (PDFBox + LittleCMS; CMYK/spot nativos; sin RIP de pago
-                                ni Ghostscript AGPL; sin base Pantone de pago).
-                                El CMM LittleCMS (lcms2) viaja empaquetado en el JAR; no requiere instalación
-                                manual en el host.
-                                Listados paginados (`page` 0-based, `size` default 20 / máx 100):
-                                data = { content, page, size, totalElements, totalPages, hasNext }.
-                                """)
-                        .version("0.0.26")
+                        .description("")
+                        .version("0.0.38")
                         .contact(new Contact().name("InkCore").email("admin@indicolors.com")))
                 .servers(List.of(
                         new Server().url(basePath).description("Context path local")
@@ -51,16 +46,17 @@ public class OpenApiConfig {
                         new Tag().name("Cuentas bancarias").description("Gestión de cuentas bancarias"),
                         new Tag().name("Terminados").description("Gestión de terminados"),
                         new Tag().name("Acabados").description("Gestión de acabados"),
-                        new Tag().name("Conversión de color").description(
-                                "RGB→CMYK con LittleCMS (CMM nativo + BPC) e ICC. "
-                                        + "Salida TIFF/PDF. Soft-proof JPEG para UI. "
-                                        + "GET /color-conversions/list para perfiles disponibles."
-                        ),
-                        new Tag().name("Estimación de tinta").description(
-                                "POST /ink-estimates/estimate — cobertura CMYK + spots; RGB→CMYK con LittleCMS "
-                                        + "obligatorio (colorEngine=littlecms). pages opcional (1-based, máx. 2). "
-                                        + "Factores g/cm² por canal. Sin RIP de pago."
-                        ),
+                        new Tag().name("Tipos de papel").description("Catálogo de tipos de papel"),
+                        new Tag().name("Despieces").description("Catálogo de despieces / patrones de corte"),
+                        new Tag().name("Tipos de plancha").description("Catálogo de tipos de plancha"),
+                        new Tag().name("Precios de montaje").description("Catálogo de precios de montaje"),
+                        new Tag().name("Tarifas por millar").description("Catálogo de tarifas por millar"),
+                        new Tag().name("Órdenes de producción").description(
+                                "Wizard OP: especificaciones, preprensa, corte, impresión, terminados, acabados y cobro"),
+                        new Tag().name("Conversión de color").description("Conversión RGB→CMYK (ICC / LittleCMS)"),
+                        new Tag().name("Estimación de tinta").description("Estimación de consumo de tinta CMYK/spot"),
+                        new Tag().name("Archivos estimación tinta").description(
+                                "Presign PUT y URLs firmadas para inkEstimation en OP"),
                         new Tag().name("Roles").description("Catálogo de roles"),
                         new Tag().name("Permisos").description("Catálogo de permisos")
                 ))

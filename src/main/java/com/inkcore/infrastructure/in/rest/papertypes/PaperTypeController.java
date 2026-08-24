@@ -44,7 +44,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/paper-types")
-@Tag(name = "Tipos de papel", description = "Gestión de tipos de papel y despieces asociados")
+@Tag(name = "Tipos de papel", description = "Catálogo de tipos de papel")
 @SecurityRequirement(name = "bearerAuth")
 public class PaperTypeController {
 

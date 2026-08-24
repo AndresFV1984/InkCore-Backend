@@ -10,9 +10,12 @@ import java.util.List;
         name = "InkEstimateResponse",
         description = """
                 Resultado de estimación comercial de consumo de tinta.
-                RGB→CMYK vía LittleCMS (`colorEngine`). El archivo no se devuelve ni se guarda
-                (solo historial de metadatos en BD).
+                RGB→CMYK vía LittleCMS (`colorEngine=littlecms`; sin fallback).
+                El archivo no se devuelve ni se guarda (solo historial de metadatos en BD).
                 Gramos por tinta = (coveragePercent/100) × areaCm2 × factor_canal × sheetCount.
+                En PDF multi-página, coveragePercent es la SUMA de pagesAnalyzed.
+                Spots con coverageMeasured=false: declarados en Separation/DeviceN pero sin pintura
+                (cobertura/gramos 0).
                 """
 )
 public record InkEstimateResponse(

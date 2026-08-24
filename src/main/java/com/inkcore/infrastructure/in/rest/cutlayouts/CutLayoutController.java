@@ -41,7 +41,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/cut-layouts")
-@Tag(name = "Despieces", description = "Gestión de despieces / diseños de corte por pliego")
+@Tag(name = "Despieces", description = "Catálogo de despieces / patrones de corte")
 @SecurityRequirement(name = "bearerAuth")
 public class CutLayoutController {
 

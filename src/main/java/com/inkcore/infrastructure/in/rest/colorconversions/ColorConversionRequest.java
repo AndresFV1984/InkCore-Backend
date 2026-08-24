@@ -13,10 +13,11 @@ import org.springframework.web.multipart.MultipartFile;
         name = "ColorConversionRequest",
         requiredProperties = {"file"},
         description = """
-                Multipart de conversión (CMM LittleCMS + ICC). Para calidad comercial en UI enviar:
-                renderingIntent=PERCEPTUAL, outputFormat=TIFF, iccProfile=FOGRA39.icc,
-                brightnessLift=0.12, vibranceBoost=0.28, softProofBrightnessMatch=true,
-                blackPointCompensation=true (o omitir; default servidor true).
+                Multipart de conversión (CMM LittleCMS + ICC).
+                Calidad comercial recomendada: renderingIntent=PERCEPTUAL, outputFormat=TIFF,
+                iccProfile=FOGRA39.icc, brightnessLift=0.12, vibranceBoost=0.28,
+                softProofBrightnessMatch=true, blackPointCompensation=true
+                (o qualityPreset=COMMERCIAL / VIVID / FIDELITY).
                 Overrides explícitos ganan sobre qualityPreset.
                 """
 )
@@ -105,10 +106,9 @@ public class ColorConversionRequest {
 
     @Schema(
             description = """
-                    Si true, tras la conversión ICC recupera brillo y croma del contenido
-                    (pasadas globales + corrección adaptativa por píxel; reduce K preferentemente).
-                    El target es el RGB con lift/vibrance aplicados (no el original crudo).
-                    Recomendado comercial/fotos: true. CTP puro: false.
+                    Si true (COMMERCIAL/VIVID): lift/vibrance + apertura CMY comercial en el CMYK CTP
+                    y preview JPEG soft-proof alineado hacia el RGB de referencia (solo el JPEG de UI
+                    recibe esa mezcla extra hacia pantalla). CTP puro: false (FIDELITY).
                     Si se omite, usa qualityPreset o default servidor.
                     """,
             example = "true",
@@ -118,13 +118,7 @@ public class ColorConversionRequest {
     public Boolean softProofBrightnessMatch;
 
     @Schema(
-            description = """
-                    Preset de calidad. Solo aplica a los ajustes no enviados explícitamente.
-                    FIDELITY = lift 0 / vibrance 0 / softProof false.
-                    COMMERCIAL = 0.12 / 0.28 / true.
-                    VIVID = 0.16 / 0.35 / true.
-                    Para UI comercial preferir overrides o qualityPreset=COMMERCIAL.
-                    """,
+            description = "Presets FIDELITY|COMMERCIAL|VIVID (aliases: CTP, PHOTO, MAX, …). Solo aplica a ajustes no enviados explícitamente.",
             implementation = QualityPreset.class,
             example = "COMMERCIAL",
             allowableValues = {"FIDELITY", "COMMERCIAL", "VIVID"},

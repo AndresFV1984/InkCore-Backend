@@ -1,0 +1,42 @@
+---
+description: Convenciones Swagger/OpenAPI — intro vacía; tags con descripción corta
+globs: "**/OpenApiConfig.java,**/infrastructure/in/rest/**/*.java"
+alwaysApply: false
+---
+
+# Swagger / OpenAPI (InkCore)
+
+## Qué NO va en Swagger UI
+
+- **Intro (`Info.description`)**: vacío o una línea corta. No listar módulos, stack técnico ni convenciones de paginación.
+
+Swagger UI muestra la intro arriba del todo; textos largos saturan la pantalla.
+
+## Tags (grupos)
+
+- En `OpenApiConfig` **y** en el `@Tag` del controller: nombre + descripción corta de una línea.
+- SpringDoc/Swagger UI a veces no muestra la descripción si el `@Tag` del controller solo tiene `name`.
+
+```java
+// ✅ GOOD
+new Tag().name("Tarifas por millar").description("Catálogo de tarifas por millar")
+@Tag(name = "Tarifas por millar", description = "Catálogo de tarifas por millar")
+
+// ❌ BAD — sin description en el controller (puede ocultar la del OpenApiConfig)
+@Tag(name = "Tarifas por millar")
+```
+
+## Dónde sí documentar el detalle
+
+| Lugar | Contenido |
+|-------|-----------|
+| `@Operation(summary/description)` | Qué hace el endpoint |
+| Request/Response `@Schema` | Campos, obligatoriedad, ejemplos |
+| `@ExampleObject` | Payloads de request/response |
+| Bearer `SecurityScheme` | Cómo autorizar (ok en Components) |
+
+## Al agregar un módulo nuevo
+
+1. Registrar `new Tag().name("...").description("...")` (una línea) en `OpenApiConfig`.
+2. En el controller: `@Tag(name = "...", description = "...")` con la misma descripción corta.
+3. Documentar comportamiento en `@Operation`, DTOs y ejemplos.

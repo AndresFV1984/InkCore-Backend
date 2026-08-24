@@ -1,5 +1,7 @@
 /mvnw text eol=lf
 *.cmd text eol=crlf
+*.sh text eol=lf
+scripts/minio/** text eol=lf
 
 # Perfiles ICC binarios (nunca text/eol — corrupte el magic acsp)
 *.icc binary

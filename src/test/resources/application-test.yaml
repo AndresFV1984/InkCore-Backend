@@ -58,3 +58,12 @@ inkcore:
     rgb-image-max-edge: 256
     absolute-max-file-bytes: 10485760
     analysis-icc-profile: FOGRA39.icc
+  object-storage:
+    type: memory
+    presigned-url-ttl-seconds: 300
+    max-asset-file-bytes: 26214400
+    max-preview-file-bytes: 2097152
+    staging-expiration-days: 0
+    staging-fallback-expiration-days: 0
+    legacy-staging-cleanup-days: 0
+    allow-insecure-defaults: true

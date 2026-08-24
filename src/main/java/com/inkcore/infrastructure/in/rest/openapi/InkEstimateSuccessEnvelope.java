@@ -8,7 +8,11 @@ import java.time.Instant;
 
 @Schema(
         name = "InkEstimateSuccessEnvelope",
-        description = "Envelope de éxito para POST /api/v1/ink-estimates/estimate"
+        description = """
+                Envelope de éxito para POST /api/v1/ink-estimates/estimate.
+                data incluye processInks/spotInks, totales, pagesAnalyzed, colorEngine=littlecms,
+                spotInventoryVerified, hasSpotColors, declaredSpotColorNames.
+                """
 )
 public record InkEstimateSuccessEnvelope(
         @Schema(description = "Metadatos de la respuesta (correlationId, statusCode, code)") ApiHeaders headers,

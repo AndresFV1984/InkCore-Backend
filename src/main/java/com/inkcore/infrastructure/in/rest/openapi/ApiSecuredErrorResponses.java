@@ -31,7 +31,17 @@ import java.lang.annotation.Target;
         ),
         @ApiResponse(
                 responseCode = "409",
-                description = "Conflicto (recurso duplicado)",
+                description = "Conflicto (recurso duplicado o versión optimista)",
+                content = @Content(schema = @Schema(implementation = ApiErrorEnvelope.class))
+        ),
+        @ApiResponse(
+                responseCode = "429",
+                description = "Demasiadas solicitudes concurrentes (p. ej. estimaciones de tinta)",
+                content = @Content(schema = @Schema(implementation = ApiErrorEnvelope.class))
+        ),
+        @ApiResponse(
+                responseCode = "503",
+                description = "Dependencia no disponible (p. ej. object storage)",
                 content = @Content(schema = @Schema(implementation = ApiErrorEnvelope.class))
         )
 })

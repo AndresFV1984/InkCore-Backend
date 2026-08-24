@@ -63,6 +63,12 @@ public class InkEstimationProperties {
      */
     private boolean blackPointCompensation = true;
 
+    /**
+     * Máximo de descargas simultáneas a archivo temporal (GET de MinIO + análisis).
+     * {@code 0} desactiva el tope. Default 8.
+     */
+    private int maxConcurrentObjectDownloads = 8;
+
     public double getDefaultWidthCm() {
         return defaultWidthCm;
     }
@@ -157,6 +163,14 @@ public class InkEstimationProperties {
 
     public void setBlackPointCompensation(boolean blackPointCompensation) {
         this.blackPointCompensation = blackPointCompensation;
+    }
+
+    public int getMaxConcurrentObjectDownloads() {
+        return maxConcurrentObjectDownloads;
+    }
+
+    public void setMaxConcurrentObjectDownloads(int maxConcurrentObjectDownloads) {
+        this.maxConcurrentObjectDownloads = maxConcurrentObjectDownloads;
     }
 
     /**

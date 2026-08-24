@@ -150,6 +150,40 @@ inkcore:
     icc-cache:
       type: ${ICC_CACHE_TYPE:memory}
       ttl-seconds: ${ICC_CACHE_TTL_SECONDS:86400}
+  object-storage:
+    # s3 = MinIO local (necesario para estimar tintas: el browser hace PUT a la URL prefirmada).
+    # memory = solo si no necesitas uploads reales (URLs memory:// no sirven en el navegador).
+    type: ${OBJECT_STORAGE_TYPE:s3}
+    endpoint: ${OBJECT_STORAGE_ENDPOINT:http://localhost:9100}
+    # Host que ve el navegador. Si el front abre por IP LAN (192.168.1.250:8085),
+    # usa la misma IP: OBJECT_STORAGE_PUBLIC_ENDPOINT=http://192.168.1.250:9100
+    public-endpoint: ${OBJECT_STORAGE_PUBLIC_ENDPOINT:http://localhost:9100}
+    region: ${OBJECT_STORAGE_REGION:us-east-1}
+    bucket: ${OBJECT_STORAGE_BUCKET:inkcore}
+    # Con MinIO de Compose: usuario inkcore-app (minio-init). Consola 9101 = MINIO_ROOT (minioadmin).
+    access-key: ${OBJECT_STORAGE_ACCESS_KEY:inkcore-app}
+    secret-key: ${OBJECT_STORAGE_SECRET_KEY:inkcore-app-dev-only-change-me}
+    path-style-access: ${OBJECT_STORAGE_PATH_STYLE:true}
+    presigned-url-ttl-seconds: ${OBJECT_STORAGE_PRESIGNED_TTL:300}
+    max-asset-file-bytes: ${OBJECT_STORAGE_MAX_ASSET_BYTES:26214400}
+    max-preview-file-bytes: ${OBJECT_STORAGE_MAX_PREVIEW_BYTES:2097152}
+    cors-allowed-origins: ${OBJECT_STORAGE_CORS_ORIGINS:http://localhost:8085,http://127.0.0.1:8085,http://192.168.1.250:8085}
+    # Tag inkcore-staging=true (PUT firmado). Prefijo tmp/ = respaldo si el objeto subió sin tag.
+    # S3 no soporta glob en el medio de la key; el staging canónico es tmp/company/{id}/ink-estimates/...
+    staging-expiration-days: ${OBJECT_STORAGE_STAGING_EXPIRY_DAYS:2}
+    staging-fallback-expiration-days: ${OBJECT_STORAGE_STAGING_FALLBACK_EXPIRY_DAYS:30}
+    # Barrido de path legado company/{id}/tmp/... (job periódico + primer tick ~15s). 0 = off.
+    legacy-staging-cleanup-days: ${OBJECT_STORAGE_LEGACY_STAGING_CLEANUP_DAYS:2}
+    legacy-staging-cleanup-interval-ms: ${OBJECT_STORAGE_LEGACY_STAGING_CLEANUP_INTERVAL_MS:86400000}
+    # false si Compose ya corrió minio-init (recomendado). true solo con claves root (minioadmin)
+    # y MinIO suelto sin init.
+    manage-bucket: ${OBJECT_STORAGE_MANAGE_BUCKET:false}
+    allow-insecure-defaults: ${OBJECT_STORAGE_ALLOW_INSECURE_DEFAULTS:true}
+    startup-retry-attempts: ${OBJECT_STORAGE_STARTUP_RETRIES:12}
+    startup-retry-backoff-ms: ${OBJECT_STORAGE_STARTUP_RETRY_BACKOFF_MS:2000}
+    operation-retry-attempts: ${OBJECT_STORAGE_OPERATION_RETRIES:3}
+    operation-retry-backoff-ms: ${OBJECT_STORAGE_OPERATION_RETRY_BACKOFF_MS:200}
+    operation-timeout-ms: ${OBJECT_STORAGE_OPERATION_TIMEOUT_MS:60000}
 
 # Frontend Vite — Origin sin path (/inkcore no forma parte del Origin)
 app:

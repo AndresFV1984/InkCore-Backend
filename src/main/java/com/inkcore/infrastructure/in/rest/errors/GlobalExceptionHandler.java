@@ -3,17 +3,27 @@ package com.inkcore.infrastructure.in.rest.errors;
 import com.inkcore.domain.bankaccount.exception.BankAccountAlreadyExistsException;
 import com.inkcore.domain.client.exception.ClientAlreadyExistsException;
 import com.inkcore.domain.cutlayout.exception.CutLayoutAlreadyExistsException;
+import com.inkcore.domain.objectstorage.exception.InvalidObjectKeyException;
+import com.inkcore.domain.objectstorage.exception.ObjectStorageAccessDeniedException;
+import com.inkcore.domain.objectstorage.exception.ObjectStorageUnavailableException;
 import com.inkcore.domain.papertype.exception.PaperTypeAlreadyExistsException;
+import com.inkcore.domain.assemblyprice.exception.AssemblyPriceAlreadyExistsException;
+import com.inkcore.domain.thousandrate.exception.ThousandRateAlreadyExistsException;
+import com.inkcore.domain.platetype.exception.PlateTypeAlreadyExistsException;
 import com.inkcore.domain.colorconversion.exception.ColorConversionFailedException;
 import com.inkcore.domain.colorconversion.exception.ConversionIntegrityException;
 import com.inkcore.domain.colorconversion.exception.GhostscriptNotAvailableException;
 import com.inkcore.domain.colorconversion.exception.IccProfileNotFoundException;
 import com.inkcore.domain.colorconversion.exception.UnsupportedColorFileException;
+import com.inkcore.domain.inkestimation.exception.InkEstimationBusyException;
 import com.inkcore.domain.inkestimation.exception.InkEstimationFailedException;
 import com.inkcore.domain.inkestimation.exception.InkFileTooLargeException;
 import com.inkcore.domain.inkestimation.exception.UnsupportedInkFileException;
 import com.inkcore.domain.finish.exception.FinishAlreadyExistsException;
 import com.inkcore.domain.finishingprocess.exception.FinishingProcessAlreadyExistsException;
+import com.inkcore.domain.productionorder.exception.ProductionOrderBusinessRuleException;
+import com.inkcore.domain.productionorder.exception.ProductionOrderNotDeletableException;
+import com.inkcore.domain.productionorder.exception.ProductionOrderVersionConflictException;
 import com.inkcore.domain.seller.exception.SellerAlreadyExistsException;
 import com.inkcore.domain.shared.exception.DomainException;
 import com.inkcore.domain.shared.exception.ResourceNotFoundException;
@@ -33,6 +43,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
@@ -191,6 +202,45 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(PlateTypeAlreadyExistsException.class)
+    public ResponseEntity<ApiErrorEnvelope> handlePlateTypeExists(
+            PlateTypeAlreadyExistsException ex,
+            HttpServletRequest request
+    ) {
+        return responseFactory.error(
+                request,
+                HttpStatus.CONFLICT,
+                ex.getMessage(),
+                List.of(ex.getCode())
+        );
+    }
+
+    @ExceptionHandler(AssemblyPriceAlreadyExistsException.class)
+    public ResponseEntity<ApiErrorEnvelope> handleAssemblyPriceExists(
+            AssemblyPriceAlreadyExistsException ex,
+            HttpServletRequest request
+    ) {
+        return responseFactory.error(
+                request,
+                HttpStatus.CONFLICT,
+                ex.getMessage(),
+                List.of(ex.getCode())
+        );
+    }
+
+    @ExceptionHandler(ThousandRateAlreadyExistsException.class)
+    public ResponseEntity<ApiErrorEnvelope> handleThousandRateExists(
+            ThousandRateAlreadyExistsException ex,
+            HttpServletRequest request
+    ) {
+        return responseFactory.error(
+                request,
+                HttpStatus.CONFLICT,
+                ex.getMessage(),
+                List.of(ex.getCode())
+        );
+    }
+
     @ExceptionHandler(FinishingProcessAlreadyExistsException.class)
     public ResponseEntity<ApiErrorEnvelope> handleFinishingProcessExists(
             FinishingProcessAlreadyExistsException ex,
@@ -248,6 +298,19 @@ public class GlobalExceptionHandler {
         return responseFactory.error(
                 request,
                 HttpStatus.PAYLOAD_TOO_LARGE,
+                ex.getMessage(),
+                List.of(ex.getCode())
+        );
+    }
+
+    @ExceptionHandler(InkEstimationBusyException.class)
+    public ResponseEntity<ApiErrorEnvelope> handleInkEstimationBusy(
+            InkEstimationBusyException ex,
+            HttpServletRequest request
+    ) {
+        return responseFactory.error(
+                request,
+                HttpStatus.TOO_MANY_REQUESTS,
                 ex.getMessage(),
                 List.of(ex.getCode())
         );
@@ -362,10 +425,13 @@ public class GlobalExceptionHandler {
             AccessDeniedException ex,
             HttpServletRequest request
     ) {
+        String message = ex.getMessage() == null || ex.getMessage().isBlank()
+                ? "Sin permiso para el recurso"
+                : ex.getMessage();
         return responseFactory.error(
                 request,
                 HttpStatus.FORBIDDEN,
-                "No tiene permiso para acceder a este recurso",
+                message,
                 null
         );
     }
@@ -378,6 +444,94 @@ public class GlobalExceptionHandler {
         return responseFactory.error(
                 request,
                 HttpStatus.NOT_FOUND,
+                ex.getMessage(),
+                List.of(ex.getCode())
+        );
+    }
+
+    @ExceptionHandler({
+            ProductionOrderVersionConflictException.class,
+            OptimisticLockingFailureException.class
+    })
+    public ResponseEntity<ApiErrorEnvelope> handleProductionOrderVersionConflict(
+            Exception ex,
+            HttpServletRequest request
+    ) {
+        String message = ex instanceof ProductionOrderVersionConflictException conflict
+                ? conflict.getMessage()
+                : "La orden fue modificada por otro usuario";
+        return responseFactory.error(
+                request,
+                HttpStatus.CONFLICT,
+                message,
+                List.of("PRODUCTION_ORDER_VERSION_CONFLICT")
+        );
+    }
+
+    @ExceptionHandler(ProductionOrderNotDeletableException.class)
+    public ResponseEntity<ApiErrorEnvelope> handleProductionOrderNotDeletable(
+            ProductionOrderNotDeletableException ex,
+            HttpServletRequest request
+    ) {
+        return responseFactory.error(
+                request,
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                ex.getMessage(),
+                List.of(ex.getCode())
+        );
+    }
+
+    @ExceptionHandler(ProductionOrderBusinessRuleException.class)
+    public ResponseEntity<ApiErrorEnvelope> handleProductionOrderBusinessRule(
+            ProductionOrderBusinessRuleException ex,
+            HttpServletRequest request
+    ) {
+        List<String> errors = ex.getErrors().isEmpty() ? List.of(ex.getCode()) : ex.getErrors();
+        return responseFactory.error(
+                request,
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                ex.getMessage() == null || ex.getMessage().isBlank()
+                        ? "Regla de negocio incumplida"
+                        : ex.getMessage(),
+                errors
+        );
+    }
+
+    @ExceptionHandler(InvalidObjectKeyException.class)
+    public ResponseEntity<ApiErrorEnvelope> handleInvalidObjectKey(
+            InvalidObjectKeyException ex,
+            HttpServletRequest request
+    ) {
+        return responseFactory.error(
+                request,
+                HttpStatus.BAD_REQUEST,
+                ex.getMessage(),
+                List.of(ex.getCode())
+        );
+    }
+
+    @ExceptionHandler(ObjectStorageAccessDeniedException.class)
+    public ResponseEntity<ApiErrorEnvelope> handleObjectStorageAccessDenied(
+            ObjectStorageAccessDeniedException ex,
+            HttpServletRequest request
+    ) {
+        return responseFactory.error(
+                request,
+                HttpStatus.FORBIDDEN,
+                ex.getMessage(),
+                List.of(ex.getCode())
+        );
+    }
+
+    @ExceptionHandler(ObjectStorageUnavailableException.class)
+    public ResponseEntity<ApiErrorEnvelope> handleObjectStorageUnavailable(
+            ObjectStorageUnavailableException ex,
+            HttpServletRequest request
+    ) {
+        log.warn("Object storage no disponible en {}: {}", request.getRequestURI(), ex.getMessage());
+        return responseFactory.error(
+                request,
+                HttpStatus.SERVICE_UNAVAILABLE,
                 ex.getMessage(),
                 List.of(ex.getCode())
         );

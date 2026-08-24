@@ -13,6 +13,7 @@ import com.inkcore.infrastructure.in.rest.envelope.ApiResponseFactory;
 import com.inkcore.infrastructure.in.rest.envelope.ApiSuccessEnvelope;
 import com.inkcore.infrastructure.in.rest.openapi.ApiErrorResponses;
 import com.inkcore.infrastructure.in.rest.openapi.ApiSecuredErrorResponses;
+import com.inkcore.infrastructure.in.rest.openapi.ColorConversionIccProfileListSuccessEnvelope;
 import com.inkcore.infrastructure.in.rest.openapi.ColorConversionSuccessEnvelope;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -44,15 +45,7 @@ import java.util.Locale;
 
 @RestController
 @RequestMapping("/api/v1/color-conversions")
-@Tag(
-        name = "Conversión de color",
-        description = """
-                Conversión RGB → CMYK con LittleCMS (lcms2 empaquetado) + perfiles ICC.
-                Convert: multipart → JSON con fileBase64 (CMYK) y previewRgbBase64 (JPEG soft-proof para UI).
-                Defaults de calidad comercial: brightnessLift=0.12, vibranceBoost=0.28,
-                softProofBrightnessMatch=true, blackPointCompensation=true (o qualityPreset=COMMERCIAL).
-                """
-)
+@Tag(name = "Conversión de color", description = "Conversión RGB→CMYK (ICC / LittleCMS)")
 @SecurityRequirement(name = "bearerAuth")
 public class ColorConversionController {
 
@@ -86,7 +79,7 @@ public class ColorConversionController {
             description = "Catálogo de perfiles ICC",
             content = @Content(
                     mediaType = MediaType.APPLICATION_JSON_VALUE,
-                    schema = @Schema(implementation = ApiSuccessEnvelope.class),
+                    schema = @Schema(implementation = ColorConversionIccProfileListSuccessEnvelope.class),
                     examples = @ExampleObject(
                             name = "CatalogoIcc",
                             value = """
@@ -97,7 +90,7 @@ public class ColorConversionController {
                                         "code": "OK",
                                         "description": "Success"
                                       },
-                                      "timestamp": "2026-07-31T12:00:00Z",
+                                      "timestamp": "2026-08-04T12:00:00Z",
                                       "data": [
                                         {
                                           "fileName": "FOGRA39.icc",
@@ -160,19 +153,19 @@ public class ColorConversionController {
 
                     ## Contrato front (calidad)
 
-                    **Request recomendado (fotos / comercial):**
+                    **Request recomendado (fotos / comercial / comida):**
                     - `renderingIntent=PERCEPTUAL`
                     - `outputFormat=TIFF`
                     - `iccProfile=FOGRA39.icc` (o el del catálogo / imprenta)
                     - `brightnessLift=0.12` (rango 0–0.20)
                     - `vibranceBoost=0.28` (rango 0–0.35)
-                    - `softProofBrightnessMatch=true` (recupera brillo/croma del contenido tras ICC)
+                    - `softProofBrightnessMatch=true`
                     - `blackPointCompensation=true` (default servidor; acerca a Photoshop Convert to Profile)
                     Alternativa corta: `qualityPreset=COMMERCIAL`.
 
                     **Más punch:** `qualityPreset=VIVID` (lift 0.16 / vibrance 0.35 / softProof true).
 
-                    **CTP puro (sin retoque):** `qualityPreset=FIDELITY` o lift=0, vibrance=0, softProof=false.
+                    **CTP puro (sin retoque creativo):** `qualityPreset=FIDELITY` o lift=0, vibrance=0, softProof=false.
 
                     **Prioridad:** overrides explícitos (`brightnessLift` / `vibranceBoost` /
                     `softProofBrightnessMatch` / `blackPointCompensation`) ganan sobre `qualityPreset`.
@@ -180,8 +173,13 @@ public class ColorConversionController {
                     ## Respuesta — uso obligatorio
 
                     - **Vista previa UI:** `data.previewRgbBase64` + `data.previewContentType` (`image/jpeg`).
-                      No renderizar el TIFF/PDF CMYK en el navegador.
-                    - **Descarga / CTP:** `data.fileBase64` + `data.contentType` + `data.fileName`.
+                      Soft-proof LittleCMS CMYK→RGB. Con softProof=true (COMMERCIAL/VIVID) el JPEG
+                      se alinea adicionalmente hacia el RGB de referencia (aprox. pantalla).
+                      No comparar contra Windows Photo / visores CMYK sin ICC.
+                    - **Descarga / CTP:** `data.fileBase64` + `data.contentType` + `data.fileName`
+                      (TIFF/PDF CMYK). Con softProof=true también aplica lift/vibrance + apertura CMY
+                      comercial al archivo; con FIDELITY es separación ICC pura.
+                    - **Métrica:** `data.softProofLumaRatio` (~0.95–1.05 si softProof activo; null en PDF/FIDELITY).
 
                     ## Otros
 
@@ -194,8 +192,8 @@ public class ColorConversionController {
     @ApiResponse(
             responseCode = "200",
             description = """
-                    Conversión exitosa. Usar previewRgbBase64 para UI y fileBase64 para descarga.
-                    contentType/fileName según outputFormat.
+                    Conversión exitosa. Usar previewRgbBase64 para UI y fileBase64 para descarga/CTP.
+                    contentType/fileName según outputFormat. qualityPreset refleja el enviado (null si omitido).
                     """,
             content = @Content(
                     mediaType = MediaType.APPLICATION_JSON_VALUE,
@@ -203,7 +201,7 @@ public class ColorConversionController {
                     examples = {
                             @ExampleObject(
                                     name = "SalidaTiffComercial",
-                                    summary = "TIFF + preview RGB (calidad comercial)",
+                                    summary = "TIFF + preview RGB (calidad comercial / default)",
                                     value = """
                                             {
                                               "headers": {
@@ -212,7 +210,7 @@ public class ColorConversionController {
                                                 "code": "OK",
                                                 "description": "Success"
                                               },
-                                              "timestamp": "2026-07-30T12:00:00Z",
+                                              "timestamp": "2026-08-04T12:00:00Z",
                                               "data": {
                                                 "fileName": "foto_CMYK.tif",
                                                 "contentType": "image/tiff",
@@ -227,10 +225,45 @@ public class ColorConversionController {
                                                 "brightnessLift": 0.12,
                                                 "vibranceBoost": 0.28,
                                                 "softProofBrightnessMatch": true,
-                                                "qualityPreset": null,
+                                                "qualityPreset": "COMMERCIAL",
                                                 "previewRgbBase64": "/9j/4AAQSkZJRgABAQAAAQABAAD",
                                                 "previewContentType": "image/jpeg",
                                                 "softProofLumaRatio": 0.97,
+                                                "sizeIncreaseExpected": true
+                                              }
+                                            }
+                                            """
+                            ),
+                            @ExampleObject(
+                                    name = "SalidaTiffVivid",
+                                    summary = "TIFF + preview (qualityPreset=VIVID)",
+                                    value = """
+                                            {
+                                              "headers": {
+                                                "correlationId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                                                "statusCode": 200,
+                                                "code": "OK",
+                                                "description": "Success"
+                                              },
+                                              "timestamp": "2026-08-04T12:00:00Z",
+                                              "data": {
+                                                "fileName": "comida_CMYK.tif",
+                                                "contentType": "image/tiff",
+                                                "fileBase64": "SUkqAAgAAAASAP4ABAABAAAAAAAAAAABBAABAAAAwAkAAAEBBAABAAAA",
+                                                "originalSizeBytes": 1048576,
+                                                "finalSizeBytes": 1400000,
+                                                "widthPx": 2400,
+                                                "heightPx": 3000,
+                                                "processingTimeMs": 900,
+                                                "renderingIntent": "PERCEPTUAL",
+                                                "iccProfile": "FOGRA39.icc",
+                                                "brightnessLift": 0.16,
+                                                "vibranceBoost": 0.35,
+                                                "softProofBrightnessMatch": true,
+                                                "qualityPreset": "VIVID",
+                                                "previewRgbBase64": "/9j/4AAQSkZJRgABAQAAAQABAAD",
+                                                "previewContentType": "image/jpeg",
+                                                "softProofLumaRatio": 0.98,
                                                 "sizeIncreaseExpected": true
                                               }
                                             }
@@ -247,7 +280,7 @@ public class ColorConversionController {
                                                 "code": "OK",
                                                 "description": "Success"
                                               },
-                                              "timestamp": "2026-07-30T12:00:00Z",
+                                              "timestamp": "2026-08-04T12:00:00Z",
                                               "data": {
                                                 "fileName": "arte_CMYK.tif",
                                                 "contentType": "image/tiff",
@@ -282,7 +315,7 @@ public class ColorConversionController {
                                                 "code": "OK",
                                                 "description": "Success"
                                               },
-                                              "timestamp": "2026-07-30T12:00:00Z",
+                                              "timestamp": "2026-08-04T12:00:00Z",
                                               "data": {
                                                 "fileName": "logo_CMYK.pdf",
                                                 "contentType": "application/pdf",
@@ -300,6 +333,7 @@ public class ColorConversionController {
                                                 "qualityPreset": null,
                                                 "previewRgbBase64": null,
                                                 "previewContentType": null,
+                                                "softProofLumaRatio": null,
                                                 "sizeIncreaseExpected": true
                                               }
                                             }

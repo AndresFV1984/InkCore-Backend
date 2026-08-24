@@ -2,6 +2,7 @@ package com.inkcore;
 
 import com.inkcore.infrastructure.config.ColorConversionProperties;
 import com.inkcore.infrastructure.config.InkEstimationProperties;
+import com.inkcore.infrastructure.config.ObjectStorageProperties;
 import com.inkcore.infrastructure.config.PasswordPolicyProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -16,7 +17,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 @EnableConfigurationProperties({
         PasswordPolicyProperties.class,
         ColorConversionProperties.class,
-        InkEstimationProperties.class
+        InkEstimationProperties.class,
+        ObjectStorageProperties.class
 })
 public class InkCoreBackendApplication {
 

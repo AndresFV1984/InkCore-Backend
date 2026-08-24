@@ -36,7 +36,9 @@ import java.awt.image.DataBuffer;
 import java.awt.image.WritableRaster;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import java.util.Locale;
@@ -92,14 +94,14 @@ public class ImageColorConverterAdapter implements ImageColorConverterPort {
                     blackPointCompensation(request)
             );
             BufferedImage cmyk = outcome.cmyk();
-            // Preview soft-proof con LittleCMS (antes del rewrap DeviceCMYK de escritura)
-            byte[] previewJpeg = writeJpeg(
-                    softProofCmykToRgb(
-                            cmyk, destinationIccBytes, sourceIccBytes,
-                            request.getRenderingIntent(), blackPointCompensation(request)
-                    ),
-                    0.95f
-            );
+            BufferedImage previewRgb = outcome.previewRgb();
+            if (previewRgb == null) {
+                previewRgb = softProofCmykToRgb(
+                        cmyk, destinationIccBytes, sourceIccBytes,
+                        request.getRenderingIntent(), blackPointCompensation(request)
+                );
+            }
+            byte[] previewJpeg = writeJpeg(previewRgb, 0.95f);
             Double xDpi = loaded.xDpi() != null ? loaded.xDpi() : DEFAULT_RASTER_DPI;
             Double yDpi = loaded.yDpi() != null ? loaded.yDpi() : DEFAULT_RASTER_DPI;
             byte[] tiff = writeCmykTiffLzw(cmyk, destinationIccBytes, xDpi, yDpi);
@@ -239,10 +241,11 @@ public class ImageColorConverterAdapter implements ImageColorConverterPort {
         BufferedImage cmyk = rewrapWithProfile(outcome.cmyk(), ICC_Profile.getInstance(destinationIccBytes));
         byte[] previewJpeg;
         try {
-            previewJpeg = writeJpeg(
-                    softProofCmykToRgb(cmyk, destinationIccBytes, sourceIccBytes, intent, bpc),
-                    0.95f
-            );
+            BufferedImage previewRgb = outcome.previewRgb();
+            if (previewRgb == null) {
+                previewRgb = softProofCmykToRgb(cmyk, destinationIccBytes, sourceIccBytes, intent, bpc);
+            }
+            previewJpeg = writeJpeg(previewRgb, 0.95f);
         } catch (IOException ex) {
             throw new ColorConversionFailedException("Fallo al generar preview soft-proof: " + ex.getMessage(), ex);
         }
@@ -304,45 +307,68 @@ public class ImageColorConverterAdapter implements ImageColorConverterPort {
      */
     public LoadedRaster loadRasterHighFidelity(byte[] bytes) throws IOException {
         try (ImageInputStream iis = ImageIO.createImageInputStream(new ByteArrayInputStream(bytes))) {
-            Iterator<ImageReader> readers = ImageIO.getImageReaders(iis);
-            if (!readers.hasNext()) {
-                BufferedImage img = ImageIO.read(new ByteArrayInputStream(bytes));
-                if (img == null) {
-                    throw new ColorConversionFailedException("No se pudo leer la imagen de entrada");
-                }
-                return new LoadedRaster(img, null, null, 8);
+            return readLoadedRaster(iis, () -> ImageIO.read(new ByteArrayInputStream(bytes)));
+        }
+    }
+
+    public LoadedRaster loadRasterHighFidelity(Path file) throws IOException {
+        File raw = file.toFile();
+        try (ImageInputStream iis = ImageIO.createImageInputStream(raw)) {
+            return readLoadedRaster(iis, () -> ImageIO.read(raw));
+        }
+    }
+
+    @FunctionalInterface
+    private interface RasterFallback {
+        BufferedImage read() throws IOException;
+    }
+
+    private LoadedRaster readLoadedRaster(ImageInputStream iis, RasterFallback fallback) throws IOException {
+        if (iis == null) {
+            BufferedImage img = fallback.read();
+            if (img == null) {
+                throw new ColorConversionFailedException("No se pudo leer la imagen de entrada");
             }
-            ImageReader reader = readers.next();
+            return new LoadedRaster(img, null, null, 8);
+        }
+        Iterator<ImageReader> readers = ImageIO.getImageReaders(iis);
+        if (!readers.hasNext()) {
+            BufferedImage img = fallback.read();
+            if (img == null) {
+                throw new ColorConversionFailedException("No se pudo leer la imagen de entrada");
+            }
+            return new LoadedRaster(img, null, null, 8);
+        }
+        ImageReader reader = readers.next();
+        try {
+            reader.setInput(iis, true, false);
+            javax.imageio.ImageReadParam param = reader.getDefaultReadParam();
+            // Sin sourceRegion / sin sourceSubsampling → píxeles 1:1
+            BufferedImage image = reader.read(0, param);
+            if (image == null) {
+                throw new ColorConversionFailedException("No se pudo leer la imagen de entrada");
+            }
+            Double xDpi = null;
+            Double yDpi = null;
+            int bits = Math.max(8, image.getSampleModel().getSampleSize(0));
+            if (bits != 16) {
+                bits = 8;
+            }
             try {
-                reader.setInput(iis, true, false);
-                javax.imageio.ImageReadParam param = reader.getDefaultReadParam();
-                // Sin sourceRegion / sin sourceSubsampling → píxeles 1:1
-                BufferedImage image = reader.read(0, param);
-                if (image == null) {
-                    throw new ColorConversionFailedException("No se pudo leer la imagen de entrada");
+                IIOMetadata metadata = reader.getImageMetadata(0);
+                DpiResolution dpi = extractDpi(metadata);
+                xDpi = dpi.x();
+                yDpi = dpi.y();
+                int metaBits = extractBitsPerSample(metadata, bits);
+                if (metaBits == 16) {
+                    bits = 16;
                 }
-                Double xDpi = null;
-                Double yDpi = null;
-                int bits = Math.max(8, image.getSampleModel().getSampleSize(0));
-                if (bits != 16) {
-                    bits = 8;
-                }
-                try {
-                    IIOMetadata metadata = reader.getImageMetadata(0);
-                    DpiResolution dpi = extractDpi(metadata);
-                    xDpi = dpi.x();
-                    yDpi = dpi.y();
-                    int metaBits = extractBitsPerSample(metadata, bits);
-                    if (metaBits == 16) {
-                        bits = 16;
-                    }
-                } catch (Exception ignored) {
-                    // metadatos opcionales
-                }
-                return new LoadedRaster(image, xDpi, yDpi, bits);
-            } finally {
-                reader.dispose();
+            } catch (Exception ignored) {
+                // metadatos opcionales
             }
+            return new LoadedRaster(image, xDpi, yDpi, bits);
+        } finally {
+            reader.dispose();
         }
     }
 
@@ -546,58 +572,59 @@ public class ImageColorConverterAdapter implements ImageColorConverterPort {
                     referenceRgb, srcIccBytes, dstIccBytes, effectiveIntent, bpc
             );
             Double lumaRatio = null;
+            BufferedImage previewRgb = softProofCmykToRgb(cmyk, dstIccBytes, srcIccBytes, effectiveIntent, bpc);
             if (softProofBrightnessMatch) {
                 recoverSoftProofAppearance(referenceRgb, cmyk, dstIccBytes, srcIccBytes, effectiveIntent, bpc);
                 lumaRatio = measureSoftProofLumaRatio(
                         referenceRgb, cmyk, dstIccBytes, srcIccBytes, effectiveIntent, bpc
                 );
-                if (lumaRatio != null && lumaRatio < 0.90) {
-                    BufferedImage floor = liftRgbTowardWhite(referenceRgb, Math.max(0.10f, brightnessLift + 0.04f));
-                    recoverSoftProofAppearance(floor, cmyk, dstIccBytes, srcIccBytes, effectiveIntent, bpc);
-                    lumaRatio = measureSoftProofLumaRatio(
-                            referenceRgb, cmyk, dstIccBytes, srcIccBytes, effectiveIntent, bpc
-                    );
-                }
+                previewRgb = softProofCmykToRgb(cmyk, dstIccBytes, srcIccBytes, effectiveIntent, bpc);
+                previewRgb = alignPreviewToReference(previewRgb, referenceRgb);
             }
             assertSameSize(source, cmyk);
-            return new CmykConvertOutcome(cmyk, lumaRatio);
+            return new CmykConvertOutcome(cmyk, lumaRatio, previewRgb);
         }
 
         BufferedImage appearanceRef = prepareRgbWorkingImage(source, srcIccBytes);
-        // Target de soft-proof = RGB con lift/vibrance (sin unsharp): Comercial/Punch
-        // deben verse más vivos que CTP; recuperar al original crudo anulaba el punch.
+        // Precompensación comercial: lo que el soft-proof FOGRA39 suele “apagar”.
         BufferedImage softProofTarget = boostVibranceHsb(appearanceRef, vibranceBoost);
+        softProofTarget = boostWarmPop(softProofTarget, Math.min(0.20f, vibranceBoost * 0.55f));
         softProofTarget = liftRgbTowardWhite(softProofTarget, brightnessLift);
+        if (softProofBrightnessMatch && (brightnessLift > 0f || vibranceBoost > 0f)) {
+            softProofTarget = midtoneContrast(softProofTarget, 0.22f);
+        }
         BufferedImage working = softProofTarget;
-        // Contraste local + nitidez a resolución nativa (comercial / soft-proof ON)
         if (softProofBrightnessMatch) {
-            working = enhanceLocalContrast(working, 0.32f);
-            working = unsharpLight(working, 0.55f);
+            working = unsharpLight(working, 0.48f);
         }
         BufferedImage cmyk = littleCms.rgbToCmykImage(
                 working, srcIccBytes, dstIccBytes, effectiveIntent, bpc
         );
         Double lumaRatio = null;
+        BufferedImage previewRgb = softProofCmykToRgb(cmyk, dstIccBytes, srcIccBytes, effectiveIntent, bpc);
         if (softProofBrightnessMatch) {
+            openCmyForScreenProof(cmyk, brightnessLift, vibranceBoost);
             recoverSoftProofAppearance(softProofTarget, cmyk, dstIccBytes, srcIccBytes, effectiveIntent, bpc);
             lumaRatio = measureSoftProofLumaRatio(
                     softProofTarget, cmyk, dstIccBytes, srcIccBytes, effectiveIntent, bpc
             );
             if (lumaRatio != null && lumaRatio < 0.90) {
-                BufferedImage floor = liftRgbTowardWhite(
-                        softProofTarget, Math.max(0.10f, brightnessLift + 0.04f)
-                );
-                recoverSoftProofAppearance(floor, cmyk, dstIccBytes, srcIccBytes, effectiveIntent, bpc);
+                openCmyForScreenProof(cmyk, brightnessLift + 0.04f, vibranceBoost);
                 lumaRatio = measureSoftProofLumaRatio(
                         softProofTarget, cmyk, dstIccBytes, srcIccBytes, effectiveIntent, bpc
                 );
             }
+            // Preview de UI: re-soft-proof + alinear a referencia creativa (pantalla).
+            // El TIFF/PDF CMYK no se altera aquí; solo el JPEG de vista previa.
+            previewRgb = softProofCmykToRgb(cmyk, dstIccBytes, srcIccBytes, effectiveIntent, bpc);
+            // Alinear preview a la foto original (pantalla). CMYK CTP no se toca aquí.
+            previewRgb = alignPreviewToReference(previewRgb, appearanceRef);
         }
         assertSameSize(source, cmyk);
-        return new CmykConvertOutcome(cmyk, lumaRatio);
+        return new CmykConvertOutcome(cmyk, lumaRatio, previewRgb);
     }
 
-    private record CmykConvertOutcome(BufferedImage cmyk, Double softProofLumaRatio) {
+    private record CmykConvertOutcome(BufferedImage cmyk, Double softProofLumaRatio, BufferedImage previewRgb) {
     }
 
     private static void assertSameSize(BufferedImage source, BufferedImage cmyk) {
@@ -637,6 +664,41 @@ public class ImageColorConverterAdapter implements ImageColorConverterPort {
                 g = g + Math.round((255 - g) * localA);
                 b = b + Math.round((255 - b) * localA);
             }
+            pixels[i] = (r << 16) | (g << 8) | b;
+        }
+        out.setRGB(0, 0, w, h, pixels, 0, w);
+        return out;
+    }
+
+    /**
+     * Contraste en medios (curva S suave sobre luma): más “punch” percibido sin levantar negros.
+     */
+    static BufferedImage midtoneContrast(BufferedImage source, float amount) {
+        if (amount <= 0f) {
+            return source;
+        }
+        float a = Math.min(0.25f, amount);
+        int w = source.getWidth();
+        int h = source.getHeight();
+        BufferedImage out = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
+        int[] pixels = source.getRGB(0, 0, w, h, null, 0, w);
+        for (int i = 0; i < pixels.length; i++) {
+            int rgb = pixels[i];
+            int r = (rgb >> 16) & 0xff;
+            int g = (rgb >> 8) & 0xff;
+            int b = rgb & 0xff;
+            float luma = (0.2126f * r + 0.7152f * g + 0.0722f * b) / 255f;
+            // S-curve centrada en 0.5
+            float x = luma;
+            float curved = x + a * (x - 0.5f) * (1f - Math.abs(2f * x - 1f));
+            curved = Math.max(0f, Math.min(1f, curved));
+            if (luma < 1e-4f) {
+                continue;
+            }
+            float scale = curved / luma;
+            r = clampByte(Math.round(r * scale));
+            g = clampByte(Math.round(g * scale));
+            b = clampByte(Math.round(b * scale));
             pixels[i] = (r << 16) | (g << 8) | b;
         }
         out.setRGB(0, 0, w, h, pixels, 0, w);
@@ -823,6 +885,52 @@ public class ImageColorConverterAdapter implements ImageColorConverterPort {
     }
 
     /**
+     * Ajusta el JPEG de preview (pantalla) hacia la foto original.
+     * El soft-proof FOGRA39 puro siempre se ve más opaco en cálidos fuera de gamut;
+     * en Comercial/Punch la UI necesita una vista usable. El CMYK de plancha no se modifica.
+     */
+    static BufferedImage alignPreviewToReference(BufferedImage proof, BufferedImage reference) {
+        if (proof == null || reference == null) {
+            return proof;
+        }
+        if (proof.getWidth() != reference.getWidth() || proof.getHeight() != reference.getHeight()) {
+            return proof;
+        }
+        // Mayoría del color original + rastro del soft-proof real
+        BufferedImage out = blendRgb(proof, reference, 0.72f);
+        out = midtoneContrast(out, 0.10f);
+        out = unsharpLight(out, 0.28f);
+        return out;
+    }
+
+    /** Mezcla {@code amount} de {@code overlay} sobre {@code base} (0=base, 1=overlay). */
+    static BufferedImage blendRgb(BufferedImage base, BufferedImage overlay, float amount) {
+        if (amount <= 0f || overlay == null) {
+            return base;
+        }
+        float a = Math.min(1f, amount);
+        int w = base.getWidth();
+        int h = base.getHeight();
+        BufferedImage out = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
+        int[] b = base.getRGB(0, 0, w, h, null, 0, w);
+        int[] o = overlay.getRGB(0, 0, w, h, null, 0, w);
+        for (int i = 0; i < b.length; i++) {
+            int br = (b[i] >> 16) & 0xff;
+            int bg = (b[i] >> 8) & 0xff;
+            int bb = b[i] & 0xff;
+            int or = (o[i] >> 16) & 0xff;
+            int og = (o[i] >> 8) & 0xff;
+            int ob = o[i] & 0xff;
+            int r = Math.round(br + (or - br) * a);
+            int g = Math.round(bg + (og - bg) * a);
+            int bl = Math.round(bb + (ob - bb) * a);
+            b[i] = (clampByte(r) << 16) | (clampByte(g) << 8) | clampByte(bl);
+        }
+        out.setRGB(0, 0, w, h, b, 0, w);
+        return out;
+    }
+
+    /**
      * Tras RGB→CMYK, recupera brillo/croma del contenido usando soft-proof LittleCMS.
      */
     void recoverSoftProofAppearance(
@@ -840,120 +948,81 @@ public class ImageColorConverterAdapter implements ImageColorConverterPort {
             return;
         }
         boolean[] contentMask = buildContentMask(referenceRgb);
-        for (int pass = 0; pass < 2; pass++) {
-            BufferedImage proof = softProofCmykToRgb(cmyk, cmykIcc, rgbIcc, intent, blackPointCompensation);
-            AppearanceStats ref = appearanceStatsMasked(referenceRgb, contentMask);
-            AppearanceStats got = appearanceStatsMasked(proof, contentMask);
-            if (ref.sampleCount < 64 || got.sampleCount < 64) {
-                break;
-            }
-            if (ref.meanLuma < 1.0 || got.meanLuma < 1.0) {
-                break;
-            }
+        // Una sola pasada global. Bajar K globalmente “lechea” negros (velo gris).
+        BufferedImage proof = softProofCmykToRgb(cmyk, cmykIcc, rgbIcc, intent, blackPointCompensation);
+        AppearanceStats ref = appearanceStatsMasked(referenceRgb, contentMask);
+        AppearanceStats got = appearanceStatsMasked(proof, contentMask);
+        if (ref.sampleCount < 64 || got.sampleCount < 64 || ref.meanLuma < 1.0 || got.meanLuma < 1.0) {
+            return;
+        }
 
-            double targetLuma = ref.meanLuma;
-            double targetP75 = ref.p75Luma;
-            double meanRatio = got.meanLuma / Math.max(1.0, targetLuma);
-            double p75Ratio = got.p75Luma / Math.max(1.0, targetP75);
-            double brightnessRatio = Math.min(meanRatio, p75Ratio);
+        double brightnessRatio = Math.min(
+                got.meanLuma / Math.max(1.0, ref.meanLuma),
+                got.p75Luma / Math.max(1.0, ref.p75Luma)
+        );
 
-            double cmyScale = 1.0;
-            double kScale = 1.0;
+        double cmyScale = 1.0;
+        double kScale = 1.0;
 
-            if (brightnessRatio < 0.995) {
-                double inkScale = clamp(brightnessRatio, 0.42, 1.0);
-                cmyScale = inkScale;
-                kScale = clamp(inkScale * 0.82, 0.38, 1.0);
-            }
+        if (brightnessRatio < 0.99) {
+            // Solo CMY, más agresivo que antes; K intacto para negros profundos
+            cmyScale = clamp(brightnessRatio, 0.72, 1.0);
+        }
 
-            double targetChroma = ref.meanChroma;
-            if (ref.meanChroma > 5.0 && got.meanChroma < targetChroma * 0.97) {
-                double chromaGap = got.meanChroma / Math.max(1.0, targetChroma);
-                kScale = clamp(kScale * clamp(chromaGap, 0.70, 1.0), 0.38, 1.0);
-                cmyScale = clamp(cmyScale * clamp(0.85 + 0.15 * chromaGap, 0.70, 1.0), 0.42, 1.0);
-            }
+        if (ref.meanChroma > 5.0 && got.meanChroma < ref.meanChroma * 0.96) {
+            double chromaGap = got.meanChroma / Math.max(1.0, ref.meanChroma);
+            kScale = clamp(chromaGap, 0.96, 1.0);
+            cmyScale = clamp(cmyScale * clamp(0.80 + 0.20 * chromaGap, 0.72, 1.0), 0.72, 1.0);
+        }
 
-            if (cmyScale >= 0.999 && kScale >= 0.999) {
-                break;
-            }
+        if (cmyScale < 0.999 || kScale < 0.999) {
             scaleCmykChannelsInPlace(cmyk, cmyScale, cmyScale, cmyScale, kScale);
         }
-        recoverSoftProofPerPixel(referenceRgb, cmyk, contentMask, cmykIcc, rgbIcc, intent, blackPointCompensation);
     }
 
-    private void recoverSoftProofPerPixel(
-            BufferedImage referenceRgb,
-            BufferedImage cmyk,
-            boolean[] contentMask,
-            byte[] cmykIcc,
-            byte[] rgbIcc,
-            RenderingIntent intent,
-            Boolean blackPointCompensation
-    ) {
-        BufferedImage proof = softProofCmykToRgb(cmyk, cmykIcc, rgbIcc, intent, blackPointCompensation);
-        int w = cmyk.getWidth();
-        int h = cmyk.getHeight();
-        WritableRaster raster = cmyk.getRaster();
-        int bands = Math.min(4, raster.getNumBands());
-        boolean ushort = raster.getDataBuffer().getDataType() == DataBuffer.TYPE_USHORT;
-        int max = ushort ? 65535 : 255;
-        int[] refPx = referenceRgb.getRGB(0, 0, w, h, null, 0, w);
-        int[] proofPx = proof.getRGB(0, 0, w, h, null, 0, w);
-        int[] pixel = new int[Math.max(4, bands)];
+    /**
+     * Reduce CMY (no K) según lift/vibrance para que el soft-proof no se vea opaco.
+     */
+    private static void openCmyForScreenProof(BufferedImage cmyk, float brightnessLift, float vibranceBoost) {
+        float punch = Math.max(0f, Math.min(1f, brightnessLift / 0.20f * 0.45f + vibranceBoost / 0.35f * 0.55f));
+        if (punch <= 0.01f) {
+            return;
+        }
+        double cmyScale = clamp(1.0 - 0.18 * punch, 0.78, 1.0);
+        scaleCmykChannelsInPlace(cmyk, cmyScale, cmyScale, cmyScale, 1.0);
+    }
 
-        for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) {
-                int i = y * w + x;
-                if (contentMask != null && i < contentMask.length && !contentMask[i]) {
-                    continue;
+    /**
+     * Extra saturación en cálidos (naranja/amarillo/rojo comida) antes del CMYK.
+     */
+    static BufferedImage boostWarmPop(BufferedImage source, float amount) {
+        if (amount <= 0f) {
+            return source;
+        }
+        float a = Math.min(0.25f, amount);
+        int w = source.getWidth();
+        int h = source.getHeight();
+        BufferedImage out = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
+        int[] pixels = source.getRGB(0, 0, w, h, null, 0, w);
+        float[] hsb = new float[3];
+        for (int i = 0; i < pixels.length; i++) {
+            int rgb = pixels[i];
+            int r = (rgb >> 16) & 0xff;
+            int g = (rgb >> 8) & 0xff;
+            int b = rgb & 0xff;
+            Color.RGBtoHSB(r, g, b, hsb);
+            float hue = hsb[0]; // 0..1 ; cálidos ~ 0–0.15 y ~0.95–1
+            boolean warm = hue <= 0.14f || hue >= 0.92f;
+            if (warm && hsb[1] > 0.08f && hsb[2] > 0.12f) {
+                hsb[1] = Math.min(1f, hsb[1] + (1f - hsb[1]) * a);
+                if (hsb[2] < 0.92f) {
+                    hsb[2] = Math.min(1f, hsb[2] + (1f - hsb[2]) * a * 0.25f);
                 }
-                int rr = (refPx[i] >> 16) & 0xff;
-                int rg = (refPx[i] >> 8) & 0xff;
-                int rb = refPx[i] & 0xff;
-                int pr = (proofPx[i] >> 16) & 0xff;
-                int pg = (proofPx[i] >> 8) & 0xff;
-                int pb = proofPx[i] & 0xff;
-
-                double refLuma = 0.2126 * rr + 0.7152 * rg + 0.0722 * rb;
-                double proofLuma = 0.2126 * pr + 0.7152 * pg + 0.0722 * pb;
-                int refChroma = Math.max(rr, Math.max(rg, rb)) - Math.min(rr, Math.min(rg, rb));
-                int proofChroma = Math.max(pr, Math.max(pg, pb)) - Math.min(pr, Math.min(pg, pb));
-
-                // No aclarar negros profundos: la recuperación agresiva de K genera velo gris
-                if (refLuma < 18.0) {
-                    continue;
-                }
-                double shadowProtect = clamp((refLuma - 18.0) / 40.0, 0.0, 1.0);
-
-                double lumaScale = 1.0;
-                if (proofLuma > 1.0 && proofLuma < refLuma * 0.985) {
-                    lumaScale = clamp(proofLuma / Math.max(1.0, refLuma), 0.42, 1.0);
-                    lumaScale = 1.0 - (1.0 - lumaScale) * shadowProtect;
-                }
-                double chromaScale = 1.0;
-                if (refChroma > 12 && proofChroma < refChroma * 0.94) {
-                    chromaScale = clamp((double) proofChroma / Math.max(1.0, refChroma), 0.65, 1.0);
-                    chromaScale = 1.0 - (1.0 - chromaScale) * shadowProtect;
-                }
-                double cmyScale = Math.min(lumaScale, 0.90 + 0.10 * chromaScale);
-                double kScale = Math.min(lumaScale * 0.85, chromaScale);
-                if (cmyScale >= 0.995 && kScale >= 0.995) {
-                    continue;
-                }
-                raster.getPixel(x, y, pixel);
-                double[] scales = {cmyScale, cmyScale, cmyScale, kScale};
-                for (int b = 0; b < bands; b++) {
-                    double s = b < scales.length ? scales[b] : 1.0;
-                    pixel[b] = (int) Math.round(pixel[b] * s);
-                    if (pixel[b] < 0) {
-                        pixel[b] = 0;
-                    } else if (pixel[b] > max) {
-                        pixel[b] = max;
-                    }
-                }
-                raster.setPixel(x, y, pixel);
+                pixels[i] = Color.HSBtoRGB(hsb[0], hsb[1], hsb[2]) & 0xffffff;
             }
         }
+        out.setRGB(0, 0, w, h, pixels, 0, w);
+        return out;
     }
 
     private BufferedImage softProofCmykToRgb(

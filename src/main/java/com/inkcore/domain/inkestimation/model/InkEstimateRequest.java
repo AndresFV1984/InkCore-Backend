@@ -1,5 +1,8 @@
 package com.inkcore.domain.inkestimation.model;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 
@@ -9,6 +12,7 @@ import java.util.Objects;
 public final class InkEstimateRequest {
 
     private final byte[] fileBytes;
+    private final Path sourceFile;
     private final String originalFileName;
     private final String mimeType;
     private final double widthCm;
@@ -35,6 +39,7 @@ public final class InkEstimateRequest {
     ) {
         this(
                 fileBytes,
+                null,
                 originalFileName,
                 mimeType,
                 widthCm,
@@ -61,8 +66,77 @@ public final class InkEstimateRequest {
             String analysisIccProfile,
             List<Integer> pages
     ) {
-        if (fileBytes == null || fileBytes.length == 0) {
-            throw new IllegalArgumentException("El archivo es obligatorio");
+        this(
+                fileBytes,
+                null,
+                originalFileName,
+                mimeType,
+                widthCm,
+                heightCm,
+                sheetCount,
+                dpi,
+                gramsPerCm2AtFullCoverage,
+                userId,
+                analysisIccProfile,
+                pages
+        );
+    }
+
+    public InkEstimateRequest(
+            Path sourceFile,
+            String originalFileName,
+            String mimeType,
+            double widthCm,
+            double heightCm,
+            int sheetCount,
+            Integer dpi,
+            Double gramsPerCm2AtFullCoverage,
+            String userId,
+            String analysisIccProfile,
+            List<Integer> pages
+    ) {
+        this(
+                null,
+                sourceFile,
+                originalFileName,
+                mimeType,
+                widthCm,
+                heightCm,
+                sheetCount,
+                dpi,
+                gramsPerCm2AtFullCoverage,
+                userId,
+                analysisIccProfile,
+                pages
+        );
+    }
+
+    private InkEstimateRequest(
+            byte[] fileBytes,
+            Path sourceFile,
+            String originalFileName,
+            String mimeType,
+            double widthCm,
+            double heightCm,
+            int sheetCount,
+            Integer dpi,
+            Double gramsPerCm2AtFullCoverage,
+            String userId,
+            String analysisIccProfile,
+            List<Integer> pages
+    ) {
+        if (sourceFile != null) {
+            if (!Files.isRegularFile(sourceFile)) {
+                throw new IllegalArgumentException("El archivo es obligatorio");
+            }
+            this.fileBytes = null;
+            this.sourceFile = sourceFile;
+        } else {
+            if (fileBytes == null || fileBytes.length == 0) {
+                throw new IllegalArgumentException("El archivo es obligatorio");
+            }
+            this.fileBytes = fileBytes;
+            this.sourceFile = null;
         }
         if (widthCm <= 0 || heightCm <= 0) {
             throw new IllegalArgumentException("El área de impresión (ancho × alto cm) debe ser mayor que 0");
@@ -76,7 +150,6 @@ public final class InkEstimateRequest {
         if (gramsPerCm2AtFullCoverage != null && gramsPerCm2AtFullCoverage <= 0) {
             throw new IllegalArgumentException("El factor g/cm² debe ser mayor que 0");
         }
-        this.fileBytes = fileBytes;
         this.originalFileName = Objects.requireNonNullElse(originalFileName, "upload");
         this.mimeType = mimeType;
         this.widthCm = widthCm;
@@ -91,6 +164,10 @@ public final class InkEstimateRequest {
 
     public byte[] getFileBytes() {
         return fileBytes;
+    }
+
+    public Path getSourceFile() {
+        return sourceFile;
     }
 
     public String getOriginalFileName() {
@@ -137,6 +214,13 @@ public final class InkEstimateRequest {
     }
 
     public long getOriginalSizeBytes() {
+        if (sourceFile != null) {
+            try {
+                return Files.size(sourceFile);
+            } catch (IOException ex) {
+                throw new IllegalStateException("No se pudo leer el tamaño del archivo", ex);
+            }
+        }
         return fileBytes.length;
     }
 

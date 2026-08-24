@@ -1,0 +1,25 @@
+---
+description: Flyway — una migración por tabla; no fragmentar cambios de la misma tabla
+globs: "**/db/migration/**/*.sql,**/ScriptBD/**/*.sql"
+alwaysApply: false
+---
+
+# Flyway / Script BD (InkCore)
+
+## Una migración por tabla
+
+Mientras la migración de una tabla **aún no está en producción / se puede editar**:
+
+- **Un archivo** `V{n}__{tabla}.sql` concentra `CREATE TABLE`, columnas, índices, checks y comentarios.
+- **No** crear `V{n+1}__{tabla}_add_campo.sql`, `V{n+2}__{tabla}_fix_index.sql`, etc. para la misma tabla.
+- Si hay que corregir índices o columnas, **editar el archivo existente** de esa tabla.
+- Mantener alineado `ScriptBD/Script_Crear_BD.sql` con esa misma definición.
+
+## Cuándo sí crear una migración nueva
+
+Solo si la migración original **ya se aplicó en entornos compartidos** y no se puede reescribir (checksum Flyway en prod). Entonces un `ALTER`/`CREATE INDEX` en un `V{n+1}` es válido.
+
+## Ejemplo (tarifas por millar)
+
+- ✅ Todo en `V19__thousand_rates.sql` (columnas `color_category` / `is_default` + índices).
+- ❌ `V20__thousand_rates_...sql` + `V21__thousand_rates_...sql` sobre la misma tabla en desarrollo.

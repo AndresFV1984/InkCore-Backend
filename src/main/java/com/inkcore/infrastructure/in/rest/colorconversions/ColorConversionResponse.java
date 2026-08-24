@@ -9,8 +9,11 @@ import java.util.Base64;
         name = "ColorConversionResponse",
         description = """
                 Resultado de la conversión (CMM LittleCMS + ICC).
-                - previewRgbBase64 + previewContentType: soft-proof JPEG (LittleCMS CMYK→RGB) para el navegador.
-                - fileBase64 + contentType + fileName: archivo CMYK (TIFF/PDF) para descarga/CTP.
+                - previewRgbBase64 + previewContentType: JPEG para UI (soft-proof; con softProof=true
+                  alineado a referencia de pantalla). No comparar con visores CMYK sin ICC.
+                - fileBase64 + contentType + fileName: TIFF/PDF CMYK para descarga/CTP
+                  (incluye lift/vibrance/apertura CMY si softProof=true; FIDELITY = ICC puro).
+                - softProofLumaRatio: métrica de paridad luma (null en PDF o FIDELITY sin soft-proof).
                 No se guarda en disco.
                 """
 )
@@ -63,8 +66,8 @@ public record ColorConversionResponse(
         float vibranceBoost,
 
         @Schema(description = """
-                softProofBrightnessMatch efectivo. Si true, el backend recuperó brillo/croma
-                del contenido tras soft-proof (global + por píxel).
+                softProofBrightnessMatch efectivo. Si true: lift/vibrance + apertura CMY en el CMYK
+                y preview UI alineado a referencia de pantalla.
                 """, example = "true")
         boolean softProofBrightnessMatch,
 
@@ -78,8 +81,9 @@ public record ColorConversionResponse(
 
         @Schema(
                 description = """
-                        Soft-proof RGB JPEG en Base64 a resolución nativa.
-                        Usar en <img src=\"data:image/jpeg;base64,...\">. Null en salidas PDF.
+                        Soft-proof RGB JPEG en Base64 a resolución nativa para <img>.
+                        Con softProof=true (COMMERCIAL/VIVID) incluye alineación UI hacia el RGB
+                        de referencia; no es el archivo CTP. Null en salidas PDF.
                         """,
                 example = "/9j/4AAQSkZJRgABAQAAAQABAAD..."
         )
