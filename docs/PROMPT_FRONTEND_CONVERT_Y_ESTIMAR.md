@@ -65,19 +65,37 @@ Prioridad: overrides explícitos (`brightnessLift`, `vibranceBoost`, `softProofB
 
 ## 2. Estimar tintas — `POST /api/v1/ink-estimates/estimate`
 
-`multipart/form-data` → envelope JSON. El archivo **no se devuelve ni se guarda** (solo metadatos de historial si aplica).
+Dos modos (mismo path, distinto `Content-Type`):
 
-### Entrada (multipart)
+### A) Multipart — formulario **Estimar tintas** (recomendado standalone)
+
+`multipart/form-data` → envelope JSON. El archivo **no se guarda** en object storage.
 
 | Campo | Obligatorio | Notas |
 |---|---|---|
 | `file` | sí | `.jpg`, `.jpeg`, `.png`, `.tif`, `.tiff`, `.webp`, `.gif`, `.pdf` |
 | `sheetCount` | sí | Pliegos del pedido |
-| `widthCm` / `heightCm` | no | Default servidor (p. ej. 70×100) |
-| `dpi` | no | Referencia / raster |
+| `widthCm` / `heightCm` | **recomendado** | Default 70×100 — enviar tamaño real del trabajo |
+| `dpi` | no | Default 300; raster / validación |
 | `gramsPerCm2` | no | Si se envía: factor uniforme; si no: factores por canal del servidor |
 | `iccProfile` | no | Destino LittleCMS para RGB (default `FOGRA39.icc`) |
 | `pages` | no | PDF 1-based, máx. 2 (ej. `"1,2"`); si se omite, todas |
+
+`operationId`: `estimateInkConsumptionMultipart`
+
+### B) JSON + objectKey — artes ya en MinIO (OP / presign)
+
+`application/json` con `objectKey` devuelto por `POST /api/v1/ink-estimate-assets/uploads` (presign + PUT navegador).
+
+| Campo | Obligatorio | Notas |
+|---|---|---|
+| `objectKey` | sí | Clave staging `tmp/company/.../ink-estimates/...` |
+| `sheetCount` | sí | Pliegos |
+| Resto | no | Igual que multipart |
+
+`operationId`: `estimateInkConsumptionFromObjectKey`
+
+Presign upload (`POST /api/v1/ink-estimate-assets/uploads`): requiere `entradaId`; `plateId` opcional en staging. Máx. `object-storage.max-asset-file-bytes` (default **512 MB**, alineado con multipart).
 
 ### Proceso backend
 
@@ -125,13 +143,15 @@ Prioridad: overrides explícitos (`brightnessLift`, `vibranceBoost`, `softProofB
 
 ## Precisión RGB (solo servidor)
 
-Defaults BALANCED en `application.yaml` (`inkcore.ink-estimation`):
+Defaults HIGH en `application.yaml` (`inkcore.ink-estimation`):
 
-- `max-analysis-pixels`: `2000000` (`INK_MAX_ANALYSIS_PIXELS`)
-- `rgb-image-max-edge`: `1024` (`INK_RGB_IMAGE_MAX_EDGE`)
+- `max-analysis-pixels`: `4000000` (`INK_MAX_ANALYSIS_PIXELS`)
+- `rgb-image-max-edge`: `2048` (`INK_RGB_IMAGE_MAX_EDGE`)
 - `black-point-compensation`: `true` (`INK_BLACK_POINT_COMPENSATION`)
 
-No se envían desde el front. Guía: FAST≈1e6/512 · BALANCED≈2e6/1024 · HIGH≈4e6/2048.
+No se envían desde el front. Guía DevOps: FAST≈1e6/512 · BALANCED≈2e6/1024 · HIGH≈4e6/2048.
+
+**Campos que sí envía el front** para precisión: ver sección **2. Estimar tintas** arriba (`widthCm`, `heightCm`, `sheetCount`, `iccProfile`, `dpi`, `pages`; omitir `gramsPerCm2` sin calibración).
 
 ---
 

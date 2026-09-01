@@ -6,6 +6,7 @@ import com.inkcore.application.productionorder.usecase.DeleteProductionOrderUseC
 import com.inkcore.application.productionorder.usecase.GenerateProductionOrderBillingPdfUseCase;
 import com.inkcore.application.productionorder.usecase.GetProductionOrderUseCase;
 import com.inkcore.application.productionorder.usecase.ListProductionOrdersUseCase;
+import com.inkcore.application.productionorder.usecase.OperatorAssignmentCommand;
 import com.inkcore.application.productionorder.usecase.UpdateProductionOrderBillingCommand;
 import com.inkcore.application.productionorder.usecase.UpdateProductionOrderBillingUseCase;
 import com.inkcore.application.productionorder.usecase.UpdateProductionOrderPaperCuttingCommand;
@@ -29,6 +30,7 @@ import com.inkcore.infrastructure.in.rest.openapi.ApiErrorResponses;
 import com.inkcore.infrastructure.in.rest.openapi.ApiSecuredErrorResponses;
 import com.inkcore.infrastructure.in.rest.openapi.ProductionOrderListSuccessEnvelope;
 import com.inkcore.infrastructure.in.rest.openapi.ProductionOrderSuccessEnvelope;
+import com.inkcore.infrastructure.in.rest.productionorders.ProductionOrderRequests.OperatorRequest;
 import com.inkcore.infrastructure.in.rest.productionorders.ProductionOrderRequests.PaperRowRequest;
 import com.inkcore.infrastructure.in.rest.productionorders.ProductionOrderRequests.PlateRequest;
 import com.inkcore.infrastructure.in.rest.productionorders.ProductionOrderRequests.PostpressLineRequest;
@@ -244,7 +246,9 @@ public class ProductionOrderController {
     @Operation(
             operationId = "updateProductionOrderSpecifications",
             summary = "Actualiza Especificaciones.",
-            description = "Requiere version (optimistic locking). 409 si la versión no coincide."
+            description = "Requiere version (optimistic locking). 409 si la versión no coincide. "
+                    + "Si viene operators: replace-all del set de responsables (operators:[] limpia). "
+                    + "Si se omite operators: no se modifican los responsables."
     )
     @ApiResponse(
             responseCode = "200",
@@ -277,7 +281,7 @@ public class ProductionOrderController {
                 new UpdateProductionOrderSpecificationsCommand(
                         request.version(), request.clientId(), request.workName(), request.sellerId(),
                         request.orderDate(), request.requestedQuantity(), request.proposalQuantity1(),
-                        request.proposalQuantity2(), request.operatorUserId()
+                        request.proposalQuantity2(), toOperatorCommands(request.operators()), request.operatorUserId()
                 ),
                 authentication
         );
@@ -518,7 +522,7 @@ public class ProductionOrderController {
                         request.clientProfitabilityType(), request.clientProfitabilityValue(),
                         request.clientVolumeCosting(), request.deliveryStartDate(), request.deliveryEndDate(),
                         request.advancePercentage(), request.clientSignatureName(), request.bankAccountId(),
-                        request.completed(), request.operatorUserId()
+                        request.completed(), toOperatorCommands(request.operators()), request.operatorUserId()
                 ),
                 authentication
         );
@@ -631,7 +635,7 @@ public class ProductionOrderController {
                 request.clientPlateType(), request.newPlateCost(), request.assemblyPriceId(),
                 request.dieCutLine(), request.uvReserve(), request.stamping(), request.embossing(),
                 request.prepressDiscountType(), request.prepressDiscountValue(), request.completed(),
-                request.operatorUserId(), plates
+                toOperatorCommands(request.operators()), request.operatorUserId(), plates
         );
     }
 
@@ -649,14 +653,15 @@ public class ProductionOrderController {
                 : request.paperRows().stream().map(ProductionOrderController::toPaperRowInput).toList();
         return new UpdateProductionOrderPaperCuttingCommand(
                 request.version(), request.clientSuppliesPaperDefault(), request.roundingMargin(),
-                request.completed(), request.operatorUserId(), request.discountType(), request.discountValue(), rows
+                request.completed(), toOperatorCommands(request.operators()), request.operatorUserId(),
+                request.discountType(), request.discountValue(), rows
         );
     }
 
     private static UpdateProductionOrderPaperCuttingCommand.PaperRowInput toPaperRowInput(PaperRowRequest r) {
         return new UpdateProductionOrderPaperCuttingCommand.PaperRowInput(
                 r.paperRowId(), r.plateId(), r.parentRowId(), r.cutRowKey(), r.isMissingSupply(),
-                r.missingSheetsQuantity(), r.clientSuppliesPaper(), r.paperTypeId(), r.cutLayoutId(),
+                r.missingSheetsQuantity(), r.clientSuppliesPaper(), r.paperTypeId(), r.supplierId(), r.cutLayoutId(),
                 r.isPaperCut(), r.deliveredSheetsByClient(), r.manualGoodSizes(), r.manualSurplus()
         );
     }
@@ -666,7 +671,8 @@ public class ProductionOrderController {
                 ? List.of()
                 : request.prints().stream().map(ProductionOrderController::toPrintInput).toList();
         return new UpdateProductionOrderPrintingCommand(
-                request.version(), request.completed(), request.operatorUserId(), prints
+                request.version(), request.completed(),
+                toOperatorCommands(request.operators()), request.operatorUserId(), prints
         );
     }
 
@@ -694,7 +700,8 @@ public class ProductionOrderController {
                 ? List.of()
                 : request.records().stream().map(ProductionOrderController::toPostpressRecordInput).toList();
         return new UpdateProductionOrderPostpressCommand(
-                request.version(), request.completed(), request.operatorUserId(),
+                request.version(), request.completed(),
+                toOperatorCommands(request.operators()), request.operatorUserId(),
                 request.discountType(), request.discountValue(), records
         );
     }
@@ -717,5 +724,18 @@ public class ProductionOrderController {
                 l.lineId(), l.catalogItemId(), l.source(), l.areaFactor(), l.goodSizes(),
                 l.positive(), l.cliche()
         );
+    }
+
+    /**
+     * {@code null} si el request omitió la clave {@code operators} (no tocar responsables).
+     * Lista (posiblemente vacía) si la clave vino en el JSON → replace-all.
+     */
+    private static List<OperatorAssignmentCommand> toOperatorCommands(List<OperatorRequest> operators) {
+        if (operators == null) {
+            return null;
+        }
+        return operators.stream()
+                .map(o -> new OperatorAssignmentCommand(o.stage(), o.userId(), o.roleCode()))
+                .toList();
     }
 }

@@ -4,8 +4,9 @@ CREATE TABLE IF NOT EXISTS indicolors.production_order_operators (
     production_order_operator_id CHARACTER VARYING(64)       NOT NULL DEFAULT gen_random_uuid()::text,
     company_id                   CHARACTER VARYING(64)       NOT NULL,
     production_order_id          CHARACTER VARYING(64)       NOT NULL,
-    stage                        CHARACTER VARYING(20)       NOT NULL,  -- PREPRESS|CUTTING|PRINTING|FINISHED_PRODUCTS|FINISHING_PROCESSES|BILLING
+    stage                        CHARACTER VARYING(32)       NOT NULL,  -- PREPRESS|CUTTING|PRINTING|FINISHED_PRODUCTS|FINISHING_PROCESSES|BILLING
     user_id                      CHARACTER VARYING(64)       NOT NULL,
+    role_code                    CHARACTER VARYING(64),
 
     created_at                   TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
     updated_at                   TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
@@ -29,6 +30,7 @@ COMMENT ON COLUMN indicolors.production_order_operators.company_id IS 'Identific
 COMMENT ON COLUMN indicolors.production_order_operators.production_order_id IS 'Identificador de la Orden de Producción a la que pertenece el operador';
 COMMENT ON COLUMN indicolors.production_order_operators.stage IS 'Etapa del wizard a la que corresponde el operador';
 COMMENT ON COLUMN indicolors.production_order_operators.user_id IS 'Identificador del usuario/operador asignado a la etapa';
+COMMENT ON COLUMN indicolors.production_order_operators.role_code IS 'Código de rol opcional del responsable (informativo; no obligatorio)';
 COMMENT ON COLUMN indicolors.production_order_operators.created_at IS 'Fecha y hora de creación del registro';
 COMMENT ON COLUMN indicolors.production_order_operators.updated_at IS 'Fecha y hora de la última actualización del registro';
 

@@ -30,15 +30,18 @@ import java.util.stream.Collectors;
 public class UpdateProductionOrderPostpressUseCase {
 
     private final ProductionOrderSupport support;
+    private final ProductionOrderOperatorsApplier operatorsApplier;
     private final FinishRepositoryPort finishRepository;
     private final FinishingProcessRepositoryPort finishingProcessRepository;
 
     public UpdateProductionOrderPostpressUseCase(
             ProductionOrderSupport support,
+            ProductionOrderOperatorsApplier operatorsApplier,
             FinishRepositoryPort finishRepository,
             FinishingProcessRepositoryPort finishingProcessRepository
     ) {
         this.support = support;
+        this.operatorsApplier = operatorsApplier;
         this.finishRepository = finishRepository;
         this.finishingProcessRepository = finishingProcessRepository;
     }
@@ -67,7 +70,13 @@ public class UpdateProductionOrderPostpressUseCase {
                 DiscountType.fromValue(command.discountType()),
                 command.discountValue()
         );
-        order.upsertOperator(type.getStage(), command.operatorUserId());
+        operatorsApplier.apply(
+                order,
+                companyId,
+                command.operators(),
+                command.operatorUserId(),
+                type.getStage()
+        );
         if (Boolean.TRUE.equals(command.completed())) {
             if (type == PostpressType.FINISHED_PRODUCT) {
                 order.setFinishedProductsCompletedAt(support.now());

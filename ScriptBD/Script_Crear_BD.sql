@@ -642,8 +642,6 @@ CREATE TABLE indicolors.paper_types (
     width           NUMERIC(10,2)           NOT NULL,
     height          NUMERIC(10,2)           NOT NULL,
     unit            CHARACTER VARYING(10)   NOT NULL DEFAULT 'cm',
-    sheet_value     NUMERIC(12,2)           NOT NULL,
-    package_unit    INTEGER                 NOT NULL,
     is_coated       BOOLEAN                 NOT NULL DEFAULT FALSE,
     state           BOOLEAN                 NOT NULL DEFAULT TRUE,
     creation_date   DATE                    NOT NULL DEFAULT CURRENT_DATE,
@@ -653,9 +651,7 @@ CREATE TABLE indicolors.paper_types (
     CONSTRAINT paper_types_name_company_unique UNIQUE (company_id, name),
     CONSTRAINT paper_types_width_check CHECK (width > 0),
     CONSTRAINT paper_types_height_check CHECK (height > 0),
-    CONSTRAINT paper_types_unit_check CHECK (unit IN ('cm', 'mm', 'in')),
-    CONSTRAINT paper_types_sheet_value_check CHECK (sheet_value >= 0),
-    CONSTRAINT paper_types_package_unit_check CHECK (package_unit > 0)
+    CONSTRAINT paper_types_unit_check CHECK (unit IN ('cm', 'mm', 'in'))
 );
 
 -- 24.1 ÍNDICES TIPOS DE PAPEL
@@ -673,8 +669,6 @@ COMMENT ON COLUMN indicolors.paper_types.name IS 'Nombre del tipo de papel';
 COMMENT ON COLUMN indicolors.paper_types.width IS 'Ancho de la hoja/pliego';
 COMMENT ON COLUMN indicolors.paper_types.height IS 'Alto de la hoja/pliego';
 COMMENT ON COLUMN indicolors.paper_types.unit IS 'Unidad de medida del ancho/alto: cm, mm o in';
-COMMENT ON COLUMN indicolors.paper_types.sheet_value IS 'Valor de la hoja/pliego';
-COMMENT ON COLUMN indicolors.paper_types.package_unit IS 'Cantidad de hojas por unidad de empaque';
 COMMENT ON COLUMN indicolors.paper_types.is_coated IS 'True=Papel esmaltado (tiene recubrimiento esmaltado)';
 COMMENT ON COLUMN indicolors.paper_types.state IS 'True=Activo, False=Inactivo';
 COMMENT ON COLUMN indicolors.paper_types.creation_date IS 'Fecha de registro del tipo de papel en el sistema';
@@ -710,6 +704,88 @@ COMMENT ON COLUMN indicolors.paper_type_cut_layouts.cut_value IS 'Valor de corte
 -- 25.1 PERMISOS TIPOS DE PAPEL <-> DESPIECES
 GRANT ALL PRIVILEGES ON TABLE indicolors.paper_type_cut_layouts TO indicolors_owner;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.paper_type_cut_layouts TO indicolors_app;
+
+-- ============================================
+-- 25.2 CREAR TABLA PROVEEDORES (formulario "Nuevo proveedor")
+-- ============================================
+CREATE TABLE indicolors.suppliers (
+    supplier_id    CHARACTER VARYING(64)  NOT NULL DEFAULT gen_random_uuid()::text,
+    company_id     CHARACTER VARYING(64)  NOT NULL,
+    name           CHARACTER VARYING(200) NOT NULL,
+    document_type  CHARACTER VARYING(20),
+    identification CHARACTER VARYING(32),
+    department     CHARACTER VARYING(100) NOT NULL,
+    city           CHARACTER VARYING(120) NOT NULL,
+    address        CHARACTER VARYING(255),
+    phone          CHARACTER VARYING(32),
+    email          CHARACTER VARYING(320),
+    contact_person CHARACTER VARYING(200),
+    state          BOOLEAN                NOT NULL DEFAULT TRUE,
+    creation_date  DATE                   NOT NULL DEFAULT CURRENT_DATE,
+    CONSTRAINT suppliers_pkey PRIMARY KEY (supplier_id),
+    CONSTRAINT suppliers_company_fk
+        FOREIGN KEY (company_id) REFERENCES indicolors.companies (company_id),
+    CONSTRAINT suppliers_document_type_check
+        CHECK (document_type IS NULL OR document_type IN ('CC', 'CE', 'TI', 'PA', 'NIT')),
+    CONSTRAINT suppliers_email_check
+        CHECK (email IS NULL OR email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
+);
+
+CREATE INDEX idx_suppliers_company_id ON indicolors.suppliers (company_id);
+CREATE INDEX idx_suppliers_name ON indicolors.suppliers (name);
+CREATE INDEX idx_suppliers_identification ON indicolors.suppliers (identification);
+CREATE INDEX idx_suppliers_document ON indicolors.suppliers (document_type, identification);
+CREATE INDEX idx_suppliers_department_city ON indicolors.suppliers (department, city);
+CREATE INDEX idx_suppliers_state ON indicolors.suppliers (state);
+CREATE INDEX idx_suppliers_company_state ON indicolors.suppliers (company_id, state);
+
+COMMENT ON TABLE indicolors.suppliers IS 'Tabla de proveedores registrados por cada compañía (formulario Nuevo proveedor)';
+COMMENT ON COLUMN indicolors.suppliers.supplier_id IS 'Identificador único del proveedor';
+COMMENT ON COLUMN indicolors.suppliers.company_id IS 'Identificador de la empresa dueña del registro del proveedor';
+COMMENT ON COLUMN indicolors.suppliers.name IS 'Nombre o razón social del proveedor';
+COMMENT ON COLUMN indicolors.suppliers.document_type IS 'Tipo de documento del proveedor: CC, CE, TI, PA, NIT';
+COMMENT ON COLUMN indicolors.suppliers.identification IS 'Número de documento (NIT o cédula) del proveedor';
+COMMENT ON COLUMN indicolors.suppliers.department IS 'Departamento de ubicación del proveedor';
+COMMENT ON COLUMN indicolors.suppliers.city IS 'Ciudad/municipio de ubicación del proveedor';
+COMMENT ON COLUMN indicolors.suppliers.address IS 'Dirección del proveedor (calle, barrio, referencia)';
+COMMENT ON COLUMN indicolors.suppliers.phone IS 'Teléfono de contacto del proveedor';
+COMMENT ON COLUMN indicolors.suppliers.email IS 'Correo electrónico de contacto del proveedor';
+COMMENT ON COLUMN indicolors.suppliers.contact_person IS 'Nombre de la persona de contacto principal del proveedor';
+COMMENT ON COLUMN indicolors.suppliers.state IS 'True=Activo, False=Inactivo';
+COMMENT ON COLUMN indicolors.suppliers.creation_date IS 'Fecha de registro del proveedor en el sistema';
+
+GRANT ALL PRIVILEGES ON TABLE indicolors.suppliers TO indicolors_owner;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.suppliers TO indicolors_app;
+
+-- ============================================
+-- 25.3 PAPER_TYPE_SUPPLIERS (relación tipos de papel - proveedores)
+-- ============================================
+CREATE TABLE indicolors.paper_type_suppliers (
+    paper_type_id   VARCHAR(64)     NOT NULL,
+    supplier_id     VARCHAR(64)     NOT NULL,
+    sheet_value     NUMERIC(12,2)   NOT NULL,
+    package_unit    INTEGER         NOT NULL,
+    assigned_at     TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
+    CONSTRAINT paper_type_suppliers_pkey PRIMARY KEY (paper_type_id, supplier_id),
+    CONSTRAINT paper_type_suppliers_paper_type_fk
+        FOREIGN KEY (paper_type_id) REFERENCES indicolors.paper_types (paper_type_id) ON DELETE CASCADE,
+    CONSTRAINT paper_type_suppliers_supplier_fk
+        FOREIGN KEY (supplier_id) REFERENCES indicolors.suppliers (supplier_id) ON DELETE CASCADE,
+    CONSTRAINT paper_type_suppliers_sheet_value_check CHECK (sheet_value >= 0),
+    CONSTRAINT paper_type_suppliers_package_unit_check CHECK (package_unit > 0)
+);
+
+CREATE INDEX idx_paper_type_suppliers_supplier_id
+    ON indicolors.paper_type_suppliers (supplier_id);
+
+COMMENT ON TABLE indicolors.paper_type_suppliers IS 'Relación N:M entre tipos de papel y proveedores, con valor hoja y unidad empaque por proveedor';
+COMMENT ON COLUMN indicolors.paper_type_suppliers.paper_type_id IS 'Identificador del tipo de papel';
+COMMENT ON COLUMN indicolors.paper_type_suppliers.supplier_id IS 'Identificador del proveedor asociado';
+COMMENT ON COLUMN indicolors.paper_type_suppliers.sheet_value IS 'Valor de la hoja/pliego para este proveedor';
+COMMENT ON COLUMN indicolors.paper_type_suppliers.package_unit IS 'Cantidad de hojas por unidad de empaque para este proveedor';
+
+GRANT ALL PRIVILEGES ON TABLE indicolors.paper_type_suppliers TO indicolors_owner;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.paper_type_suppliers TO indicolors_app;
 
 -- ============================================
 -- 26. CREAR TABLA TIPOS DE PLANCHA (formulario "Nuevo tipo de plancha")
@@ -1101,8 +1177,9 @@ CREATE TABLE indicolors.production_order_operators (
     production_order_operator_id CHARACTER VARYING(64)       NOT NULL DEFAULT gen_random_uuid()::text,
     company_id                   CHARACTER VARYING(64)       NOT NULL,
     production_order_id          CHARACTER VARYING(64)       NOT NULL,
-    stage                        CHARACTER VARYING(20)       NOT NULL,  -- PREPRESS|CUTTING|PRINTING|FINISHED_PRODUCTS|FINISHING_PROCESSES|BILLING
+    stage                        CHARACTER VARYING(32)       NOT NULL,  -- PREPRESS|CUTTING|PRINTING|FINISHED_PRODUCTS|FINISHING_PROCESSES|BILLING
     user_id                      CHARACTER VARYING(64)       NOT NULL,
+    role_code                    CHARACTER VARYING(64),
 
     created_at                   TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
     updated_at                   TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
@@ -1126,6 +1203,7 @@ COMMENT ON COLUMN indicolors.production_order_operators.company_id IS 'Identific
 COMMENT ON COLUMN indicolors.production_order_operators.production_order_id IS 'Identificador de la Orden de Producción a la que pertenece el operador';
 COMMENT ON COLUMN indicolors.production_order_operators.stage IS 'Etapa del wizard a la que corresponde el operador';
 COMMENT ON COLUMN indicolors.production_order_operators.user_id IS 'Identificador del usuario/operador asignado a la etapa';
+COMMENT ON COLUMN indicolors.production_order_operators.role_code IS 'Código de rol opcional del responsable (informativo; no obligatorio)';
 COMMENT ON COLUMN indicolors.production_order_operators.created_at IS 'Fecha y hora de creación del registro';
 COMMENT ON COLUMN indicolors.production_order_operators.updated_at IS 'Fecha y hora de la última actualización del registro';
 
@@ -1259,6 +1337,7 @@ CREATE TABLE indicolors.production_order_paper_rows (
     client_supplies_paper         BOOLEAN                     NOT NULL,
 
     paper_type_id                 CHARACTER VARYING(64),
+    supplier_id                   CHARACTER VARYING(64),
     paper_name                    CHARACTER VARYING(80),
     paper_size                    CHARACTER VARYING(30),
     sheet_value                   NUMERIC(12,2),
@@ -1289,6 +1368,7 @@ CREATE TABLE indicolors.production_order_paper_rows (
     CONSTRAINT production_order_paper_rows_plate_fk FOREIGN KEY (plate_id) REFERENCES indicolors.production_order_plates (production_order_plate_id),
     CONSTRAINT production_order_paper_rows_parent_row_fk FOREIGN KEY (parent_row_id) REFERENCES indicolors.production_order_paper_rows (production_order_paper_row_id),
     CONSTRAINT production_order_paper_rows_paper_type_fk FOREIGN KEY (paper_type_id) REFERENCES indicolors.paper_types (paper_type_id),
+    CONSTRAINT production_order_paper_rows_supplier_fk FOREIGN KEY (supplier_id) REFERENCES indicolors.suppliers (supplier_id) ON DELETE SET NULL,
     CONSTRAINT production_order_paper_rows_cut_layout_fk FOREIGN KEY (cut_layout_id) REFERENCES indicolors.cut_layouts (cut_layout_id)
 );
 
@@ -1298,6 +1378,7 @@ CREATE INDEX idx_production_order_paper_rows_plate_id ON indicolors.production_o
 CREATE INDEX idx_production_order_paper_rows_parent_row_id ON indicolors.production_order_paper_rows (parent_row_id);
 CREATE INDEX idx_production_order_paper_rows_cut_row_key ON indicolors.production_order_paper_rows (cut_row_key);
 CREATE INDEX idx_production_order_paper_rows_paper_type_id ON indicolors.production_order_paper_rows (paper_type_id);
+CREATE INDEX idx_production_order_paper_rows_supplier_id ON indicolors.production_order_paper_rows (supplier_id);
 CREATE INDEX idx_production_order_paper_rows_cut_layout_id ON indicolors.production_order_paper_rows (cut_layout_id);
 
 COMMENT ON TABLE indicolors.production_order_paper_rows IS 'Corte de papel por plancha, 0..N filas (incluye filas de faltante cubierto por litografía)';
@@ -1312,6 +1393,7 @@ COMMENT ON COLUMN indicolors.production_order_paper_rows.is_missing_supply IS 'T
 COMMENT ON COLUMN indicolors.production_order_paper_rows.missing_sheets_quantity IS 'Cantidad de pliegos faltantes cubiertos, cuando is_missing_supply=true';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.client_supplies_paper IS 'True=el cliente suministra el papel de esta fila';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.paper_type_id IS 'Identificador del tipo de papel seleccionado (FK a paper_types)';
+COMMENT ON COLUMN indicolors.production_order_paper_rows.supplier_id IS 'Proveedor del tipo de papel usado para valor hoja y unidad empaque en este corte';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.paper_name IS 'Snapshot del nombre del tipo de papel al momento de guardar';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.paper_size IS 'Snapshot de la medida del tipo de papel al momento de guardar';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.sheet_value IS 'Snapshot del valor del pliego al momento de guardar';

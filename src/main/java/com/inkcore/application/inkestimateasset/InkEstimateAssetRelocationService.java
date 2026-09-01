@@ -2,6 +2,7 @@ package com.inkcore.application.inkestimateasset;
 
 import com.inkcore.domain.objectstorage.ports.out.ObjectStoragePort;
 import com.inkcore.domain.productionorder.service.InkEstimateAssetKeyPolicy;
+import com.inkcore.domain.productionorder.service.InkEstimationEntriesSupport;
 import com.inkcore.domain.productionorder.service.InkEstimationSanitizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Sanitiza inkEstimation y promueve objetos de staging (tmp/) al prefijo definitivo de la OP.
@@ -29,6 +31,10 @@ import java.util.Map;
 public class InkEstimateAssetRelocationService {
 
     private static final Logger log = LoggerFactory.getLogger(InkEstimateAssetRelocationService.class);
+
+    private static final Set<String> ORIGINAL_VARIANT_EXTENSIONS = Set.of(
+            "jpg", "jpeg", "png", "tif", "tiff", "webp", "gif", "pdf"
+    );
 
     private final ObjectStoragePort objectStorage;
 
@@ -58,6 +64,7 @@ public class InkEstimateAssetRelocationService {
         if (sanitized == null) {
             return null;
         }
+        InkEstimationEntriesSupport.mergePersistedAssetKeys(sanitized, persistedInkEstimation);
         Object entriesObj = sanitized.get("entries");
         if (!(entriesObj instanceof List<?> entries) || entries.isEmpty()) {
             return sanitized;
@@ -159,6 +166,49 @@ public class InkEstimateAssetRelocationService {
             );
         }
         entry.put(fieldName, destinationKey);
+        if (!preview && "objectKey".equals(fieldName)) {
+            deleteSupersededOriginalVariants(
+                    companyId,
+                    productionOrderId,
+                    plateId,
+                    entradaId,
+                    destinationKey
+            );
+        }
+    }
+
+    private void deleteSupersededOriginalVariants(
+            String companyId,
+            String productionOrderId,
+            String plateId,
+            String entradaId,
+            String activeDestinationKey
+    ) {
+        String activeExt = InkEstimateAssetKeyPolicy.extractExtensionFromKey(activeDestinationKey);
+        for (String extension : ORIGINAL_VARIANT_EXTENSIONS) {
+            if (extension.equals(activeExt)) {
+                continue;
+            }
+            String candidate = InkEstimateAssetKeyPolicy.definitiveOriginalKey(
+                    companyId,
+                    productionOrderId,
+                    plateId,
+                    entradaId,
+                    extension
+            );
+            if (candidate.equals(activeDestinationKey) || !objectStorage.exists(candidate)) {
+                continue;
+            }
+            deleteDefinitiveBestEffort(candidate);
+        }
+    }
+
+    private void deleteDefinitiveBestEffort(String objectKey) {
+        try {
+            objectStorage.deleteObject(objectKey);
+        } catch (RuntimeException ex) {
+            log.warn("No se pudo borrar variante anterior del arte {}: {}", objectKey, ex.getMessage());
+        }
     }
 
     private void copyStagingToDestination(

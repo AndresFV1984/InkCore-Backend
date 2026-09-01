@@ -2,6 +2,7 @@ package com.inkcore.infrastructure.in.rest.papertypes;
 
 import com.inkcore.domain.papertype.model.PaperType;
 import com.inkcore.domain.papertype.model.PaperTypeCutAssignment;
+import com.inkcore.domain.papertype.model.PaperTypeSupplierAssignment;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
@@ -28,12 +29,6 @@ public record PaperTypeResponse(
         @Schema(description = "Unidad de medida", example = "cm")
         String unit,
 
-        @Schema(description = "Valor de la hoja/pliego", example = "1500.00")
-        BigDecimal sheetValue,
-
-        @Schema(description = "Hojas por unidad de empaque", example = "500")
-        int packageUnit,
-
         @Schema(description = "true = papel esmaltado", example = "false")
         boolean isCoated,
 
@@ -44,11 +39,17 @@ public record PaperTypeResponse(
         LocalDate creationDate,
 
         @Schema(description = "Despieces asociados con valor de corte")
-        List<PaperTypeCutLayoutResponse> cutLayouts
+        List<PaperTypeCutLayoutResponse> cutLayouts,
+
+        @Schema(description = "Proveedores asociados con valor hoja y unidad empaque")
+        List<PaperTypeSupplierResponse> suppliers
 ) {
     public static PaperTypeResponse from(PaperType p) {
         List<PaperTypeCutLayoutResponse> cuts = p.getCutAssignments().stream()
                 .map(PaperTypeCutLayoutResponse::from)
+                .toList();
+        List<PaperTypeSupplierResponse> suppliers = p.getSupplierAssignments().stream()
+                .map(PaperTypeSupplierResponse::from)
                 .toList();
         return new PaperTypeResponse(
                 p.getPaperTypeId(),
@@ -57,12 +58,11 @@ public record PaperTypeResponse(
                 p.getWidth(),
                 p.getHeight(),
                 p.getUnit(),
-                p.getSheetValue(),
-                p.getPackageUnit(),
                 p.isCoated(),
                 p.isState(),
                 p.getCreationDate(),
-                cuts
+                cuts,
+                suppliers
         );
     }
 
@@ -76,6 +76,26 @@ public record PaperTypeResponse(
     ) {
         public static PaperTypeCutLayoutResponse from(PaperTypeCutAssignment a) {
             return new PaperTypeCutLayoutResponse(a.getCutLayoutId(), a.getCutValue());
+        }
+    }
+
+    @Schema(name = "PaperTypeSupplierResponse", description = "Asignación proveedor ↔ tipo de papel")
+    public record PaperTypeSupplierResponse(
+            @Schema(description = "Identificador del proveedor", example = "914ad646-c4fe-42fa-9f13-4a44823e6bee")
+            String supplierId,
+
+            @Schema(description = "Valor de la hoja/pliego para este proveedor", example = "1500.00")
+            BigDecimal sheetValue,
+
+            @Schema(description = "Hojas por unidad de empaque para este proveedor", example = "500")
+            int packageUnit
+    ) {
+        public static PaperTypeSupplierResponse from(PaperTypeSupplierAssignment a) {
+            return new PaperTypeSupplierResponse(
+                    a.getSupplierId(),
+                    a.getSheetValue(),
+                    a.getPackageUnit()
+            );
         }
     }
 }

@@ -30,10 +30,11 @@ public class ObjectStorageConfig {
 
     @Bean
     InkEstimateAssetFileValidator.ObjectStoragePropertiesReader inkEstimateAssetSizeLimits(
+            InkMediaUploadLimits uploadLimits,
             ObjectStorageProperties properties
     ) {
         return new InkEstimateAssetFileValidator.ObjectStoragePropertiesReader(
-                properties.getMaxAssetFileBytes(),
+                uploadLimits.effectiveMaxOriginalBytes(),
                 properties.getMaxPreviewFileBytes()
         );
     }

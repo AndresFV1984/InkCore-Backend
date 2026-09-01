@@ -4,6 +4,7 @@ import com.inkcore.domain.cutlayout.model.CutLayout;
 import com.inkcore.domain.cutlayout.ports.out.CutLayoutRepositoryPort;
 import com.inkcore.domain.papertype.model.PaperType;
 import com.inkcore.domain.papertype.model.PaperTypeCutAssignment;
+import com.inkcore.domain.papertype.model.PaperTypeSupplierAssignment;
 import com.inkcore.domain.papertype.ports.out.PaperTypeRepositoryPort;
 import com.inkcore.domain.productionorder.exception.ProductionOrderBusinessRuleException;
 import com.inkcore.domain.productionorder.model.DiscountType;
@@ -19,21 +20,25 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
 public class UpdateProductionOrderPaperCuttingUseCase {
 
     private final ProductionOrderSupport support;
+    private final ProductionOrderOperatorsApplier operatorsApplier;
     private final PaperTypeRepositoryPort paperTypeRepository;
     private final CutLayoutRepositoryPort cutLayoutRepository;
 
     public UpdateProductionOrderPaperCuttingUseCase(
             ProductionOrderSupport support,
+            ProductionOrderOperatorsApplier operatorsApplier,
             PaperTypeRepositoryPort paperTypeRepository,
             CutLayoutRepositoryPort cutLayoutRepository
     ) {
         this.support = support;
+        this.operatorsApplier = operatorsApplier;
         this.paperTypeRepository = paperTypeRepository;
         this.cutLayoutRepository = cutLayoutRepository;
     }
@@ -65,7 +70,13 @@ public class UpdateProductionOrderPaperCuttingUseCase {
                 DiscountType.fromValue(command.discountType()),
                 command.discountValue()
         );
-        order.upsertOperator(ProductionOrderStage.CUTTING, command.operatorUserId());
+        operatorsApplier.apply(
+                order,
+                companyId,
+                command.operators(),
+                command.operatorUserId(),
+                ProductionOrderStage.CUTTING
+        );
         if (Boolean.TRUE.equals(command.completed())) {
             order.setCuttingCompletedAt(support.now());
         }
@@ -193,8 +204,14 @@ public class UpdateProductionOrderPaperCuttingUseCase {
         row.setPaperTypeId(paper.getPaperTypeId());
         row.setPaperName(paper.getName());
         row.setPaperSize(formatSize(paper.getWidth(), paper.getHeight(), paper.getUnit()));
-        row.setSheetValue(paper.getSheetValue());
-        row.setPackageUnit(paper.getPackageUnit());
+        PaperTypeSupplierAssignment supplier = resolveSupplierAssignment(paper, input.supplierId());
+        if (supplier != null) {
+            row.setSupplierId(supplier.getSupplierId());
+            row.setSheetValue(supplier.getSheetValue());
+            row.setPackageUnit(supplier.getPackageUnit());
+        } else {
+            row.setSupplierId(null);
+        }
         row.setCoated(paper.isCoated());
 
         if (input.cutLayoutId() == null || input.cutLayoutId().isBlank()) {
@@ -215,6 +232,32 @@ public class UpdateProductionOrderPaperCuttingUseCase {
                 .findFirst()
                 .orElse(null);
         row.setCutValue(cutValue);
+    }
+
+    private static PaperTypeSupplierAssignment resolveSupplierAssignment(
+            PaperType paper,
+            String supplierId
+    ) {
+        List<PaperTypeSupplierAssignment> assignments = paper.getSupplierAssignments();
+        if (assignments == null || assignments.isEmpty()) {
+            return null;
+        }
+        String trimmedId = blankToNull(supplierId);
+        if (trimmedId != null) {
+            return assignments.stream()
+                    .filter(a -> trimmedId.equals(a.getSupplierId()))
+                    .findFirst()
+                    .orElseGet(() -> defaultSupplierAssignment(assignments));
+        }
+        return defaultSupplierAssignment(assignments);
+    }
+
+    private static PaperTypeSupplierAssignment defaultSupplierAssignment(
+            List<PaperTypeSupplierAssignment> assignments
+    ) {
+        return assignments.stream()
+                .max(Comparator.comparing(PaperTypeSupplierAssignment::getSheetValue))
+                .orElse(assignments.get(0));
     }
 
     private static Integer resolveGoodSizes(Plate plate, PaperRow row) {

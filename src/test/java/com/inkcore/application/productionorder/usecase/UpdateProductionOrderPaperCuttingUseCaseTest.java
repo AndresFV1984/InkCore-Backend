@@ -5,11 +5,13 @@ import com.inkcore.domain.cutlayout.model.CutLayout;
 import com.inkcore.domain.cutlayout.ports.out.CutLayoutRepositoryPort;
 import com.inkcore.domain.papertype.model.PaperType;
 import com.inkcore.domain.papertype.model.PaperTypeCutAssignment;
+import com.inkcore.domain.papertype.model.PaperTypeSupplierAssignment;
 import com.inkcore.domain.papertype.ports.out.PaperTypeRepositoryPort;
 import com.inkcore.domain.productionorder.model.PaperRow;
 import com.inkcore.domain.productionorder.model.Plate;
 import com.inkcore.domain.productionorder.model.ProductionOrder;
 import com.inkcore.domain.productionorder.ports.out.ProductionOrderRepositoryPort;
+import com.inkcore.domain.user.ports.out.UserRepositoryPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,6 +42,7 @@ class UpdateProductionOrderPaperCuttingUseCaseTest {
     @Mock AuthenticatedCompanyResolver companyResolver;
     @Mock PaperTypeRepositoryPort paperTypeRepository;
     @Mock CutLayoutRepositoryPort cutLayoutRepository;
+    @Mock UserRepositoryPort userRepository;
 
     private UpdateProductionOrderPaperCuttingUseCase useCase;
 
@@ -50,7 +53,12 @@ class UpdateProductionOrderPaperCuttingUseCaseTest {
                 companyResolver,
                 Clock.fixed(FIXED_NOW, ZoneOffset.UTC)
         );
-        useCase = new UpdateProductionOrderPaperCuttingUseCase(support, paperTypeRepository, cutLayoutRepository);
+        useCase = new UpdateProductionOrderPaperCuttingUseCase(
+                support,
+                new ProductionOrderOperatorsApplier(userRepository),
+                paperTypeRepository,
+                cutLayoutRepository
+        );
     }
 
     @Test
@@ -76,8 +84,9 @@ class UpdateProductionOrderPaperCuttingUseCaseTest {
         PaperType paper = PaperType.reconstitute(
                 "papel-1", "company-1", "Bond",
                 new BigDecimal("70"), new BigDecimal("100"), "cm",
-                new BigDecimal("120"), 500, false, true, LocalDate.of(2026, 1, 1),
-                List.of(PaperTypeCutAssignment.of("corte-1", new BigDecimal("50")))
+                false, true, LocalDate.of(2026, 1, 1),
+                List.of(PaperTypeCutAssignment.of("corte-1", new BigDecimal("50"))),
+                List.of(PaperTypeSupplierAssignment.of("sup-1", new BigDecimal("120"), 500))
         );
         when(paperTypeRepository.findById("papel-1")).thenReturn(Optional.of(paper));
 
@@ -96,6 +105,7 @@ class UpdateProductionOrderPaperCuttingUseCaseTest {
                         2,
                         true,
                         null,
+                        null,
                         "%",
                         BigDecimal.ZERO,
                         List.of(new UpdateProductionOrderPaperCuttingCommand.PaperRowInput(
@@ -107,6 +117,7 @@ class UpdateProductionOrderPaperCuttingUseCaseTest {
                                 null,
                                 true,
                                 "papel-1",
+                                "sup-1",
                                 "corte-1",
                                 true,
                                 100,
@@ -124,10 +135,84 @@ class UpdateProductionOrderPaperCuttingUseCaseTest {
         PaperRow saved = rows.get(0);
         assertEquals("plate-srv-1", saved.getPlateId());
         assertEquals("papel-1", saved.getPaperTypeId());
+        assertEquals("sup-1", saved.getSupplierId());
+        assertEquals(0, new BigDecimal("120").compareTo(saved.getSheetValue()));
+        assertEquals(500, saved.getPackageUnit());
         assertEquals("Bond", saved.getPaperName());
         assertEquals("corte-1", saved.getCutLayoutId());
         assertEquals("2x2", saved.getCutLayoutName());
         assertEquals(4, saved.getPiecesPerSheet());
         assertEquals(0, new BigDecimal("50").compareTo(saved.getCutValue()));
+    }
+
+    @Test
+    void execute_usesHighestSheetValueSupplierWhenSupplierIdMissing() {
+        var auth = new UsernamePasswordAuthenticationToken("user-1", "n/a", List.of());
+        when(companyResolver.resolveCompanyId(auth)).thenReturn("company-1");
+        when(companyResolver.resolveUserId(auth)).thenReturn("user-1");
+
+        ProductionOrder order = ProductionOrder.reconstitute();
+        order.setProductionOrderId("order-1");
+        order.setCompanyId("company-1");
+        order.setVersion(2L);
+        Plate plate = new Plate();
+        plate.setPlateId("plate-srv-1");
+        plate.setQuantity(1000);
+        plate.setCavities(4);
+        plate.setGoodSizes(250);
+        order.setPlates(List.of(plate));
+
+        when(repository.findById("order-1")).thenReturn(Optional.of(order));
+        when(repository.save(any(ProductionOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PaperType paper = PaperType.reconstitute(
+                "papel-1", "company-1", "Bond",
+                new BigDecimal("70"), new BigDecimal("100"), "cm",
+                false, true, LocalDate.of(2026, 1, 1),
+                List.of(),
+                List.of(
+                        PaperTypeSupplierAssignment.of("sup-low", new BigDecimal("80"), 250),
+                        PaperTypeSupplierAssignment.of("sup-high", new BigDecimal("150"), 500)
+                )
+        );
+        when(paperTypeRepository.findById("papel-1")).thenReturn(Optional.of(paper));
+
+        useCase.execute(
+                "order-1",
+                new UpdateProductionOrderPaperCuttingCommand(
+                        2L,
+                        false,
+                        2,
+                        true,
+                        null,
+                        null,
+                        "%",
+                        BigDecimal.ZERO,
+                        List.of(new UpdateProductionOrderPaperCuttingCommand.PaperRowInput(
+                                null,
+                                "plate-srv-1",
+                                null,
+                                "plate-srv-1",
+                                false,
+                                null,
+                                false,
+                                "papel-1",
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null
+                        ))
+                ),
+                auth
+        );
+
+        ArgumentCaptor<ProductionOrder> captor = ArgumentCaptor.forClass(ProductionOrder.class);
+        verify(repository).save(captor.capture());
+        PaperRow saved = captor.getValue().getPaperRows().get(0);
+        assertEquals("sup-high", saved.getSupplierId());
+        assertEquals(0, new BigDecimal("150").compareTo(saved.getSheetValue()));
+        assertEquals(500, saved.getPackageUnit());
     }
 }

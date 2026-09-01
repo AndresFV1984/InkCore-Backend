@@ -78,6 +78,52 @@ class InkEstimateAssetRelocationServiceTest {
     }
 
     @Test
+    void finalizeForPrint_deletesSupersededOriginalExtension() {
+        String oldPdf = InkEstimateAssetKeyPolicy.definitiveOriginalKey(
+                "c1", "po-1", "plate-1", "entry-1", "pdf");
+        String stagingJpg = "tmp/company/c1/ink-estimates/u1/entry-1/original.jpg";
+        objectStorage.putObject(oldPdf, new byte[]{1}, "application/pdf");
+        objectStorage.putObject(stagingJpg, new byte[]{2, 3}, "image/jpeg");
+
+        Map<String, Object> result = service.finalizeForPrint(
+                "c1",
+                "u1",
+                "po-1",
+                "plate-1",
+                Map.of("entries", List.of(Map.of("objectKey", stagingJpg))),
+                Map.of("entries", List.of(Map.of("objectKey", oldPdf)))
+        );
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> entry = ((List<Map<String, Object>>) result.get("entries")).get(0);
+        String newKey = (String) entry.get("objectKey");
+        assertTrue(newKey.endsWith("/original.jpg"));
+        assertTrue(objectStorage.exists(newKey));
+        assertFalse(objectStorage.exists(oldPdf));
+        assertFalse(objectStorage.exists(stagingJpg));
+    }
+
+    @Test
+    void finalizeForPrint_mergesPersistedKeysWhenAutosaveOmitsObjectKey() {
+        String persistedKey = InkEstimateAssetKeyPolicy.definitiveOriginalKey(
+                "c1", "po-1", "plate-1", "entry-1", "pdf");
+        objectStorage.putObject(persistedKey, new byte[]{9}, "application/pdf");
+
+        Map<String, Object> result = service.finalizeForPrint(
+                "c1",
+                "u1",
+                "po-1",
+                "plate-1",
+                Map.of("entries", List.of(Map.of("id", "entry-1", "fileName", "arte.pdf"))),
+                Map.of("entries", List.of(Map.of("id", "entry-1", "objectKey", persistedKey)))
+        );
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> entry = ((List<Map<String, Object>>) result.get("entries")).get(0);
+        assertEquals(persistedKey, entry.get("objectKey"));
+    }
+
+    @Test
     void finalizeForPrint_doesNotFailWhenDeleteOfTmpFails() {
         String stagingKey = "tmp/company/c1/ink-estimates/u1/entry-1/original.pdf";
         ObjectStoragePort storage = mock(ObjectStoragePort.class);

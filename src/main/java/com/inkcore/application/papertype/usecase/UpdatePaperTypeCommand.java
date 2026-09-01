@@ -9,10 +9,9 @@ public record UpdatePaperTypeCommand(
         BigDecimal width,
         BigDecimal height,
         String unit,
-        BigDecimal sheetValue,
-        int packageUnit,
         boolean coated,
         boolean state,
-        List<PaperTypeCutAssignmentCommand> cutLayouts
+        List<PaperTypeCutAssignmentCommand> cutLayouts,
+        List<PaperTypeSupplierAssignmentCommand> suppliers
 ) {
 }

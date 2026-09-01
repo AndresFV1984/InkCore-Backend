@@ -278,11 +278,14 @@ public class InkCoverageAnalyzerAdapter implements InkCoverageAnalyzerPort {
     }
 
     private ImageColorConverterAdapter.LoadedRaster loadRaster(InkEstimateRequest request) throws IOException {
+        int maxPixels = properties.getMaxAnalysisPixels() > 0
+                ? properties.getMaxAnalysisPixels()
+                : FastInkRgbToCmyk.DEFAULT_RASTER_MAX_PIXELS;
         Path sourceFile = request.getSourceFile();
         if (sourceFile != null) {
-            return imageColorConverter.loadRasterHighFidelity(sourceFile);
+            return imageColorConverter.loadRasterForInkCoverage(sourceFile, maxPixels);
         }
-        return imageColorConverter.loadRasterHighFidelity(request.getFileBytes());
+        return imageColorConverter.loadRasterForInkCoverage(request.getFileBytes(), maxPixels);
     }
 
     private static PDDocument loadPdf(InkEstimateRequest request) throws IOException {

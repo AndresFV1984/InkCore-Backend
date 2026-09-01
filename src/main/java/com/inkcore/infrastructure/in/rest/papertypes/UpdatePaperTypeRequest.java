@@ -3,7 +3,6 @@ package com.inkcore.infrastructure.in.rest.papertypes;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -16,7 +15,7 @@ import java.util.List;
         name = "UpdatePaperTypeRequest",
         description = """
                 Actualización de tipo de papel (PUT /api/v1/paper-types/update/{paperTypeId}).
-                Obligatorios: name, width, height, unit, sheetValue, packageUnit, isCoated, state.
+                Obligatorios: name, width, height, unit, isCoated, state, suppliers (al menos uno).
                 cutLayouts reemplaza las asignaciones (null o [] = sin despieces). No envía companyId.
                 """
 )
@@ -41,16 +40,6 @@ public record UpdatePaperTypeRequest(
         @Pattern(regexp = "(?i)cm|mm|in", message = "La unidad debe ser cm, mm o in")
         String unit,
 
-        @Schema(description = "Valor de la hoja/pliego", example = "1500.00", requiredMode = Schema.RequiredMode.REQUIRED)
-        @NotNull(message = "El valor de la hoja es obligatorio")
-        @DecimalMin(value = "0.0", inclusive = true, message = "El valor de la hoja no puede ser negativo")
-        BigDecimal sheetValue,
-
-        @Schema(description = "Hojas por unidad de empaque", example = "500", requiredMode = Schema.RequiredMode.REQUIRED)
-        @NotNull(message = "La unidad de empaque es obligatoria")
-        @Min(value = 1, message = "La unidad de empaque debe ser mayor que 0")
-        Integer packageUnit,
-
         @Schema(description = "true = papel esmaltado", example = "false", requiredMode = Schema.RequiredMode.REQUIRED)
         @NotNull
         Boolean isCoated,
@@ -61,6 +50,12 @@ public record UpdatePaperTypeRequest(
 
         @Schema(description = "Despieces asociados (reemplazo completo)")
         @Valid
-        List<PaperTypeCutLayoutRequest> cutLayouts
+        List<PaperTypeCutLayoutRequest> cutLayouts,
+
+        @Schema(description = "Proveedores asociados (reemplazo completo, al menos uno)")
+        @Valid
+        @NotNull(message = "Debe asociar al menos un proveedor")
+        @Size(min = 1, message = "Debe asociar al menos un proveedor")
+        List<PaperTypeSupplierRequest> suppliers
 ) {
 }

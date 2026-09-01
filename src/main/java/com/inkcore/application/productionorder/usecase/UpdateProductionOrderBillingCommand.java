@@ -21,6 +21,7 @@ public record UpdateProductionOrderBillingCommand(
         String clientSignatureName,
         String bankAccountId,
         Boolean completed,
+        List<OperatorAssignmentCommand> operators,
         String operatorUserId
 ) {
 }

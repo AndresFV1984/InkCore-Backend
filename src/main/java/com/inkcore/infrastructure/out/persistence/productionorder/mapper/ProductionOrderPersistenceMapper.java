@@ -227,6 +227,7 @@ public class ProductionOrderPersistenceMapper {
         assignment.setProductionOrderId(entity.getProductionOrderId());
         assignment.setStage(ProductionOrderStage.fromValue(entity.getStage()));
         assignment.setUserId(entity.getUserId());
+        assignment.setRoleCode(entity.getRoleCode());
         return assignment;
     }
 
@@ -237,6 +238,7 @@ public class ProductionOrderPersistenceMapper {
         entity.setProductionOrderId(assignment.getProductionOrderId());
         entity.setStage(assignment.getStage() == null ? null : assignment.getStage().name());
         entity.setUserId(assignment.getUserId());
+        entity.setRoleCode(assignment.getRoleCode());
         entity.setCreatedAt(now);
         entity.setUpdatedAt(now);
         return entity;
@@ -330,6 +332,7 @@ public class ProductionOrderPersistenceMapper {
         row.setMissingSheetsQuantity(entity.getMissingSheetsQuantity());
         row.setClientSuppliesPaper(entity.isClientSuppliesPaper());
         row.setPaperTypeId(entity.getPaperTypeId());
+        row.setSupplierId(entity.getSupplierId());
         row.setPaperName(entity.getPaperName());
         row.setPaperSize(entity.getPaperSize());
         row.setSheetValue(entity.getSheetValue());
@@ -362,6 +365,7 @@ public class ProductionOrderPersistenceMapper {
         entity.setMissingSheetsQuantity(row.getMissingSheetsQuantity());
         entity.setClientSuppliesPaper(row.isClientSuppliesPaper());
         entity.setPaperTypeId(row.getPaperTypeId());
+        entity.setSupplierId(row.getSupplierId());
         entity.setPaperName(row.getPaperName());
         entity.setPaperSize(row.getPaperSize());
         entity.setSheetValue(row.getSheetValue());

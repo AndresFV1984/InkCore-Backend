@@ -26,15 +26,18 @@ import java.util.Objects;
 public class UpdateProductionOrderPrepressUseCase {
 
     private final ProductionOrderSupport support;
+    private final ProductionOrderOperatorsApplier operatorsApplier;
     private final PlateTypeRepositoryPort plateTypeRepository;
     private final AssemblyPriceRepositoryPort assemblyPriceRepository;
 
     public UpdateProductionOrderPrepressUseCase(
             ProductionOrderSupport support,
+            ProductionOrderOperatorsApplier operatorsApplier,
             PlateTypeRepositoryPort plateTypeRepository,
             AssemblyPriceRepositoryPort assemblyPriceRepository
     ) {
         this.support = support;
+        this.operatorsApplier = operatorsApplier;
         this.plateTypeRepository = plateTypeRepository;
         this.assemblyPriceRepository = assemblyPriceRepository;
     }
@@ -104,7 +107,13 @@ public class UpdateProductionOrderPrepressUseCase {
         order.setPaperRows(List.of());
         order.setPrints(List.of());
         order.setPostpressRecords(List.of());
-        order.upsertOperator(ProductionOrderStage.PREPRESS, command.operatorUserId());
+        operatorsApplier.apply(
+                order,
+                companyId,
+                command.operators(),
+                command.operatorUserId(),
+                ProductionOrderStage.PREPRESS
+        );
         order.setUpdatedAt(support.now());
         order.setUpdatedBy(userId);
         return support.repository().save(order);

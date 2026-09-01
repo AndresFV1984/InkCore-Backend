@@ -25,6 +25,7 @@ import com.inkcore.domain.productionorder.exception.ProductionOrderBusinessRuleE
 import com.inkcore.domain.productionorder.exception.ProductionOrderNotDeletableException;
 import com.inkcore.domain.productionorder.exception.ProductionOrderVersionConflictException;
 import com.inkcore.domain.seller.exception.SellerAlreadyExistsException;
+import com.inkcore.domain.supplier.exception.SupplierAlreadyExistsException;
 import com.inkcore.domain.shared.exception.DomainException;
 import com.inkcore.domain.shared.exception.ResourceNotFoundException;
 import com.inkcore.domain.user.exception.AccountDisabledException;
@@ -38,6 +39,7 @@ import com.inkcore.domain.user.exception.UserNotFoundException;
 import com.inkcore.infrastructure.in.rest.envelope.ApiErrorEnvelope;
 import com.inkcore.infrastructure.in.rest.envelope.ApiResponseFactory;
 import jakarta.servlet.http.HttpServletRequest;
+import org.apache.catalina.connector.ClientAbortException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -51,10 +53,12 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import java.io.IOException;
 import java.util.List;
 
 @RestControllerAdvice
@@ -140,6 +144,19 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(SellerAlreadyExistsException.class)
     public ResponseEntity<ApiErrorEnvelope> handleSellerExists(
             SellerAlreadyExistsException ex,
+            HttpServletRequest request
+    ) {
+        return responseFactory.error(
+                request,
+                HttpStatus.CONFLICT,
+                ex.getMessage(),
+                List.of(ex.getCode())
+        );
+    }
+
+    @ExceptionHandler(SupplierAlreadyExistsException.class)
+    public ResponseEntity<ApiErrorEnvelope> handleSupplierExists(
+            SupplierAlreadyExistsException ex,
             HttpServletRequest request
     ) {
         return responseFactory.error(
@@ -577,11 +594,28 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler({
+            AsyncRequestNotUsableException.class,
+            ClientAbortException.class
+    })
+    public void handleClientDisconnected(Exception ex, HttpServletRequest request) {
+        // Swagger UI / navegador cancelan peticiones duplicadas o lentas (p. ej. /v3/api-docs en frío).
+        if (log.isDebugEnabled()) {
+            log.debug("Cliente desconectado en {}: {}", request.getRequestURI(), ex.getMessage());
+        }
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorEnvelope> handleGeneric(
             Exception ex,
             HttpServletRequest request
     ) {
+        if (isClientDisconnected(ex)) {
+            if (log.isDebugEnabled()) {
+                log.debug("Cliente desconectado en {}: {}", request.getRequestURI(), ex.getMessage());
+            }
+            return null;
+        }
         log.error("Unhandled error on {}", request.getRequestURI(), ex);
         return responseFactory.error(
                 request,
@@ -589,6 +623,30 @@ public class GlobalExceptionHandler {
                 "Error interno del servidor",
                 null
         );
+    }
+
+    private static boolean isClientDisconnected(Throwable ex) {
+        for (Throwable current = ex; current != null; current = current.getCause()) {
+            if (current instanceof AsyncRequestNotUsableException
+                    || current instanceof ClientAbortException) {
+                return true;
+            }
+            if (current instanceof IOException io && isBenignClientDisconnect(io)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isBenignClientDisconnect(IOException ex) {
+        String message = ex.getMessage();
+        if (message == null || message.isBlank()) {
+            return false;
+        }
+        String normalized = message.toLowerCase();
+        return normalized.contains("broken pipe")
+                || normalized.contains("connection reset")
+                || normalized.contains("anulado una conexión");
     }
 
     private String formatFieldError(FieldError error) {

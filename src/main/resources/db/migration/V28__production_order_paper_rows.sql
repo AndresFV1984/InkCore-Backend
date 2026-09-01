@@ -1,4 +1,5 @@
 -- Tabla production_order_paper_rows (módulo production-orders).
+-- DDL completo: todas las columnas en el CREATE (sin migraciones ADD COLUMN).
 
 CREATE TABLE IF NOT EXISTS indicolors.production_order_paper_rows (
     production_order_paper_row_id CHARACTER VARYING(64)       NOT NULL DEFAULT gen_random_uuid()::text,
@@ -14,6 +15,7 @@ CREATE TABLE IF NOT EXISTS indicolors.production_order_paper_rows (
     client_supplies_paper         BOOLEAN                     NOT NULL,
 
     paper_type_id                 CHARACTER VARYING(64),
+    supplier_id                   CHARACTER VARYING(64),
     paper_name                    CHARACTER VARYING(80),
     paper_size                    CHARACTER VARYING(30),
     sheet_value                   NUMERIC(12,2),
@@ -44,6 +46,7 @@ CREATE TABLE IF NOT EXISTS indicolors.production_order_paper_rows (
     CONSTRAINT production_order_paper_rows_plate_fk FOREIGN KEY (plate_id) REFERENCES indicolors.production_order_plates (production_order_plate_id),
     CONSTRAINT production_order_paper_rows_parent_row_fk FOREIGN KEY (parent_row_id) REFERENCES indicolors.production_order_paper_rows (production_order_paper_row_id),
     CONSTRAINT production_order_paper_rows_paper_type_fk FOREIGN KEY (paper_type_id) REFERENCES indicolors.paper_types (paper_type_id),
+    CONSTRAINT production_order_paper_rows_supplier_fk FOREIGN KEY (supplier_id) REFERENCES indicolors.suppliers (supplier_id) ON DELETE SET NULL,
     CONSTRAINT production_order_paper_rows_cut_layout_fk FOREIGN KEY (cut_layout_id) REFERENCES indicolors.cut_layouts (cut_layout_id)
 );
 
@@ -53,6 +56,7 @@ CREATE INDEX IF NOT EXISTS idx_production_order_paper_rows_plate_id ON indicolor
 CREATE INDEX IF NOT EXISTS idx_production_order_paper_rows_parent_row_id ON indicolors.production_order_paper_rows (parent_row_id);
 CREATE INDEX IF NOT EXISTS idx_production_order_paper_rows_cut_row_key ON indicolors.production_order_paper_rows (cut_row_key);
 CREATE INDEX IF NOT EXISTS idx_production_order_paper_rows_paper_type_id ON indicolors.production_order_paper_rows (paper_type_id);
+CREATE INDEX IF NOT EXISTS idx_production_order_paper_rows_supplier_id ON indicolors.production_order_paper_rows (supplier_id);
 CREATE INDEX IF NOT EXISTS idx_production_order_paper_rows_cut_layout_id ON indicolors.production_order_paper_rows (cut_layout_id);
 
 COMMENT ON TABLE indicolors.production_order_paper_rows IS 'Corte de papel por plancha, 0..N filas (incluye filas de faltante cubierto por litografía)';
@@ -67,6 +71,7 @@ COMMENT ON COLUMN indicolors.production_order_paper_rows.is_missing_supply IS 'T
 COMMENT ON COLUMN indicolors.production_order_paper_rows.missing_sheets_quantity IS 'Cantidad de pliegos faltantes cubiertos, cuando is_missing_supply=true';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.client_supplies_paper IS 'True=el cliente suministra el papel de esta fila';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.paper_type_id IS 'Identificador del tipo de papel seleccionado (FK a paper_types)';
+COMMENT ON COLUMN indicolors.production_order_paper_rows.supplier_id IS 'Proveedor del tipo de papel usado para valor hoja y unidad empaque en este corte';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.paper_name IS 'Snapshot del nombre del tipo de papel al momento de guardar';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.paper_size IS 'Snapshot de la medida del tipo de papel al momento de guardar';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.sheet_value IS 'Snapshot del valor del pliego al momento de guardar';

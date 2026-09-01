@@ -2,6 +2,7 @@ package com.inkcore.infrastructure.in.rest.productionorders;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -14,6 +15,30 @@ import java.util.Map;
 public final class ProductionOrderRequests {
 
     private ProductionOrderRequests() {
+    }
+
+    @Schema(
+            name = "ProductionOrderOperatorRequest",
+            description = "Responsable de una etapa. Máximo 1 por stage en la OP."
+    )
+    public record OperatorRequest(
+            @Schema(
+                    description = "Etapa del wizard",
+                    example = "PREPRESS",
+                    allowableValues = {
+                            "PREPRESS", "CUTTING", "PRINTING",
+                            "FINISHED_PRODUCTS", "FINISHING_PROCESSES", "BILLING"
+                    },
+                    requiredMode = Schema.RequiredMode.REQUIRED
+            )
+            @NotBlank String stage,
+            @Schema(description = "Usuario responsable (misma compañía que la OP)",
+                    example = "11111111-1111-1111-1111-111111111111",
+                    requiredMode = Schema.RequiredMode.REQUIRED)
+            @NotBlank String userId,
+            @Schema(description = "Código de rol opcional (informativo)", example = "OPERARIO")
+            String roleCode
+    ) {
     }
 
     @Schema(
@@ -35,12 +60,16 @@ public final class ProductionOrderRequests {
             Integer proposalQuantity1,
             @Schema(description = "Cantidad propuesta 2", example = "2000")
             Integer proposalQuantity2,
-            @Schema(description = "Operador opcional de la etapa PREPRESS", example = "user-seed-001")
+            @Schema(description = "Operador opcional de la etapa PREPRESS (legacy)", example = "user-seed-001")
             String operatorUserId
     ) {
     }
 
-    @Schema(name = "UpdateProductionOrderSpecificationsRequest")
+    @Schema(
+            name = "UpdateProductionOrderSpecificationsRequest",
+            description = "Si viene la clave operators: replace-all del set de responsables. "
+                    + "Si se omite: no se modifican. operators:[] limpia todos."
+    )
     public record UpdateSpecificationsRequest(
             @Schema(description = "Versión optimista actual", example = "0", requiredMode = Schema.RequiredMode.REQUIRED)
             @NotNull Long version,
@@ -51,6 +80,9 @@ public final class ProductionOrderRequests {
             @NotNull @Positive Integer requestedQuantity,
             Integer proposalQuantity1,
             Integer proposalQuantity2,
+            @Schema(description = "Set completo de responsables. Omitir = no tocar; [] = clear.")
+            @Valid List<OperatorRequest> operators,
+            @Schema(description = "Legacy: upsert PREPRESS solo si operators está ausente")
             String operatorUserId
     ) {
     }
@@ -91,6 +123,7 @@ public final class ProductionOrderRequests {
             String prepressDiscountType,
             BigDecimal prepressDiscountValue,
             Boolean completed,
+            @Valid List<OperatorRequest> operators,
             String operatorUserId,
             List<PlateRequest> plates
     ) {
@@ -128,6 +161,7 @@ public final class ProductionOrderRequests {
             @Schema(example = "2")
             Integer roundingMargin,
             Boolean completed,
+            @Valid List<OperatorRequest> operators,
             String operatorUserId,
             @Schema(allowableValues = {"%", "$"})
             String discountType,
@@ -151,6 +185,7 @@ public final class ProductionOrderRequests {
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
             Boolean clientSuppliesPaper,
             String paperTypeId,
+            String supplierId,
             String cutLayoutId,
             Boolean isPaperCut,
             Integer deliveredSheetsByClient,
@@ -163,6 +198,7 @@ public final class ProductionOrderRequests {
     public record UpdatePrintingRequest(
             @NotNull Long version,
             Boolean completed,
+            @Valid List<OperatorRequest> operators,
             String operatorUserId,
             List<PrintRequest> prints
     ) {
@@ -209,6 +245,7 @@ public final class ProductionOrderRequests {
     public record UpdatePostpressRequest(
             @NotNull Long version,
             Boolean completed,
+            @Valid List<OperatorRequest> operators,
             String operatorUserId,
             @Schema(allowableValues = {"%", "$"})
             String discountType,
@@ -264,6 +301,7 @@ public final class ProductionOrderRequests {
             String clientSignatureName,
             String bankAccountId,
             Boolean completed,
+            @Valid List<OperatorRequest> operators,
             String operatorUserId
     ) {
     }

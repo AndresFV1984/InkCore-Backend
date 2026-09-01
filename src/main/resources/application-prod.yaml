@@ -161,12 +161,12 @@ inkcore:
     secret-key: ${OBJECT_STORAGE_SECRET_KEY}
     path-style-access: ${OBJECT_STORAGE_PATH_STYLE:false}
     presigned-url-ttl-seconds: ${OBJECT_STORAGE_PRESIGNED_TTL:300}
-    max-asset-file-bytes: ${OBJECT_STORAGE_MAX_ASSET_BYTES:26214400}
+    max-asset-file-bytes: ${OBJECT_STORAGE_MAX_ASSET_BYTES:536870912}
     max-preview-file-bytes: ${OBJECT_STORAGE_MAX_PREVIEW_BYTES:2097152}
     cors-allowed-origins: ${OBJECT_STORAGE_CORS_ORIGINS:}
-    staging-expiration-days: ${OBJECT_STORAGE_STAGING_EXPIRY_DAYS:2}
+    staging-expiration-days: ${OBJECT_STORAGE_STAGING_EXPIRY_DAYS:7}
     staging-fallback-expiration-days: ${OBJECT_STORAGE_STAGING_FALLBACK_EXPIRY_DAYS:30}
-    legacy-staging-cleanup-days: ${OBJECT_STORAGE_LEGACY_STAGING_CLEANUP_DAYS:2}
+    legacy-staging-cleanup-days: ${OBJECT_STORAGE_LEGACY_STAGING_CLEANUP_DAYS:7}
     legacy-staging-cleanup-interval-ms: ${OBJECT_STORAGE_LEGACY_STAGING_CLEANUP_INTERVAL_MS:86400000}
     # Bucket/CORS/ILM se provisionan fuera de la app (Terraform, consola, job de init).
     manage-bucket: ${OBJECT_STORAGE_MANAGE_BUCKET:false}

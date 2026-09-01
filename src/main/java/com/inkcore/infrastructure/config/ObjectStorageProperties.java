@@ -37,8 +37,8 @@ public class ObjectStorageProperties {
     /** TTL URL firmada (segundos). Rango recomendado 60–900. */
     private int presignedUrlTtlSeconds = 300;
 
-    /** Máximo arte original (~25 MB). */
-    private long maxAssetFileBytes = 26_214_400L;
+    /** Máximo arte original (alineado con estimación multipart / inkcore.ink-estimation.absolute-max-file-bytes). */
+    private long maxAssetFileBytes = 512L * 1024L * 1024L;
 
     /** Máximo miniatura JPEG (~2 MB). */
     private long maxPreviewFileBytes = 2_097_152L;
@@ -50,7 +50,7 @@ public class ObjectStorageProperties {
      * Días hasta borrar objetos de staging con tag {@code inkcore-staging=true}.
      * {@code 0} desactiva esa regla. Recomendado 1–2.
      */
-    private int stagingExpirationDays = 2;
+    private int stagingExpirationDays = 7;
 
     /**
      * Respaldo ILM por prefijo {@code tmp/} (no depende de tags; S3 no soporta glob).
@@ -62,7 +62,7 @@ public class ObjectStorageProperties {
      * Días para borrar huérfanos del path legado {@code company/{id}/tmp/...}
      * (no los cubre el ILM de {@code tmp/}). {@code 0} desactiva el barrido.
      */
-    private int legacyStagingCleanupDays = 2;
+    private int legacyStagingCleanupDays = 7;
 
     /**
      * Intervalo del job periódico de barrido legado (ms). Default 24 h.

@@ -8,6 +8,8 @@ import com.inkcore.domain.inkestimation.model.InkEstimateResult;
 import com.inkcore.domain.inkestimation.ports.out.InkCoverageAnalyzerPort;
 import com.inkcore.domain.inkestimation.ports.out.InkEstimateHistoryRepositoryPort;
 import com.inkcore.infrastructure.config.InkEstimationProperties;
+import com.inkcore.infrastructure.config.InkMediaUploadLimits;
+import com.inkcore.infrastructure.config.ObjectStorageProperties;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,10 +46,14 @@ class EstimateInkServiceTest {
         InkEstimationProperties properties = new InkEstimationProperties();
         properties.setAbsoluteMaxFileBytes(1024);
         properties.setSizeToleranceMaxRatio(2.5);
+        ObjectStorageProperties objectStorage = new ObjectStorageProperties();
+        objectStorage.setMaxAssetFileBytes(1024);
+        InkMediaUploadLimits uploadLimits = new InkMediaUploadLimits(properties, objectStorage);
         service = new EstimateInkService(
                 analyzer,
                 historyRepository,
                 properties,
+                uploadLimits,
                 Clock.fixed(Instant.parse("2026-07-31T12:00:00Z"), ZoneOffset.UTC),
                 new SimpleMeterRegistry()
         );

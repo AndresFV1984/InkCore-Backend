@@ -14,6 +14,7 @@ public final class OperatorAssignment {
     private String productionOrderId;
     private ProductionOrderStage stage;
     private String userId;
+    private String roleCode;
 
     public OperatorAssignment() {
         this.operatorAssignmentId = UUID.randomUUID().toString();
@@ -25,12 +26,27 @@ public final class OperatorAssignment {
             ProductionOrderStage stage,
             String userId
     ) {
+        return of(companyId, productionOrderId, stage, userId, null);
+    }
+
+    public static OperatorAssignment of(
+            String companyId,
+            String productionOrderId,
+            ProductionOrderStage stage,
+            String userId,
+            String roleCode
+    ) {
         OperatorAssignment assignment = new OperatorAssignment();
         assignment.companyId = companyId;
         assignment.productionOrderId = productionOrderId;
         assignment.stage = stage;
         assignment.userId = userId;
+        assignment.roleCode = blankToNull(roleCode);
         return assignment;
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     public String getOperatorAssignmentId() {
@@ -71,6 +87,14 @@ public final class OperatorAssignment {
 
     public void setUserId(String userId) {
         this.userId = userId;
+    }
+
+    public String getRoleCode() {
+        return roleCode;
+    }
+
+    public void setRoleCode(String roleCode) {
+        this.roleCode = blankToNull(roleCode);
     }
 
     @Override

@@ -10,6 +10,8 @@ public interface JpaProductionOrderOperatorRepository
 
     List<ProductionOrderOperatorEntity> findAllByProductionOrderId(String productionOrderId);
 
+    List<ProductionOrderOperatorEntity> findAllByProductionOrderIdIn(List<String> productionOrderIds);
+
     boolean existsByProductionOrderId(String productionOrderId);
 
     void deleteAllByProductionOrderId(String productionOrderId);

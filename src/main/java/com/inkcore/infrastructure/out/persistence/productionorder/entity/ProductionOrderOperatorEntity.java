@@ -28,11 +28,14 @@ public class ProductionOrderOperatorEntity implements Persistable<String> {
     @Column(name = "production_order_id", nullable = false, length = 64)
     private String productionOrderId;
 
-    @Column(name = "stage", nullable = false, length = 20)
+    @Column(name = "stage", nullable = false, length = 32)
     private String stage;
 
     @Column(name = "user_id", nullable = false, length = 64)
     private String userId;
+
+    @Column(name = "role_code", length = 64)
+    private String roleCode;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -97,6 +100,14 @@ public class ProductionOrderOperatorEntity implements Persistable<String> {
 
     public void setUserId(String userId) {
         this.userId = userId;
+    }
+
+    public String getRoleCode() {
+        return roleCode;
+    }
+
+    public void setRoleCode(String roleCode) {
+        this.roleCode = roleCode;
     }
 
     public LocalDateTime getCreatedAt() {

@@ -22,7 +22,7 @@ public class PresignStagingInkEstimateAssetUseCase {
 
     @Transactional
     public InkEstimateAssetPresignResult execute(PresignInkEstimateAssetCommand command, Authentication authentication) {
-        support.requirePlateAndEntrada(command);
+        support.requireEntrada(command);
         if (!support.wantsOriginal(command) && !support.wantsPreview(command)) {
             throw new IllegalArgumentException("file es obligatorio");
         }

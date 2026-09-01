@@ -5,6 +5,7 @@ import com.inkcore.application.papertype.usecase.CreatePaperTypeUseCase;
 import com.inkcore.application.papertype.usecase.GetPaperTypeByIdUseCase;
 import com.inkcore.application.papertype.usecase.ListPaperTypesUseCase;
 import com.inkcore.application.papertype.usecase.PaperTypeCutAssignmentCommand;
+import com.inkcore.application.papertype.usecase.PaperTypeSupplierAssignmentCommand;
 import com.inkcore.application.papertype.usecase.UpdatePaperTypeCommand;
 import com.inkcore.application.papertype.usecase.UpdatePaperTypeUseCase;
 import com.inkcore.domain.papertype.model.PaperType;
@@ -99,8 +100,6 @@ public class PaperTypeController {
                                         "width": 70.00,
                                         "height": 100.00,
                                         "unit": "cm",
-                                        "sheetValue": 1500.00,
-                                        "packageUnit": 500,
                                         "isCoated": false,
                                         "state": true,
                                         "creationDate": "2026-08-01",
@@ -108,6 +107,13 @@ public class PaperTypeController {
                                           {
                                             "cutLayoutId": "714ad646-c4fe-42fa-9f13-4a44823e6bee",
                                             "cutValue": 200.00
+                                          }
+                                        ],
+                                        "suppliers": [
+                                          {
+                                            "supplierId": "914ad646-c4fe-42fa-9f13-4a44823e6bee",
+                                            "sheetValue": 1500.00,
+                                            "packageUnit": 500
                                           }
                                         ]
                                       }
@@ -134,14 +140,19 @@ public class PaperTypeController {
                                               "width": 70.00,
                                               "height": 100.00,
                                               "unit": "cm",
-                                              "sheetValue": 1500.00,
-                                              "packageUnit": 500,
                                               "isCoated": false,
                                               "state": true,
                                               "cutLayouts": [
                                                 {
                                                   "cutLayoutId": "714ad646-c4fe-42fa-9f13-4a44823e6bee",
                                                   "cutValue": 200.00
+                                                }
+                                              ],
+                                              "suppliers": [
+                                                {
+                                                  "supplierId": "914ad646-c4fe-42fa-9f13-4a44823e6bee",
+                                                  "sheetValue": 1500.00,
+                                                  "packageUnit": 500
                                                 }
                                               ]
                                             }
@@ -266,11 +277,10 @@ public class PaperTypeController {
                 request.width(),
                 request.height(),
                 request.unit(),
-                request.sheetValue(),
-                request.packageUnit(),
                 request.isCoated(),
                 request.state(),
-                toAssignmentCommands(request.cutLayouts())
+                toAssignmentCommands(request.cutLayouts()),
+                toSupplierCommands(request.suppliers())
         );
     }
 
@@ -281,11 +291,10 @@ public class PaperTypeController {
                 request.width(),
                 request.height(),
                 request.unit(),
-                request.sheetValue(),
-                request.packageUnit(),
                 Boolean.TRUE.equals(request.isCoated()),
                 Boolean.TRUE.equals(request.state()),
-                toAssignmentCommands(request.cutLayouts())
+                toAssignmentCommands(request.cutLayouts()),
+                toSupplierCommands(request.suppliers())
         );
     }
 
@@ -295,6 +304,15 @@ public class PaperTypeController {
         }
         return cutLayouts.stream()
                 .map(c -> new PaperTypeCutAssignmentCommand(c.cutLayoutId(), c.cutValue()))
+                .toList();
+    }
+
+    private static List<PaperTypeSupplierAssignmentCommand> toSupplierCommands(List<PaperTypeSupplierRequest> suppliers) {
+        if (suppliers == null) {
+            return List.of();
+        }
+        return suppliers.stream()
+                .map(s -> new PaperTypeSupplierAssignmentCommand(s.supplierId(), s.sheetValue(), s.packageUnit()))
                 .toList();
     }
 }

@@ -4,6 +4,8 @@ import com.inkcore.domain.cutlayout.model.CutLayout;
 import com.inkcore.domain.cutlayout.ports.out.CutLayoutRepositoryPort;
 import com.inkcore.domain.papertype.exception.PaperTypeAlreadyExistsException;
 import com.inkcore.domain.papertype.model.PaperType;
+import com.inkcore.domain.supplier.model.Supplier;
+import com.inkcore.domain.supplier.ports.out.SupplierRepositoryPort;
 import com.inkcore.domain.papertype.ports.out.PaperTypeRepositoryPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,6 +38,7 @@ class CreatePaperTypeUseCaseTest {
 
     @Mock PaperTypeRepositoryPort paperTypeRepository;
     @Mock CutLayoutRepositoryPort cutLayoutRepository;
+    @Mock SupplierRepositoryPort supplierRepository;
 
     private CreatePaperTypeUseCase useCase;
 
@@ -44,6 +47,7 @@ class CreatePaperTypeUseCaseTest {
         useCase = new CreatePaperTypeUseCase(
                 paperTypeRepository,
                 cutLayoutRepository,
+                supplierRepository,
                 Clock.fixed(FIXED_NOW, ZoneOffset.UTC)
         );
     }
@@ -52,6 +56,23 @@ class CreatePaperTypeUseCaseTest {
     void execute_success_defaultsUnitCoatedAndState() {
         when(paperTypeRepository.existsByCompanyIdAndNameIgnoreCase(
                 "company-seed-001", "Bond 75g")).thenReturn(false);
+        when(supplierRepository.findById("sup-1")).thenReturn(Optional.of(
+                Supplier.reconstitute(
+                        "sup-1",
+                        "company-seed-001",
+                        "Papeles del Norte",
+                        "NIT",
+                        "900123456",
+                        "Antioquia",
+                        "Medellín",
+                        "Calle 1",
+                        "3001234567",
+                        "contacto@ejemplo.com",
+                        "Ana",
+                        true,
+                        LocalDate.of(2026, 8, 1)
+                )
+        ));
         when(paperTypeRepository.save(any(PaperType.class))).thenAnswer(inv -> inv.getArgument(0));
 
         PaperType created = useCase.execute(new CreatePaperTypeCommand(
@@ -60,21 +81,21 @@ class CreatePaperTypeUseCaseTest {
                 new BigDecimal("70"),
                 new BigDecimal("100"),
                 null,
-                new BigDecimal("1500"),
-                500,
                 null,
                 null,
-                List.of()
+                List.of(),
+                List.of(new PaperTypeSupplierAssignmentCommand("sup-1", new BigDecimal("1500"), 500))
         ));
 
         assertEquals("Bond 75g", created.getName());
         assertEquals("cm", created.getUnit());
-        assertEquals(new BigDecimal("1500.00"), created.getSheetValue());
-        assertEquals(500, created.getPackageUnit());
         assertFalse(created.isCoated());
         assertTrue(created.isState());
         assertEquals(LocalDate.of(2026, 8, 1), created.getCreationDate());
         assertTrue(created.getCutAssignments().isEmpty());
+        assertEquals(1, created.getSupplierAssignments().size());
+        assertEquals(new BigDecimal("1500.00"), created.getSupplierAssignments().get(0).getSheetValue());
+        assertEquals(500, created.getSupplierAssignments().get(0).getPackageUnit());
 
         ArgumentCaptor<PaperType> captor = ArgumentCaptor.forClass(PaperType.class);
         verify(paperTypeRepository).save(captor.capture());
@@ -98,6 +119,23 @@ class CreatePaperTypeUseCaseTest {
                         LocalDate.of(2026, 8, 1)
                 )
         ));
+        when(supplierRepository.findById("sup-1")).thenReturn(Optional.of(
+                Supplier.reconstitute(
+                        "sup-1",
+                        "company-seed-001",
+                        "Papeles del Norte",
+                        "NIT",
+                        "900123456",
+                        "Antioquia",
+                        "Medellín",
+                        "Calle 1",
+                        "3001234567",
+                        "contacto@ejemplo.com",
+                        "Ana",
+                        true,
+                        LocalDate.of(2026, 8, 1)
+                )
+        ));
         when(paperTypeRepository.save(any(PaperType.class))).thenAnswer(inv -> inv.getArgument(0));
 
         PaperType created = useCase.execute(new CreatePaperTypeCommand(
@@ -106,17 +144,36 @@ class CreatePaperTypeUseCaseTest {
                 new BigDecimal("70"),
                 new BigDecimal("100"),
                 "cm",
-                new BigDecimal("1500"),
-                500,
                 true,
                 true,
-                List.of(new PaperTypeCutAssignmentCommand("cut-1", new BigDecimal("200")))
+                List.of(new PaperTypeCutAssignmentCommand("cut-1", new BigDecimal("200"))),
+                List.of(new PaperTypeSupplierAssignmentCommand("sup-1", new BigDecimal("1500"), 500))
         ));
 
         assertEquals(1, created.getCutAssignments().size());
         assertEquals("cut-1", created.getCutAssignments().get(0).getCutLayoutId());
         assertEquals(new BigDecimal("200.00"), created.getCutAssignments().get(0).getCutValue());
         assertTrue(created.isCoated());
+    }
+
+    @Test
+    void execute_emptySuppliers_throws() {
+        when(paperTypeRepository.existsByCompanyIdAndNameIgnoreCase(
+                "company-seed-001", "Bond 75g")).thenReturn(false);
+
+        assertThrows(IllegalArgumentException.class, () -> useCase.execute(new CreatePaperTypeCommand(
+                "company-seed-001",
+                "Bond 75g",
+                new BigDecimal("70"),
+                new BigDecimal("100"),
+                "cm",
+                false,
+                true,
+                List.of(),
+                List.of()
+        )));
+
+        verify(paperTypeRepository, never()).save(any());
     }
 
     @Test
@@ -130,11 +187,10 @@ class CreatePaperTypeUseCaseTest {
                 new BigDecimal("70"),
                 new BigDecimal("100"),
                 "cm",
-                new BigDecimal("1500"),
-                500,
                 false,
                 true,
-                List.of()
+                List.of(),
+                List.of(new PaperTypeSupplierAssignmentCommand("sup-1", new BigDecimal("1500"), 500))
         )));
 
         verify(paperTypeRepository, never()).save(any());

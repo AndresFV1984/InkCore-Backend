@@ -22,6 +22,7 @@ public final class PaperRow {
     private boolean clientSuppliesPaper;
 
     private String paperTypeId;
+    private String supplierId;
     private String paperName;
     private String paperSize;
     private BigDecimal sheetValue;
@@ -125,6 +126,14 @@ public final class PaperRow {
 
     public void setPaperTypeId(String paperTypeId) {
         this.paperTypeId = paperTypeId;
+    }
+
+    public String getSupplierId() {
+        return supplierId;
+    }
+
+    public void setSupplierId(String supplierId) {
+        this.supplierId = supplierId;
     }
 
     public String getPaperName() {

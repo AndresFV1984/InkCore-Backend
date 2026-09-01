@@ -52,6 +52,9 @@ public class ProductionOrderPaperRowEntity implements Persistable<String> {
     @Column(name = "paper_type_id", length = 64)
     private String paperTypeId;
 
+    @Column(name = "supplier_id", length = 64)
+    private String supplierId;
+
     @Column(name = "paper_name", length = 80)
     private String paperName;
 
@@ -207,6 +210,14 @@ public class ProductionOrderPaperRowEntity implements Persistable<String> {
 
     public void setPaperTypeId(String paperTypeId) {
         this.paperTypeId = paperTypeId;
+    }
+
+    public String getSupplierId() {
+        return supplierId;
+    }
+
+    public void setSupplierId(String supplierId) {
+        this.supplierId = supplierId;
     }
 
     public String getPaperName() {

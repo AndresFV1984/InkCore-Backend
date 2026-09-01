@@ -21,13 +21,16 @@ import java.util.Objects;
 public class UpdateProductionOrderBillingUseCase {
 
     private final ProductionOrderSupport support;
+    private final ProductionOrderOperatorsApplier operatorsApplier;
     private final BankAccountRepositoryPort bankAccountRepository;
 
     public UpdateProductionOrderBillingUseCase(
             ProductionOrderSupport support,
+            ProductionOrderOperatorsApplier operatorsApplier,
             BankAccountRepositoryPort bankAccountRepository
     ) {
         this.support = support;
+        this.operatorsApplier = operatorsApplier;
         this.bankAccountRepository = bankAccountRepository;
     }
 
@@ -65,7 +68,13 @@ public class UpdateProductionOrderBillingUseCase {
         }
 
         order.setBilling(billing);
-        order.upsertOperator(ProductionOrderStage.BILLING, command.operatorUserId());
+        operatorsApplier.apply(
+                order,
+                companyId,
+                command.operators(),
+                command.operatorUserId(),
+                ProductionOrderStage.BILLING
+        );
         order.setUpdatedAt(support.now());
         order.setUpdatedBy(userId);
         return support.repository().save(order);

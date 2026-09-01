@@ -557,24 +557,33 @@ final class PdfInkCoverageEngine extends PDFGraphicsStreamEngine {
             // continuar
         }
         try {
-            return rgbFromRawRaster(image);
+            return rgbFromRawRaster(image, subsample);
         } catch (Exception ignored) {
             return null;
         }
     }
 
-    private static BufferedImage rgbFromRawRaster(PDImageXObject image) throws IOException {
+    /**
+     * Fallback RGB desde raster crudo. Respeta {@code subsample} (mismo criterio que getImage)
+     * para no materializar fotos a resolución nativa cuando solo se necesita la media CMYK.
+     */
+    private static BufferedImage rgbFromRawRaster(PDImageXObject image, int subsample) throws IOException {
         WritableRaster raw = image.getRawRaster();
         if (raw == null) {
             return null;
         }
+        int step = Math.max(1, subsample);
         int w = raw.getWidth();
         int h = raw.getHeight();
+        int outW = Math.max(1, (w + step - 1) / step);
+        int outH = Math.max(1, (h + step - 1) / step);
         int bands = raw.getNumBands();
         double max = sampleMax(raw);
-        BufferedImage out = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
-        for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) {
+        BufferedImage out = new BufferedImage(outW, outH, BufferedImage.TYPE_INT_RGB);
+        int oy = 0;
+        for (int y = 0; y < h; y += step, oy++) {
+            int ox = 0;
+            for (int x = 0; x < w; x += step, ox++) {
                 int r;
                 int g;
                 int b;
@@ -586,7 +595,7 @@ final class PdfInkCoverageEngine extends PDFGraphicsStreamEngine {
                     int gray = clamp255Byte(raw.getSample(x, y, 0) / max);
                     r = g = b = gray;
                 }
-                out.setRGB(x, y, (r << 16) | (g << 8) | b);
+                out.setRGB(ox, oy, (r << 16) | (g << 8) | b);
             }
         }
         return out;

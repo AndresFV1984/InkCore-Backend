@@ -1,5 +1,5 @@
-# Desarrollo local
-# - Postgres: docker compose up -d
+# Desarrollo local (app en IDE)
+# - Postgres: instalado en el equipo (default :5432) o Docker (DB_URL con :15432)
 # - App runtime: indicolors_app | Flyway: indicolors_owner (o FLYWAY_MIGRATION_*)
 # - Grants DML: ScriptBD/Script_Crear_BD (no hace falta script aparte)
 # - Hot restart: spring-boot-devtools (recompilar → reinicio automático del contexto)
@@ -165,15 +165,15 @@ inkcore:
     secret-key: ${OBJECT_STORAGE_SECRET_KEY:inkcore-app-dev-only-change-me}
     path-style-access: ${OBJECT_STORAGE_PATH_STYLE:true}
     presigned-url-ttl-seconds: ${OBJECT_STORAGE_PRESIGNED_TTL:300}
-    max-asset-file-bytes: ${OBJECT_STORAGE_MAX_ASSET_BYTES:26214400}
+    max-asset-file-bytes: ${OBJECT_STORAGE_MAX_ASSET_BYTES:536870912}
     max-preview-file-bytes: ${OBJECT_STORAGE_MAX_PREVIEW_BYTES:2097152}
     cors-allowed-origins: ${OBJECT_STORAGE_CORS_ORIGINS:http://localhost:8085,http://127.0.0.1:8085,http://192.168.1.250:8085}
     # Tag inkcore-staging=true (PUT firmado). Prefijo tmp/ = respaldo si el objeto subió sin tag.
     # S3 no soporta glob en el medio de la key; el staging canónico es tmp/company/{id}/ink-estimates/...
-    staging-expiration-days: ${OBJECT_STORAGE_STAGING_EXPIRY_DAYS:2}
+    staging-expiration-days: ${OBJECT_STORAGE_STAGING_EXPIRY_DAYS:7}
     staging-fallback-expiration-days: ${OBJECT_STORAGE_STAGING_FALLBACK_EXPIRY_DAYS:30}
     # Barrido de path legado company/{id}/tmp/... (job periódico + primer tick ~15s). 0 = off.
-    legacy-staging-cleanup-days: ${OBJECT_STORAGE_LEGACY_STAGING_CLEANUP_DAYS:2}
+    legacy-staging-cleanup-days: ${OBJECT_STORAGE_LEGACY_STAGING_CLEANUP_DAYS:7}
     legacy-staging-cleanup-interval-ms: ${OBJECT_STORAGE_LEGACY_STAGING_CLEANUP_INTERVAL_MS:86400000}
     # false si Compose ya corrió minio-init (recomendado). true solo con claves root (minioadmin)
     # y MinIO suelto sin init.

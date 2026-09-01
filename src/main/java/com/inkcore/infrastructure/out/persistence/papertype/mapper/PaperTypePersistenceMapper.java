@@ -2,9 +2,12 @@ package com.inkcore.infrastructure.out.persistence.papertype.mapper;
 
 import com.inkcore.domain.papertype.model.PaperType;
 import com.inkcore.domain.papertype.model.PaperTypeCutAssignment;
+import com.inkcore.domain.papertype.model.PaperTypeSupplierAssignment;
 import com.inkcore.infrastructure.out.persistence.papertype.entity.PaperTypeCutLayoutEntity;
 import com.inkcore.infrastructure.out.persistence.papertype.entity.PaperTypeCutLayoutEntity.PaperTypeCutLayoutId;
 import com.inkcore.infrastructure.out.persistence.papertype.entity.PaperTypeEntity;
+import com.inkcore.infrastructure.out.persistence.papertype.entity.PaperTypeSupplierEntity;
+import com.inkcore.infrastructure.out.persistence.papertype.entity.PaperTypeSupplierEntity.PaperTypeSupplierId;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -26,18 +29,29 @@ public class PaperTypePersistenceMapper {
         e.setWidth(paperType.getWidth());
         e.setHeight(paperType.getHeight());
         e.setUnit(paperType.getUnit());
-        e.setSheetValue(paperType.getSheetValue());
-        e.setPackageUnit(paperType.getPackageUnit());
         e.setCoated(paperType.isCoated());
         e.setState(paperType.isState());
         e.setCreationDate(paperType.getCreationDate());
     }
 
-    public PaperType toDomain(PaperTypeEntity entity, List<PaperTypeCutLayoutEntity> assignments) {
-        List<PaperTypeCutAssignment> cutAssignments = assignments == null
+    public PaperType toDomain(
+            PaperTypeEntity entity,
+            List<PaperTypeCutLayoutEntity> cutAssignments,
+            List<PaperTypeSupplierEntity> supplierAssignments
+    ) {
+        List<PaperTypeCutAssignment> cuts = cutAssignments == null
                 ? List.of()
-                : assignments.stream()
+                : cutAssignments.stream()
                 .map(a -> PaperTypeCutAssignment.of(a.getId().getCutLayoutId(), a.getCutValue()))
+                .toList();
+        List<PaperTypeSupplierAssignment> suppliers = supplierAssignments == null
+                ? List.of()
+                : supplierAssignments.stream()
+                .map(a -> PaperTypeSupplierAssignment.of(
+                        a.getId().getSupplierId(),
+                        a.getSheetValue(),
+                        a.getPackageUnit()
+                ))
                 .toList();
         return PaperType.reconstitute(
                 entity.getPaperTypeId(),
@@ -46,16 +60,15 @@ public class PaperTypePersistenceMapper {
                 entity.getWidth(),
                 entity.getHeight(),
                 entity.getUnit(),
-                entity.getSheetValue(),
-                entity.getPackageUnit(),
                 entity.isCoated(),
                 entity.isState(),
                 entity.getCreationDate(),
-                cutAssignments
+                cuts,
+                suppliers
         );
     }
 
-    public PaperTypeCutLayoutEntity toAssignmentEntity(
+    public PaperTypeCutLayoutEntity toCutAssignmentEntity(
             String paperTypeId,
             PaperTypeCutAssignment assignment,
             LocalDateTime assignedAt
@@ -63,6 +76,19 @@ public class PaperTypePersistenceMapper {
         PaperTypeCutLayoutEntity entity = new PaperTypeCutLayoutEntity();
         entity.setId(new PaperTypeCutLayoutId(paperTypeId, assignment.getCutLayoutId()));
         entity.setCutValue(assignment.getCutValue());
+        entity.setAssignedAt(assignedAt);
+        return entity;
+    }
+
+    public PaperTypeSupplierEntity toSupplierAssignmentEntity(
+            String paperTypeId,
+            PaperTypeSupplierAssignment assignment,
+            LocalDateTime assignedAt
+    ) {
+        PaperTypeSupplierEntity entity = new PaperTypeSupplierEntity();
+        entity.setId(new PaperTypeSupplierId(paperTypeId, assignment.getSupplierId()));
+        entity.setSheetValue(assignment.getSheetValue());
+        entity.setPackageUnit(assignment.getPackageUnit());
         entity.setAssignedAt(assignedAt);
         return entity;
     }

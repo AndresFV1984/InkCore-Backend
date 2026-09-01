@@ -3,6 +3,7 @@ package com.inkcore.application.productionorder.usecase;
 import com.inkcore.application.inkestimateasset.InkEstimateAssetRelocationService;
 import com.inkcore.domain.productionorder.exception.ProductionOrderBusinessRuleException;
 import com.inkcore.domain.productionorder.model.DiscountType;
+import com.inkcore.domain.productionorder.service.InkEstimationEntriesSupport;
 import com.inkcore.domain.productionorder.model.FlipType;
 import com.inkcore.domain.productionorder.model.Plate;
 import com.inkcore.domain.productionorder.model.PrintConfig;
@@ -30,15 +31,18 @@ import java.util.Set;
 public class UpdateProductionOrderPrintingUseCase {
 
     private final ProductionOrderSupport support;
+    private final ProductionOrderOperatorsApplier operatorsApplier;
     private final ThousandRateRepositoryPort thousandRateRepository;
     private final InkEstimateAssetRelocationService inkEstimateAssetRelocation;
 
     public UpdateProductionOrderPrintingUseCase(
             ProductionOrderSupport support,
+            ProductionOrderOperatorsApplier operatorsApplier,
             ThousandRateRepositoryPort thousandRateRepository,
             InkEstimateAssetRelocationService inkEstimateAssetRelocation
     ) {
         this.support = support;
+        this.operatorsApplier = operatorsApplier;
         this.thousandRateRepository = thousandRateRepository;
         this.inkEstimateAssetRelocation = inkEstimateAssetRelocation;
     }
@@ -56,7 +60,13 @@ public class UpdateProductionOrderPrintingUseCase {
 
         List<PrintConfig> prints = buildPrints(order, companyId, userId, command.prints());
         order.setPrints(prints);
-        order.upsertOperator(ProductionOrderStage.PRINTING, command.operatorUserId());
+        operatorsApplier.apply(
+                order,
+                companyId,
+                command.operators(),
+                command.operatorUserId(),
+                ProductionOrderStage.PRINTING
+        );
         if (Boolean.TRUE.equals(command.completed())) {
             order.setPrintingCompletedAt(support.now());
         }
@@ -109,6 +119,13 @@ public class UpdateProductionOrderPrintingUseCase {
             print.setPrintingDiscountType(DiscountType.fromValue(input.printingDiscountType()));
             print.setPrintingDiscountValue(input.printingDiscountValue());
             print.setCompleted(Boolean.TRUE.equals(input.completed()));
+            List<String> assetErrors = InkEstimationEntriesSupport.validateAssetReferences(
+                    print.getInkEstimation(),
+                    print.isCompleted()
+            );
+            for (String assetError : assetErrors) {
+                errors.add("prints[" + i + "]." + assetError);
+            }
             print.setEntries(buildEntries(companyId, print.getPrintId(), plate, input.entries(), errors, i));
             prints.add(print);
         }

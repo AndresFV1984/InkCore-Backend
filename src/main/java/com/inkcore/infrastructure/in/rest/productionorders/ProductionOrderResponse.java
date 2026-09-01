@@ -193,9 +193,9 @@ public record ProductionOrderResponse(
         }
     }
 
-    public record OperatorResponse(String stage, String userId) {
+    public record OperatorResponse(String stage, String userId, String roleCode) {
         static OperatorResponse from(OperatorAssignment o) {
-            return new OperatorResponse(o.getStage().name(), o.getUserId());
+            return new OperatorResponse(o.getStage().name(), o.getUserId(), o.getRoleCode());
         }
     }
 
@@ -264,6 +264,7 @@ public record ProductionOrderResponse(
             Integer missingSheetsQuantity,
             Boolean clientSuppliesPaper,
             String paperTypeId,
+            String supplierId,
             String paperName,
             String paperSize,
             BigDecimal sheetValue,
@@ -292,6 +293,7 @@ public record ProductionOrderResponse(
                     r.getMissingSheetsQuantity(),
                     r.isClientSuppliesPaper(),
                     r.getPaperTypeId(),
+                    r.getSupplierId(),
                     r.getPaperName(),
                     r.getPaperSize(),
                     r.getSheetValue(),

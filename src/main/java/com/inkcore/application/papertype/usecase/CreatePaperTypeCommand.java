@@ -9,10 +9,9 @@ public record CreatePaperTypeCommand(
         BigDecimal width,
         BigDecimal height,
         String unit,
-        BigDecimal sheetValue,
-        Integer packageUnit,
         Boolean coated,
         Boolean state,
-        List<PaperTypeCutAssignmentCommand> cutLayouts
+        List<PaperTypeCutAssignmentCommand> cutLayouts,
+        List<PaperTypeSupplierAssignmentCommand> suppliers
 ) {
 }

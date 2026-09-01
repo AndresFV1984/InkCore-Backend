@@ -8,6 +8,8 @@ import com.inkcore.domain.inkestimation.model.InkEstimateResult;
 import com.inkcore.domain.inkestimation.model.InkPageSelection;
 import com.inkcore.domain.inkestimation.ports.in.EstimateInkUseCase;
 import com.inkcore.infrastructure.config.InkEstimationProperties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
@@ -19,6 +21,8 @@ import java.util.concurrent.Semaphore;
 
 @Service
 public class EstimateInkFromObjectKeyUseCase {
+
+    private static final Logger log = LoggerFactory.getLogger(EstimateInkFromObjectKeyUseCase.class);
 
     private final InkEstimateAssetSupport assetSupport;
     private final InkEstimateAssetFileValidator fileValidator;
@@ -70,6 +74,7 @@ public class EstimateInkFromObjectKeyUseCase {
         Path tempFile = null;
         try {
             tempFile = createTempFile(fileName);
+            long downloadStarted = System.nanoTime();
             assetSupport.downloadAuthorizedObject(
                     objectKey,
                     companyId,
@@ -78,13 +83,14 @@ public class EstimateInkFromObjectKeyUseCase {
                     tempFile,
                     fileValidator.maxOriginalBytes()
             );
+            long downloadMs = (System.nanoTime() - downloadStarted) / 1_000_000L;
             fileValidator.validateOriginal(tempFile, fileName, contentType);
 
             double widthCm = command.widthCm() != null ? command.widthCm() : properties.getDefaultWidthCm();
             double heightCm = command.heightCm() != null ? command.heightCm() : properties.getDefaultHeightCm();
             List<Integer> pages = InkPageSelection.normalize(command.pages());
 
-            return estimateInkUseCase.estimate(new InkEstimateRequest(
+            InkEstimateResult result = estimateInkUseCase.estimate(new InkEstimateRequest(
                     tempFile,
                     fileName,
                     contentType,
@@ -97,6 +103,14 @@ public class EstimateInkFromObjectKeyUseCase {
                     command.iccProfile(),
                     pages
             ));
+            log.info(
+                    "Estimación tinta objectKey={} downloadMs={} processingTimeMs={} sizeBytes={}",
+                    objectKey,
+                    downloadMs,
+                    result.getProcessingTimeMs(),
+                    result.getOriginalSizeBytes()
+            );
+            return result;
         } finally {
             deleteQuietly(tempFile);
             releaseDownloadSlot();

@@ -33,7 +33,7 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("InkCore API")
                         .description("")
-                        .version("0.0.38")
+                        .version("0.0.41")
                         .contact(new Contact().name("InkCore").email("admin@indicolors.com")))
                 .servers(List.of(
                         new Server().url(basePath).description("Context path local")
@@ -42,6 +42,8 @@ public class OpenApiConfig {
                         new Tag().name("Autenticación").description("Login y refresh de tokens"),
                         new Tag().name("Usuarios").description("Gestión de usuarios"),
                         new Tag().name("Clientes").description("Gestión de clientes"),
+                        new Tag().name("Proveedores").description("Gestión de proveedores"),
+                        new Tag().name("Empresas").description("Catálogo de empresas"),
                         new Tag().name("Vendedores").description("Gestión de vendedores"),
                         new Tag().name("Cuentas bancarias").description("Gestión de cuentas bancarias"),
                         new Tag().name("Terminados").description("Gestión de terminados"),

@@ -13,15 +13,18 @@ import org.springframework.transaction.annotation.Transactional;
 public class UpdateProductionOrderSpecificationsUseCase {
 
     private final ProductionOrderSupport support;
+    private final ProductionOrderOperatorsApplier operatorsApplier;
     private final ClientRepositoryPort clientRepository;
     private final SellerRepositoryPort sellerRepository;
 
     public UpdateProductionOrderSpecificationsUseCase(
             ProductionOrderSupport support,
+            ProductionOrderOperatorsApplier operatorsApplier,
             ClientRepositoryPort clientRepository,
             SellerRepositoryPort sellerRepository
     ) {
         this.support = support;
+        this.operatorsApplier = operatorsApplier;
         this.clientRepository = clientRepository;
         this.sellerRepository = sellerRepository;
     }
@@ -52,9 +55,13 @@ public class UpdateProductionOrderSpecificationsUseCase {
                 command.proposalQuantity2(),
                 support.now()
         );
-        if (command.operatorUserId() != null) {
-            order.upsertOperator(ProductionOrderStage.PREPRESS, command.operatorUserId());
-        }
+        operatorsApplier.apply(
+                order,
+                companyId,
+                command.operators(),
+                command.operatorUserId(),
+                ProductionOrderStage.PREPRESS
+        );
         order.setUpdatedBy(userId);
         return support.repository().save(order);
     }

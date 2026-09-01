@@ -38,12 +38,6 @@ public class PaperTypeEntity implements Persistable<String> {
     @Column(nullable = false, length = 10)
     private String unit;
 
-    @Column(name = "sheet_value", nullable = false, precision = 12, scale = 2)
-    private BigDecimal sheetValue;
-
-    @Column(name = "package_unit", nullable = false)
-    private int packageUnit;
-
     @Column(name = "is_coated", nullable = false)
     private boolean coated;
 
@@ -118,22 +112,6 @@ public class PaperTypeEntity implements Persistable<String> {
 
     public void setUnit(String unit) {
         this.unit = unit;
-    }
-
-    public BigDecimal getSheetValue() {
-        return sheetValue;
-    }
-
-    public void setSheetValue(BigDecimal sheetValue) {
-        this.sheetValue = sheetValue;
-    }
-
-    public int getPackageUnit() {
-        return packageUnit;
-    }
-
-    public void setPackageUnit(int packageUnit) {
-        this.packageUnit = packageUnit;
     }
 
     public boolean isCoated() {

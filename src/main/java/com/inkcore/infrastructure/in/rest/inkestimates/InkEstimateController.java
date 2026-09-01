@@ -1,5 +1,7 @@
 package com.inkcore.infrastructure.in.rest.inkestimates;
 
+import com.inkcore.application.inkestimation.usecase.EstimateInkFromMultipartUseCase;
+import com.inkcore.application.inkestimation.usecase.EstimateInkFromMultipartUseCase.EstimateInkFromMultipartCommand;
 import com.inkcore.application.inkestimation.usecase.EstimateInkFromObjectKeyUseCase;
 import com.inkcore.application.inkestimation.usecase.EstimateInkFromObjectKeyUseCase.EstimateInkFromObjectKeyCommand;
 import com.inkcore.domain.inkestimation.model.InkEstimateResult;
@@ -10,6 +12,7 @@ import com.inkcore.infrastructure.in.rest.openapi.ApiErrorResponses;
 import com.inkcore.infrastructure.in.rest.openapi.ApiSecuredErrorResponses;
 import com.inkcore.infrastructure.in.rest.openapi.InkEstimateSuccessEnvelope;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -24,7 +27,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/ink-estimates")
@@ -33,14 +39,80 @@ import org.springframework.web.bind.annotation.RestController;
 public class InkEstimateController {
 
     private final EstimateInkFromObjectKeyUseCase estimateInkFromObjectKeyUseCase;
+    private final EstimateInkFromMultipartUseCase estimateInkFromMultipartUseCase;
     private final ApiResponseFactory responseFactory;
 
     public InkEstimateController(
             EstimateInkFromObjectKeyUseCase estimateInkFromObjectKeyUseCase,
+            EstimateInkFromMultipartUseCase estimateInkFromMultipartUseCase,
             ApiResponseFactory responseFactory
     ) {
         this.estimateInkFromObjectKeyUseCase = estimateInkFromObjectKeyUseCase;
+        this.estimateInkFromMultipartUseCase = estimateInkFromMultipartUseCase;
         this.responseFactory = responseFactory;
+    }
+
+    @PostMapping(
+            value = "/estimate",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
+    @Operation(
+            operationId = "estimateInkConsumptionMultipart",
+            summary = "Estimar consumo de tinta (multipart)",
+            description = """
+                    Formulario **Estimar tintas**: sube el archivo directamente (JPG, PNG, TIFF, WEBP, GIF, PDF).
+                    No requiere presign ni objectKey. El archivo no se guarda en object storage.
+
+                    Campos obligatorios: `file`, `sheetCount`.
+                    Opcionales: widthCm, heightCm, dpi, gramsPerCm2, iccProfile, pages (PDF 1-based, máx. 2).
+                    """
+    )
+    @ApiResponse(
+            responseCode = "200",
+            description = "Estimación completada",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    schema = @Schema(implementation = InkEstimateSuccessEnvelope.class)
+            )
+    )
+    @ApiErrorResponses
+    @ApiSecuredErrorResponses
+    public ResponseEntity<ApiSuccessEnvelope<InkEstimateResponse>> estimateMultipart(
+            @Parameter(description = "Arte a analizar", required = true)
+            @RequestPart("file") MultipartFile file,
+            @Parameter(description = "Cantidad de pliegos", required = true, example = "1000")
+            @RequestParam("sheetCount") Integer sheetCount,
+            @Parameter(description = "Ancho cm", example = "70")
+            @RequestParam(value = "widthCm", required = false) Double widthCm,
+            @Parameter(description = "Alto cm", example = "100")
+            @RequestParam(value = "heightCm", required = false) Double heightCm,
+            @Parameter(description = "DPI referencia", example = "300")
+            @RequestParam(value = "dpi", required = false) Integer dpi,
+            @Parameter(description = "Factor g/cm² uniforme", example = "0.00021")
+            @RequestParam(value = "gramsPerCm2", required = false) Double gramsPerCm2,
+            @Parameter(description = "Perfil ICC destino", example = "FOGRA39.icc")
+            @RequestParam(value = "iccProfile", required = false) String iccProfile,
+            @Parameter(description = "Páginas PDF 1-based (ej. \"1\" o \"1,2\")")
+            @RequestParam(value = "pages", required = false) String pages,
+            Authentication authentication,
+            HttpServletRequest httpRequest
+    ) {
+        InkEstimateResult result = estimateInkFromMultipartUseCase.execute(
+                new EstimateInkFromMultipartCommand(
+                        file,
+                        sheetCount,
+                        widthCm,
+                        heightCm,
+                        dpi,
+                        gramsPerCm2,
+                        iccProfile,
+                        pages
+                ),
+                authentication
+        );
+        return responseFactory.okStandard(httpRequest, InkEstimateResponse.from(result));
     }
 
     @PostMapping(
@@ -50,8 +122,8 @@ public class InkEstimateController {
     )
     @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
-            operationId = "estimateInkConsumption",
-            summary = "Estimar consumo de tinta",
+            operationId = "estimateInkConsumptionFromObjectKey",
+            summary = "Estimar consumo de tinta (objectKey)",
             description = """
                     JSON `{ objectKey, sheetCount, ... }` → envelope (`headers`, `timestamp`, `data`).
                     El arte ya está en object storage (presign PUT). No se acepta `file` ni multipart.

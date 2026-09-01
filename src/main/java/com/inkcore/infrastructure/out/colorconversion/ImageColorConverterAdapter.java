@@ -304,17 +304,38 @@ public class ImageColorConverterAdapter implements ImageColorConverterPort {
 
     /**
      * Carga raster a resolución nativa (sin subsampling) con DPI y bits/canal.
+     * Uso: conversión CTP / alta fidelidad. No usar para estimación de tinta.
      */
     public LoadedRaster loadRasterHighFidelity(byte[] bytes) throws IOException {
         try (ImageInputStream iis = ImageIO.createImageInputStream(new ByteArrayInputStream(bytes))) {
-            return readLoadedRaster(iis, () -> ImageIO.read(new ByteArrayInputStream(bytes)));
+            return readLoadedRaster(iis, () -> ImageIO.read(new ByteArrayInputStream(bytes)), 0);
         }
     }
 
     public LoadedRaster loadRasterHighFidelity(Path file) throws IOException {
         File raw = file.toFile();
         try (ImageInputStream iis = ImageIO.createImageInputStream(raw)) {
-            return readLoadedRaster(iis, () -> ImageIO.read(raw));
+            return readLoadedRaster(iis, () -> ImageIO.read(raw), 0);
+        }
+    }
+
+    /**
+     * Carga raster para estimación de cobertura de tinta.
+     * Si la imagen supera {@code maxAnalysisPixels}, aplica sourceSubsampling al leer
+     * (equivalente al downscale posterior) y evita decodificar decenas de MP en memoria.
+     * Los gramos usan cobertura media × área cm² del request; el presupuesto de píxeles
+     * analizados se mantiene vía {@code maxAnalysisPixels}.
+     */
+    public LoadedRaster loadRasterForInkCoverage(byte[] bytes, int maxAnalysisPixels) throws IOException {
+        try (ImageInputStream iis = ImageIO.createImageInputStream(new ByteArrayInputStream(bytes))) {
+            return readLoadedRaster(iis, () -> ImageIO.read(new ByteArrayInputStream(bytes)), maxAnalysisPixels);
+        }
+    }
+
+    public LoadedRaster loadRasterForInkCoverage(Path file, int maxAnalysisPixels) throws IOException {
+        File raw = file.toFile();
+        try (ImageInputStream iis = ImageIO.createImageInputStream(raw)) {
+            return readLoadedRaster(iis, () -> ImageIO.read(raw), maxAnalysisPixels);
         }
     }
 
@@ -323,7 +344,11 @@ public class ImageColorConverterAdapter implements ImageColorConverterPort {
         BufferedImage read() throws IOException;
     }
 
-    private LoadedRaster readLoadedRaster(ImageInputStream iis, RasterFallback fallback) throws IOException {
+    /**
+     * @param maxAnalysisPixels {@code <= 0} = sin subsampling (1:1); {@code > 0} = tope de píxeles al leer
+     */
+    private LoadedRaster readLoadedRaster(ImageInputStream iis, RasterFallback fallback, int maxAnalysisPixels)
+            throws IOException {
         if (iis == null) {
             BufferedImage img = fallback.read();
             if (img == null) {
@@ -343,7 +368,16 @@ public class ImageColorConverterAdapter implements ImageColorConverterPort {
         try {
             reader.setInput(iis, true, false);
             javax.imageio.ImageReadParam param = reader.getDefaultReadParam();
-            // Sin sourceRegion / sin sourceSubsampling → píxeles 1:1
+            int subsample = 1;
+            if (maxAnalysisPixels > 0) {
+                int w = reader.getWidth(0);
+                int h = reader.getHeight(0);
+                long pixels = (long) w * (long) h;
+                if (pixels > maxAnalysisPixels) {
+                    subsample = Math.max(1, (int) Math.ceil(Math.sqrt((double) pixels / maxAnalysisPixels)));
+                    param.setSourceSubsampling(subsample, subsample, 0, 0);
+                }
+            }
             BufferedImage image = reader.read(0, param);
             if (image == null) {
                 throw new ColorConversionFailedException("No se pudo leer la imagen de entrada");
@@ -357,8 +391,9 @@ public class ImageColorConverterAdapter implements ImageColorConverterPort {
             try {
                 IIOMetadata metadata = reader.getImageMetadata(0);
                 DpiResolution dpi = extractDpi(metadata);
-                xDpi = dpi.x();
-                yDpi = dpi.y();
+                // DPI efectivo tras subsampling (metadato de referencia; los gramos usan área cm²)
+                xDpi = dpi.x() == null ? null : dpi.x() / subsample;
+                yDpi = dpi.y() == null ? null : dpi.y() / subsample;
                 int metaBits = extractBitsPerSample(metadata, bits);
                 if (metaBits == 16) {
                     bits = 16;

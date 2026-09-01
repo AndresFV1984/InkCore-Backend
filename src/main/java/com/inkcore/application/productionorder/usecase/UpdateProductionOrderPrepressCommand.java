@@ -21,6 +21,7 @@ public record UpdateProductionOrderPrepressCommand(
         String prepressDiscountType,
         BigDecimal prepressDiscountValue,
         Boolean completed,
+        List<OperatorAssignmentCommand> operators,
         String operatorUserId,
         List<PlateInput> plates
 ) {

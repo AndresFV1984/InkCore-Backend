@@ -7,6 +7,7 @@ import java.util.Map;
 public record UpdateProductionOrderPrintingCommand(
         Long version,
         Boolean completed,
+        List<OperatorAssignmentCommand> operators,
         String operatorUserId,
         List<PrintInput> prints
 ) {

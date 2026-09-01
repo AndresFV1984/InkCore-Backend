@@ -4,8 +4,10 @@ import com.inkcore.domain.cutlayout.ports.out.CutLayoutRepositoryPort;
 import com.inkcore.domain.papertype.exception.PaperTypeAlreadyExistsException;
 import com.inkcore.domain.papertype.model.PaperType;
 import com.inkcore.domain.papertype.model.PaperTypeCutAssignment;
+import com.inkcore.domain.papertype.model.PaperTypeSupplierAssignment;
 import com.inkcore.domain.papertype.ports.out.PaperTypeRepositoryPort;
 import com.inkcore.domain.shared.exception.ResourceNotFoundException;
+import com.inkcore.domain.supplier.ports.out.SupplierRepositoryPort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,13 +18,16 @@ public class UpdatePaperTypeUseCase {
 
     private final PaperTypeRepositoryPort paperTypeRepository;
     private final CutLayoutRepositoryPort cutLayoutRepository;
+    private final SupplierRepositoryPort supplierRepository;
 
     public UpdatePaperTypeUseCase(
             PaperTypeRepositoryPort paperTypeRepository,
-            CutLayoutRepositoryPort cutLayoutRepository
+            CutLayoutRepositoryPort cutLayoutRepository,
+            SupplierRepositoryPort supplierRepository
     ) {
         this.paperTypeRepository = paperTypeRepository;
         this.cutLayoutRepository = cutLayoutRepository;
+        this.supplierRepository = supplierRepository;
     }
 
     @Transactional
@@ -39,10 +44,15 @@ public class UpdatePaperTypeUseCase {
             throw new PaperTypeAlreadyExistsException("name", name);
         }
 
-        List<PaperTypeCutAssignment> assignments = PaperTypeCutAssignmentResolver.resolve(
+        List<PaperTypeCutAssignment> cutAssignments = PaperTypeCutAssignmentResolver.resolve(
                 existing.getCompanyId(),
                 command.cutLayouts(),
                 cutLayoutRepository
+        );
+        List<PaperTypeSupplierAssignment> supplierAssignments = PaperTypeSupplierAssignmentResolver.resolve(
+                existing.getCompanyId(),
+                command.suppliers(),
+                supplierRepository
         );
 
         PaperType updated = existing.update(
@@ -50,11 +60,10 @@ public class UpdatePaperTypeUseCase {
                 command.width(),
                 command.height(),
                 command.unit(),
-                command.sheetValue(),
-                command.packageUnit(),
                 command.coated(),
                 command.state(),
-                assignments
+                cutAssignments,
+                supplierAssignments
         );
         return paperTypeRepository.save(updated);
     }

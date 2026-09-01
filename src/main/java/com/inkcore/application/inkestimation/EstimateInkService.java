@@ -12,10 +12,12 @@ import com.inkcore.domain.inkestimation.ports.in.EstimateInkUseCase;
 import com.inkcore.domain.inkestimation.ports.out.InkCoverageAnalyzerPort;
 import com.inkcore.domain.inkestimation.ports.out.InkEstimateHistoryRepositoryPort;
 import com.inkcore.infrastructure.config.InkEstimationProperties;
+import com.inkcore.infrastructure.config.InkMediaUploadLimits;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -26,12 +28,15 @@ import java.util.Set;
 @Service
 public class EstimateInkService implements EstimateInkUseCase {
 
+    private static final Logger log = LoggerFactory.getLogger(EstimateInkService.class);
+
     private static final Set<String> IMAGE_EXT = Set.of("jpg", "jpeg", "png", "tif", "tiff", "webp", "gif");
     private static final Set<String> PDF_EXT = Set.of("pdf");
 
     private final InkCoverageAnalyzerPort inkCoverageAnalyzer;
     private final InkEstimateHistoryRepositoryPort historyRepository;
     private final InkEstimationProperties properties;
+    private final InkMediaUploadLimits uploadLimits;
     private final Clock clock;
     private final MeterRegistry meterRegistry;
 
@@ -39,18 +44,19 @@ public class EstimateInkService implements EstimateInkUseCase {
             InkCoverageAnalyzerPort inkCoverageAnalyzer,
             InkEstimateHistoryRepositoryPort historyRepository,
             InkEstimationProperties properties,
+            InkMediaUploadLimits uploadLimits,
             Clock clock,
             MeterRegistry meterRegistry
     ) {
         this.inkCoverageAnalyzer = inkCoverageAnalyzer;
         this.historyRepository = historyRepository;
         this.properties = properties;
+        this.uploadLimits = uploadLimits;
         this.clock = clock;
         this.meterRegistry = meterRegistry;
     }
 
     @Override
-    @Transactional
     public InkEstimateResult estimate(InkEstimateRequest request) {
         Objects.requireNonNull(request, "request");
         validateExtension(request.getOriginalFileName(), request.getMimeType());
@@ -66,11 +72,29 @@ public class EstimateInkService implements EstimateInkUseCase {
         Timer.Sample sample = Timer.start(meterRegistry);
         String outcome = "success";
         try {
-            long started = System.nanoTime();
+            // Sin @Transactional envolvente: el análisis es CPU/I/O largo; el historial
+            // ya persiste en transacción corta en InkEstimateHistoryJpaAdapter.
+            long analyzeStarted = System.nanoTime();
             InkCoverageAnalysis analysis = inkCoverageAnalyzer.analyze(request, dpi, icc);
-            long durationMs = (System.nanoTime() - started) / 1_000_000L;
-            InkEstimateResult result = InkConsumptionCalculator.build(request, analysis, density, durationMs);
+            long analyzeMs = (System.nanoTime() - analyzeStarted) / 1_000_000L;
+
+            long totalsStarted = System.nanoTime();
+            InkEstimateResult result = InkConsumptionCalculator.build(request, analysis, density, analyzeMs);
+            long totalsMs = (System.nanoTime() - totalsStarted) / 1_000_000L;
+
+            long historyStarted = System.nanoTime();
             historyRepository.save(InkEstimateHistory.fromResult(result, request.getUserId(), Instant.now(clock)));
+            long historyMs = (System.nanoTime() - historyStarted) / 1_000_000L;
+
+            log.info(
+                    "Estimación tinta file={} analyzeMs={} totalsMs={} historyMs={} pages={} totalGramsOrder={}",
+                    request.getOriginalFileName(),
+                    analyzeMs,
+                    totalsMs,
+                    historyMs,
+                    analysis.pagesAnalyzed(),
+                    result.getTotalGramsOrder()
+            );
             return result;
         } catch (RuntimeException ex) {
             outcome = "error";
@@ -103,7 +127,7 @@ public class EstimateInkService implements EstimateInkUseCase {
 
     private void validateFileSize(InkEstimateRequest request, int dpi) {
         long size = request.getOriginalSizeBytes();
-        long absoluteMax = properties.getAbsoluteMaxFileBytes();
+        long absoluteMax = uploadLimits.effectiveMaxOriginalBytes();
         if (size > absoluteMax) {
             throw new InkFileTooLargeException(
                     "El archivo supera el techo de seguridad (" + absoluteMax + " bytes)"

@@ -2,14 +2,17 @@ package com.inkcore.infrastructure.out.persistence.papertype.adapter;
 
 import com.inkcore.domain.papertype.model.PaperType;
 import com.inkcore.domain.papertype.model.PaperTypeCutAssignment;
+import com.inkcore.domain.papertype.model.PaperTypeSupplierAssignment;
 import com.inkcore.domain.papertype.ports.out.PaperTypeRepositoryPort;
 import com.inkcore.domain.shared.PageQuery;
 import com.inkcore.domain.shared.PageResult;
 import com.inkcore.infrastructure.out.persistence.papertype.entity.PaperTypeCutLayoutEntity;
 import com.inkcore.infrastructure.out.persistence.papertype.entity.PaperTypeEntity;
+import com.inkcore.infrastructure.out.persistence.papertype.entity.PaperTypeSupplierEntity;
 import com.inkcore.infrastructure.out.persistence.papertype.mapper.PaperTypePersistenceMapper;
 import com.inkcore.infrastructure.out.persistence.papertype.repository.JpaPaperTypeCutLayoutRepository;
 import com.inkcore.infrastructure.out.persistence.papertype.repository.JpaPaperTypeRepository;
+import com.inkcore.infrastructure.out.persistence.papertype.repository.JpaPaperTypeSupplierRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -26,17 +29,20 @@ public class PaperTypePersistenceAdapter implements PaperTypeRepositoryPort {
 
     private final JpaPaperTypeRepository jpaPaperTypeRepository;
     private final JpaPaperTypeCutLayoutRepository jpaPaperTypeCutLayoutRepository;
+    private final JpaPaperTypeSupplierRepository jpaPaperTypeSupplierRepository;
     private final PaperTypePersistenceMapper mapper;
     private final Clock clock;
 
     public PaperTypePersistenceAdapter(
             JpaPaperTypeRepository jpaPaperTypeRepository,
             JpaPaperTypeCutLayoutRepository jpaPaperTypeCutLayoutRepository,
+            JpaPaperTypeSupplierRepository jpaPaperTypeSupplierRepository,
             PaperTypePersistenceMapper mapper,
             Clock clock
     ) {
         this.jpaPaperTypeRepository = jpaPaperTypeRepository;
         this.jpaPaperTypeCutLayoutRepository = jpaPaperTypeCutLayoutRepository;
+        this.jpaPaperTypeSupplierRepository = jpaPaperTypeSupplierRepository;
         this.mapper = mapper;
         this.clock = clock;
     }
@@ -48,23 +54,21 @@ public class PaperTypePersistenceAdapter implements PaperTypeRepositoryPort {
         if (existing == null) {
             PaperTypeEntity entity = mapper.toNewEntity(paperType);
             PaperTypeEntity saved = jpaPaperTypeRepository.save(entity);
-            replaceAssignments(saved.getPaperTypeId(), paperType.getCutAssignments());
-            return mapper.toDomain(saved, jpaPaperTypeCutLayoutRepository.findAllByIdPaperTypeId(saved.getPaperTypeId()));
+            replaceCutAssignments(saved.getPaperTypeId(), paperType.getCutAssignments());
+            replaceSupplierAssignments(saved.getPaperTypeId(), paperType.getSupplierAssignments());
+            return toDomain(saved);
         }
         mapper.copyScalars(paperType, existing);
         PaperTypeEntity saved = jpaPaperTypeRepository.save(existing);
-        replaceAssignments(saved.getPaperTypeId(), paperType.getCutAssignments());
-        return mapper.toDomain(saved, jpaPaperTypeCutLayoutRepository.findAllByIdPaperTypeId(saved.getPaperTypeId()));
+        replaceCutAssignments(saved.getPaperTypeId(), paperType.getCutAssignments());
+        replaceSupplierAssignments(saved.getPaperTypeId(), paperType.getSupplierAssignments());
+        return toDomain(saved);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Optional<PaperType> findById(String paperTypeId) {
-        return jpaPaperTypeRepository.findById(paperTypeId)
-                .map(entity -> mapper.toDomain(
-                        entity,
-                        jpaPaperTypeCutLayoutRepository.findAllByIdPaperTypeId(entity.getPaperTypeId())
-                ));
+        return jpaPaperTypeRepository.findById(paperTypeId).map(this::toDomain);
     }
 
     @Override
@@ -116,16 +120,36 @@ public class PaperTypePersistenceAdapter implements PaperTypeRepositoryPort {
                 companyId.trim(), name.trim(), paperTypeId);
     }
 
-    private void replaceAssignments(String paperTypeId, List<PaperTypeCutAssignment> assignments) {
+    private PaperType toDomain(PaperTypeEntity entity) {
+        return mapper.toDomain(
+                entity,
+                jpaPaperTypeCutLayoutRepository.findAllByIdPaperTypeId(entity.getPaperTypeId()),
+                jpaPaperTypeSupplierRepository.findAllByIdPaperTypeId(entity.getPaperTypeId())
+        );
+    }
+
+    private void replaceCutAssignments(String paperTypeId, List<PaperTypeCutAssignment> assignments) {
         jpaPaperTypeCutLayoutRepository.deleteAllByPaperTypeId(paperTypeId);
         if (assignments == null || assignments.isEmpty()) {
             return;
         }
         LocalDateTime now = LocalDateTime.now(clock);
         List<PaperTypeCutLayoutEntity> rows = assignments.stream()
-                .map(a -> mapper.toAssignmentEntity(paperTypeId, a, now))
+                .map(a -> mapper.toCutAssignmentEntity(paperTypeId, a, now))
                 .toList();
         jpaPaperTypeCutLayoutRepository.saveAll(rows);
+    }
+
+    private void replaceSupplierAssignments(String paperTypeId, List<PaperTypeSupplierAssignment> assignments) {
+        jpaPaperTypeSupplierRepository.deleteAllByPaperTypeId(paperTypeId);
+        if (assignments == null || assignments.isEmpty()) {
+            return;
+        }
+        LocalDateTime now = LocalDateTime.now(clock);
+        List<PaperTypeSupplierEntity> rows = assignments.stream()
+                .map(a -> mapper.toSupplierAssignmentEntity(paperTypeId, a, now))
+                .toList();
+        jpaPaperTypeSupplierRepository.saveAll(rows);
     }
 
     private static PageRequest pageable(PageQuery pageQuery) {
@@ -138,10 +162,7 @@ public class PaperTypePersistenceAdapter implements PaperTypeRepositoryPort {
 
     private PageResult<PaperType> mapPage(Page<PaperTypeEntity> page, PageQuery pageQuery) {
         List<PaperType> content = page.getContent().stream()
-                .map(entity -> mapper.toDomain(
-                        entity,
-                        jpaPaperTypeCutLayoutRepository.findAllByIdPaperTypeId(entity.getPaperTypeId())
-                ))
+                .map(this::toDomain)
                 .toList();
         return new PageResult<>(
                 content,

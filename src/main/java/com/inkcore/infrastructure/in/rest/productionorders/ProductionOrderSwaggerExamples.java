@@ -174,7 +174,10 @@ final class ProductionOrderSwaggerExamples {
               "requestedQuantity": 1200,
               "proposalQuantity1": 1500,
               "proposalQuantity2": 2000,
-              "operatorUserId": null
+              "operators": [
+                { "stage": "PREPRESS", "userId": "11111111-1111-1111-1111-111111111111" },
+                { "stage": "PRINTING", "userId": "22222222-2222-2222-2222-222222222222" }
+              ]
             }
             """;
 

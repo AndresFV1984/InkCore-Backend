@@ -6,6 +6,7 @@ import java.util.List;
 public record UpdateProductionOrderPostpressCommand(
         Long version,
         Boolean completed,
+        List<OperatorAssignmentCommand> operators,
         String operatorUserId,
         String discountType,
         BigDecimal discountValue,

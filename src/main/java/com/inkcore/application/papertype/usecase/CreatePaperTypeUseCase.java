@@ -4,7 +4,9 @@ import com.inkcore.domain.cutlayout.ports.out.CutLayoutRepositoryPort;
 import com.inkcore.domain.papertype.exception.PaperTypeAlreadyExistsException;
 import com.inkcore.domain.papertype.model.PaperType;
 import com.inkcore.domain.papertype.model.PaperTypeCutAssignment;
+import com.inkcore.domain.papertype.model.PaperTypeSupplierAssignment;
 import com.inkcore.domain.papertype.ports.out.PaperTypeRepositoryPort;
+import com.inkcore.domain.supplier.ports.out.SupplierRepositoryPort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,27 +20,24 @@ public class CreatePaperTypeUseCase {
 
     private final PaperTypeRepositoryPort paperTypeRepository;
     private final CutLayoutRepositoryPort cutLayoutRepository;
+    private final SupplierRepositoryPort supplierRepository;
     private final Clock clock;
 
     public CreatePaperTypeUseCase(
             PaperTypeRepositoryPort paperTypeRepository,
             CutLayoutRepositoryPort cutLayoutRepository,
+            SupplierRepositoryPort supplierRepository,
             Clock clock
     ) {
         this.paperTypeRepository = paperTypeRepository;
         this.cutLayoutRepository = cutLayoutRepository;
+        this.supplierRepository = supplierRepository;
         this.clock = clock;
     }
 
     @Transactional
     public PaperType execute(CreatePaperTypeCommand command) {
         String name = requireTrimmed(command.name(), "El nombre es obligatorio");
-        if (command.packageUnit() == null) {
-            throw new IllegalArgumentException("La unidad de empaque es obligatoria");
-        }
-        if (command.sheetValue() == null) {
-            throw new IllegalArgumentException("El valor de la hoja es obligatorio");
-        }
         if (paperTypeRepository.existsByCompanyIdAndNameIgnoreCase(command.companyId(), name)) {
             throw new PaperTypeAlreadyExistsException("name", name);
         }
@@ -46,24 +45,29 @@ public class CreatePaperTypeUseCase {
         boolean coated = Objects.requireNonNullElse(command.coated(), false);
         boolean state = Objects.requireNonNullElse(command.state(), true);
         String unit = command.unit() == null || command.unit().isBlank() ? "cm" : command.unit();
-        List<PaperTypeCutAssignment> assignments = PaperTypeCutAssignmentResolver.resolve(
-                command.companyId().trim(),
+        String companyId = command.companyId().trim();
+        List<PaperTypeCutAssignment> cutAssignments = PaperTypeCutAssignmentResolver.resolve(
+                companyId,
                 command.cutLayouts(),
                 cutLayoutRepository
         );
+        List<PaperTypeSupplierAssignment> supplierAssignments = PaperTypeSupplierAssignmentResolver.resolve(
+                companyId,
+                command.suppliers(),
+                supplierRepository
+        );
 
         PaperType paperType = PaperType.createNew(
-                command.companyId(),
+                companyId,
                 name,
                 command.width(),
                 command.height(),
                 unit,
-                command.sheetValue(),
-                command.packageUnit(),
                 coated,
                 state,
                 LocalDate.now(clock),
-                assignments
+                cutAssignments,
+                supplierAssignments
         );
         return paperTypeRepository.save(paperType);
     }

@@ -2,7 +2,7 @@ spring:
   application:
     name: InkCore-backend
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:docker}
+    active: ${SPRING_PROFILES_ACTIVE:dev}
 
   servlet:
     multipart:
@@ -67,8 +67,10 @@ inkcore:
       yellow: ${INK_G_CM2_Y:0.00020}
       black: ${INK_G_CM2_K:0.00022}
       spot: ${INK_G_CM2_SPOT:0.00025}
-    # Precisión RGB→CMYK (BALANCED). Subir = más precisión / más CPU. Bajar = más rápido.
-    # FAST≈1e6/512 · BALANCED≈2e6/1024 · HIGH≈4e6/2048 (respetar RAM del host)
+    # Precisión RGB→CMYK. Totales = cobertura_media × área_cm² × densidad × pliegos.
+    # Bajar demasiado (FAST) puede sesgar coberturas en artes con zonas densas locales.
+    # HIGH (default): máximo detalle de muestreo. BALANCED: buen compromiso comercial.
+    # FAST≈1e6/512 · BALANCED≈2e6/1024 · HIGH≈4e6/2048
     max-analysis-pixels: ${INK_MAX_ANALYSIS_PIXELS:4000000}
     rgb-image-max-edge: ${INK_RGB_IMAGE_MAX_EDGE:2048}
     # BPC LittleCMS en estimación (independiente de color-conversion.*)

@@ -1,0 +1,48 @@
+# Solo MinIO + init (bucket, usuario app, CORS, ILM).
+# Uso: docker compose -f docker-compose.minio.yml up -d
+services:
+  minio:
+    image: minio/minio:latest
+    container_name: inkcore-minio
+    command: server /data --console-address ":9001"
+    environment:
+      # Root solo para consola (9101) e init. La app NO usa estas claves.
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      # MinIO Community: CORS global (no soporta mc cors set por bucket). Misma lista que minio-init.
+      MINIO_API_CORS_ALLOW_ORIGIN: ${OBJECT_STORAGE_CORS_ORIGINS:-http://localhost:8085,http://127.0.0.1:8085,http://192.168.1.250:8085}
+    ports:
+      # 9100/9101 en host: evita conflicto con SonarQube (9000)
+      - "9100:9000"
+      - "9101:9001"
+    volumes:
+      - inkcore_minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    restart: unless-stopped
+
+  minio-init:
+    image: bayronindicore/inkcore-minio-init:${IMAGE_TAG:-latest}
+    container_name: inkcore-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      OBJECT_STORAGE_ACCESS_KEY: ${OBJECT_STORAGE_ACCESS_KEY:-inkcore-app}
+      OBJECT_STORAGE_SECRET_KEY: ${OBJECT_STORAGE_SECRET_KEY:-inkcore-app-dev-only-change-me}
+      OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-inkcore}
+      # CORS e ILM con root; el usuario inkcore-app no tiene esas acciones.
+      OBJECT_STORAGE_CORS_ORIGINS: ${OBJECT_STORAGE_CORS_ORIGINS:-http://localhost:8085,http://127.0.0.1:8085,http://192.168.1.250:8085}
+      OBJECT_STORAGE_STAGING_EXPIRY_DAYS: ${OBJECT_STORAGE_STAGING_EXPIRY_DAYS:-2}
+      OBJECT_STORAGE_STAGING_FALLBACK_EXPIRY_DAYS: ${OBJECT_STORAGE_STAGING_FALLBACK_EXPIRY_DAYS:-30}
+    restart: "no"
+
+volumes:
+  inkcore_minio_data:

@@ -13,7 +13,7 @@ import java.util.UUID;
 
 /**
  * Agregado tipo de papel. Campos alineados a {@code indicolors.paper_types}
- * y asignaciones N:M en {@code paper_type_cut_layouts}.
+ * y asignaciones N:M en {@code paper_type_cut_layouts} y {@code paper_type_suppliers}.
  */
 public final class PaperType {
 
@@ -25,12 +25,11 @@ public final class PaperType {
     private final BigDecimal width;
     private final BigDecimal height;
     private final String unit;
-    private final BigDecimal sheetValue;
-    private final int packageUnit;
     private final boolean coated;
     private final boolean state;
     private final LocalDate creationDate;
     private final List<PaperTypeCutAssignment> cutAssignments;
+    private final List<PaperTypeSupplierAssignment> supplierAssignments;
 
     private PaperType(
             String paperTypeId,
@@ -39,12 +38,11 @@ public final class PaperType {
             BigDecimal width,
             BigDecimal height,
             String unit,
-            BigDecimal sheetValue,
-            int packageUnit,
             boolean coated,
             boolean state,
             LocalDate creationDate,
-            List<PaperTypeCutAssignment> cutAssignments
+            List<PaperTypeCutAssignment> cutAssignments,
+            List<PaperTypeSupplierAssignment> supplierAssignments
     ) {
         this.paperTypeId = paperTypeId;
         this.companyId = companyId;
@@ -52,12 +50,11 @@ public final class PaperType {
         this.width = width;
         this.height = height;
         this.unit = unit;
-        this.sheetValue = sheetValue;
-        this.packageUnit = packageUnit;
         this.coated = coated;
         this.state = state;
         this.creationDate = creationDate;
         this.cutAssignments = List.copyOf(cutAssignments);
+        this.supplierAssignments = List.copyOf(supplierAssignments);
     }
 
     public static PaperType createNew(
@@ -66,15 +63,15 @@ public final class PaperType {
             BigDecimal width,
             BigDecimal height,
             String unit,
-            BigDecimal sheetValue,
-            int packageUnit,
             boolean coated,
             boolean state,
             LocalDate creationDate,
-            List<PaperTypeCutAssignment> cutAssignments
+            List<PaperTypeCutAssignment> cutAssignments,
+            List<PaperTypeSupplierAssignment> supplierAssignments
     ) {
         requireNotBlank(companyId, "La empresa es obligatoria");
         requireNotBlank(name, "El nombre es obligatorio");
+        requireSupplierAssignments(supplierAssignments);
         return new PaperType(
                 UUID.randomUUID().toString(),
                 companyId.trim(),
@@ -82,12 +79,11 @@ public final class PaperType {
                 normalizePositiveDimension(width, "El ancho debe ser mayor que 0"),
                 normalizePositiveDimension(height, "El alto debe ser mayor que 0"),
                 normalizeUnit(unit),
-                normalizeNonNegativeMoney(sheetValue, "El valor de la hoja no puede ser negativo"),
-                requirePositivePackageUnit(packageUnit),
                 coated,
                 state,
                 creationDate,
-                dedupeAssignments(cutAssignments)
+                dedupeCutAssignments(cutAssignments),
+                dedupeSupplierAssignments(supplierAssignments)
         );
     }
 
@@ -96,13 +92,13 @@ public final class PaperType {
             BigDecimal width,
             BigDecimal height,
             String unit,
-            BigDecimal sheetValue,
-            int packageUnit,
             boolean coated,
             boolean state,
-            List<PaperTypeCutAssignment> cutAssignments
+            List<PaperTypeCutAssignment> cutAssignments,
+            List<PaperTypeSupplierAssignment> supplierAssignments
     ) {
         requireNotBlank(name, "El nombre es obligatorio");
+        requireSupplierAssignments(supplierAssignments);
         return new PaperType(
                 this.paperTypeId,
                 this.companyId,
@@ -110,12 +106,11 @@ public final class PaperType {
                 normalizePositiveDimension(width, "El ancho debe ser mayor que 0"),
                 normalizePositiveDimension(height, "El alto debe ser mayor que 0"),
                 normalizeUnit(unit),
-                normalizeNonNegativeMoney(sheetValue, "El valor de la hoja no puede ser negativo"),
-                requirePositivePackageUnit(packageUnit),
                 coated,
                 state,
                 this.creationDate,
-                dedupeAssignments(cutAssignments)
+                dedupeCutAssignments(cutAssignments),
+                dedupeSupplierAssignments(supplierAssignments)
         );
     }
 
@@ -126,12 +121,11 @@ public final class PaperType {
             BigDecimal width,
             BigDecimal height,
             String unit,
-            BigDecimal sheetValue,
-            int packageUnit,
             boolean coated,
             boolean state,
             LocalDate creationDate,
-            List<PaperTypeCutAssignment> cutAssignments
+            List<PaperTypeCutAssignment> cutAssignments,
+            List<PaperTypeSupplierAssignment> supplierAssignments
     ) {
         return new PaperType(
                 paperTypeId,
@@ -140,16 +134,21 @@ public final class PaperType {
                 width,
                 height,
                 unit,
-                sheetValue,
-                packageUnit,
                 coated,
                 state,
                 creationDate,
-                cutAssignments == null ? List.of() : cutAssignments
+                cutAssignments == null ? List.of() : cutAssignments,
+                supplierAssignments == null ? List.of() : supplierAssignments
         );
     }
 
-    private static List<PaperTypeCutAssignment> dedupeAssignments(List<PaperTypeCutAssignment> cutAssignments) {
+    private static void requireSupplierAssignments(List<PaperTypeSupplierAssignment> supplierAssignments) {
+        if (supplierAssignments == null || supplierAssignments.isEmpty()) {
+            throw new IllegalArgumentException("Debe asociar al menos un proveedor");
+        }
+    }
+
+    private static List<PaperTypeCutAssignment> dedupeCutAssignments(List<PaperTypeCutAssignment> cutAssignments) {
         if (cutAssignments == null || cutAssignments.isEmpty()) {
             return List.of();
         }
@@ -162,18 +161,23 @@ public final class PaperType {
         return new ArrayList<>(byId.values());
     }
 
-    private static BigDecimal normalizePositiveDimension(BigDecimal value, String message) {
-        if (value == null || value.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException(message);
+    private static List<PaperTypeSupplierAssignment> dedupeSupplierAssignments(
+            List<PaperTypeSupplierAssignment> supplierAssignments
+    ) {
+        if (supplierAssignments == null || supplierAssignments.isEmpty()) {
+            return List.of();
         }
-        return value.setScale(2, RoundingMode.HALF_UP);
+        LinkedHashMap<String, PaperTypeSupplierAssignment> byId = new LinkedHashMap<>();
+        for (PaperTypeSupplierAssignment assignment : supplierAssignments) {
+            if (assignment != null) {
+                byId.put(assignment.getSupplierId(), assignment);
+            }
+        }
+        return new ArrayList<>(byId.values());
     }
 
-    private static BigDecimal normalizeNonNegativeMoney(BigDecimal value, String message) {
-        if (value == null) {
-            throw new IllegalArgumentException("El valor de la hoja es obligatorio");
-        }
-        if (value.compareTo(BigDecimal.ZERO) < 0) {
+    private static BigDecimal normalizePositiveDimension(BigDecimal value, String message) {
+        if (value == null || value.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException(message);
         }
         return value.setScale(2, RoundingMode.HALF_UP);
@@ -185,13 +189,6 @@ public final class PaperType {
             throw new IllegalArgumentException("La unidad debe ser cm, mm o in");
         }
         return normalized;
-    }
-
-    private static int requirePositivePackageUnit(int packageUnit) {
-        if (packageUnit <= 0) {
-            throw new IllegalArgumentException("La unidad de empaque debe ser mayor que 0");
-        }
-        return packageUnit;
     }
 
     private static void requireNotBlank(String value, String message) {
@@ -224,14 +221,6 @@ public final class PaperType {
         return unit;
     }
 
-    public BigDecimal getSheetValue() {
-        return sheetValue;
-    }
-
-    public int getPackageUnit() {
-        return packageUnit;
-    }
-
     public boolean isCoated() {
         return coated;
     }
@@ -246,6 +235,10 @@ public final class PaperType {
 
     public List<PaperTypeCutAssignment> getCutAssignments() {
         return cutAssignments;
+    }
+
+    public List<PaperTypeSupplierAssignment> getSupplierAssignments() {
+        return supplierAssignments;
     }
 
     @Override

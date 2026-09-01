@@ -48,6 +48,10 @@ public class InkEstimateAssetSupport {
         if (command.plateId() == null || command.plateId().isBlank()) {
             throw new IllegalArgumentException("plateId es obligatorio");
         }
+        requireEntrada(command);
+    }
+
+    public void requireEntrada(PresignInkEstimateAssetCommand command) {
         if (command.entradaId() == null || command.entradaId().isBlank()) {
             throw new IllegalArgumentException("entradaId es obligatorio");
         }

@@ -3,7 +3,6 @@ package com.inkcore.infrastructure.in.rest.papertypes;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -16,7 +15,7 @@ import java.util.List;
         name = "CreatePaperTypeRequest",
         description = """
                 Alta de tipo de papel (POST /api/v1/paper-types/register).
-                Obligatorios: companyId, name, width, height, sheetValue, packageUnit.
+                Obligatorios: companyId, name, width, height, suppliers (al menos uno).
                 Opcionales: unit (default cm), isCoated (default false), state (default true), cutLayouts.
                 """
 )
@@ -45,16 +44,6 @@ public record CreatePaperTypeRequest(
         @Pattern(regexp = "(?i)cm|mm|in", message = "La unidad debe ser cm, mm o in")
         String unit,
 
-        @Schema(description = "Valor de la hoja/pliego", example = "1500.00", requiredMode = Schema.RequiredMode.REQUIRED)
-        @NotNull(message = "El valor de la hoja es obligatorio")
-        @DecimalMin(value = "0.0", inclusive = true, message = "El valor de la hoja no puede ser negativo")
-        BigDecimal sheetValue,
-
-        @Schema(description = "Hojas por unidad de empaque", example = "500", requiredMode = Schema.RequiredMode.REQUIRED)
-        @NotNull(message = "La unidad de empaque es obligatoria")
-        @Min(value = 1, message = "La unidad de empaque debe ser mayor que 0")
-        Integer packageUnit,
-
         @Schema(description = "true = papel esmaltado (default false)", example = "false")
         Boolean isCoated,
 
@@ -63,6 +52,12 @@ public record CreatePaperTypeRequest(
 
         @Schema(description = "Despieces asociados con valor de corte opcional")
         @Valid
-        List<PaperTypeCutLayoutRequest> cutLayouts
+        List<PaperTypeCutLayoutRequest> cutLayouts,
+
+        @Schema(description = "Proveedores asociados con valor hoja y unidad empaque (al menos uno)")
+        @Valid
+        @NotNull(message = "Debe asociar al menos un proveedor")
+        @Size(min = 1, message = "Debe asociar al menos un proveedor")
+        List<PaperTypeSupplierRequest> suppliers
 ) {
 }

@@ -148,8 +148,13 @@ public final class ProductionOrder {
 
     /**
      * Deja un único operador por etapa (UNIQUE order_id, stage).
+     * Si {@code userId} es null/blank, elimina el responsable de esa etapa.
      */
     public void upsertOperator(ProductionOrderStage stage, String userId) {
+        upsertOperator(stage, userId, null);
+    }
+
+    public void upsertOperator(ProductionOrderStage stage, String userId, String roleCode) {
         if (stage == null) {
             return;
         }
@@ -157,7 +162,15 @@ public final class ProductionOrder {
         if (userId == null || userId.isBlank()) {
             return;
         }
-        operators.add(OperatorAssignment.of(companyId, productionOrderId, stage, userId.trim()));
+        operators.add(OperatorAssignment.of(
+                companyId, productionOrderId, stage, userId.trim(), roleCode));
+    }
+
+    /**
+     * Reemplazo total del set de responsables de la OP (replace-all).
+     */
+    public void replaceOperators(List<OperatorAssignment> next) {
+        this.operators = next == null ? new ArrayList<>() : new ArrayList<>(next);
     }
 
     /**

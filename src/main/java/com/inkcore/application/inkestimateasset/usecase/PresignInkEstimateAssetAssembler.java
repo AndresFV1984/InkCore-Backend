@@ -18,7 +18,7 @@ final class PresignInkEstimateAssetAssembler {
             String plannedPreviewKey,
             String productionOrderId
     ) {
-        support.requirePlateAndEntrada(command);
+        support.requireEntrada(command);
         boolean wantsOriginal = support.wantsOriginal(command);
         boolean wantsPreview = support.wantsPreview(command);
         if (!wantsOriginal && !wantsPreview) {

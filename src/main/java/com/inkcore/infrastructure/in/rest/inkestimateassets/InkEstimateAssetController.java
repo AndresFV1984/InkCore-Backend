@@ -56,7 +56,9 @@ public class InkEstimateAssetController {
     @Operation(
             operationId = "presignStagingInkEstimateAsset",
             summary = "URL prefirmada de carga (OP nueva, staging tmp/).",
-            description = "JSON con nombre/MIME/tamaño. El navegador hace PUT directo a S3. "
+            description = "JSON con entradaId (obligatorio), fileName/contentType/sizeBytes. "
+                    + "plateId es opcional en staging (antes de crear la OP). "
+                    + "El navegador hace PUT directo a S3. "
                     + "No acepta multipart ni bytes. Máx. según inkcore.object-storage.max-asset-file-bytes."
     )
     @ApiResponse(
