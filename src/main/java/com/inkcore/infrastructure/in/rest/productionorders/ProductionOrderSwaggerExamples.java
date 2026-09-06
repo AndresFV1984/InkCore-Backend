@@ -58,6 +58,7 @@ final class ProductionOrderSwaggerExamples {
                 "clientId": "client-seed-001",
                 "workName": "Flyer",
                 "requestedQuantity": 1000,
+                "cantidadDisponible": 500,
                 "cuttingCompletedAt": "2026-08-15T17:10:00",
                 "printingCompletedAt": "2026-08-15T17:20:00",
                 "finishedProductsCompletedAt": "2026-08-15T17:30:00",
@@ -138,6 +139,7 @@ final class ProductionOrderSwaggerExamples {
                     "workName": "Brochure corporativo",
                     "orderDate": "2026-08-15",
                     "requestedQuantity": 1000,
+                    "cantidadDisponible": 500,
                     "status": "PENDING",
                     "state": true
                   }

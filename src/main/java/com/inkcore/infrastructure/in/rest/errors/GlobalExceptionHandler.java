@@ -22,6 +22,9 @@ import com.inkcore.domain.inkestimation.exception.UnsupportedInkFileException;
 import com.inkcore.domain.finish.exception.FinishAlreadyExistsException;
 import com.inkcore.domain.finishingprocess.exception.FinishingProcessAlreadyExistsException;
 import com.inkcore.domain.productionorder.exception.ProductionOrderBusinessRuleException;
+import com.inkcore.domain.station.exception.StationBusinessRuleException;
+import com.inkcore.domain.order.exception.OrderBusinessRuleException;
+import com.inkcore.domain.order.exception.OrderConflictException;
 import com.inkcore.domain.productionorder.exception.ProductionOrderNotDeletableException;
 import com.inkcore.domain.productionorder.exception.ProductionOrderVersionConflictException;
 import com.inkcore.domain.seller.exception.SellerAlreadyExistsException;
@@ -514,6 +517,53 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(StationBusinessRuleException.class)
+    public ResponseEntity<ApiErrorEnvelope> handleStationBusinessRule(
+            StationBusinessRuleException ex,
+            HttpServletRequest request
+    ) {
+        List<String> errors = ex.getErrors().isEmpty() ? List.of(ex.getCode()) : ex.getErrors();
+        return responseFactory.error(
+                request,
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                ex.getMessage() == null || ex.getMessage().isBlank()
+                        ? "Regla de negocio de estación incumplida"
+                        : ex.getMessage(),
+                errors
+        );
+    }
+
+    @ExceptionHandler(OrderBusinessRuleException.class)
+    public ResponseEntity<ApiErrorEnvelope> handleOrderBusinessRule(
+            OrderBusinessRuleException ex,
+            HttpServletRequest request
+    ) {
+        List<String> errors = ex.getErrors().isEmpty() ? List.of(ex.getCode()) : ex.getErrors();
+        return responseFactory.error(
+                request,
+                HttpStatus.BAD_REQUEST,
+                ex.getMessage() == null || ex.getMessage().isBlank()
+                        ? "Regla de negocio de pedidos incumplida"
+                        : ex.getMessage(),
+                errors
+        );
+    }
+
+    @ExceptionHandler(OrderConflictException.class)
+    public ResponseEntity<ApiErrorEnvelope> handleOrderConflict(
+            OrderConflictException ex,
+            HttpServletRequest request
+    ) {
+        return responseFactory.error(
+                request,
+                HttpStatus.CONFLICT,
+                ex.getMessage() == null || ex.getMessage().isBlank()
+                        ? "Conflicto en pedidos / cuentas por cobrar"
+                        : ex.getMessage(),
+                List.of(ex.getCode())
+        );
+    }
+
     @ExceptionHandler(InvalidObjectKeyException.class)
     public ResponseEntity<ApiErrorEnvelope> handleInvalidObjectKey(
             InvalidObjectKeyException ex,
@@ -577,6 +627,20 @@ public class GlobalExceptionHandler {
                 HttpStatus.BAD_REQUEST,
                 ex.getMessage(),
                 null
+        );
+    }
+
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ApiErrorEnvelope> handleDataIntegrity(
+            org.springframework.dao.DataIntegrityViolationException ex,
+            HttpServletRequest request
+    ) {
+        log.error("Data integrity error on {}", request.getRequestURI(), ex);
+        return responseFactory.error(
+                request,
+                HttpStatus.CONFLICT,
+                "No se pudo persistir el cambio (restricción de datos). Revise occurredAt, intervalos abiertos o claves duplicadas.",
+                List.of("DATA_INTEGRITY_VIOLATION")
         );
     }
 

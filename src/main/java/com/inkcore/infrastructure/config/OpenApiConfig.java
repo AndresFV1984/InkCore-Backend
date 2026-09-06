@@ -33,7 +33,7 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("InkCore API")
                         .description("")
-                        .version("0.0.41")
+                        .version("0.0.44")
                         .contact(new Contact().name("InkCore").email("admin@indicolors.com")))
                 .servers(List.of(
                         new Server().url(basePath).description("Context path local")
@@ -55,6 +55,12 @@ public class OpenApiConfig {
                         new Tag().name("Tarifas por millar").description("Catálogo de tarifas por millar"),
                         new Tag().name("Órdenes de producción").description(
                                 "Wizard OP: especificaciones, preprensa, corte, impresión, terminados, acabados y cobro"),
+                        new Tag().name("Estación").description(
+                                "Bitácora de planta: inbox, eventos (inicio/pausa/avance), intervalos y reportes. Roles OPERADOR|ADMINISTRADOR. occurredAt sin zona (sin Z)."),
+                        new Tag().name("Pedidos").description(
+                                "Entregas comerciales y abonos sobre OP (ledgers append-only)"),
+                        new Tag().name("Cuentas por cobrar").description(
+                                "Dashboard y detalle de saldos por OP (solo lectura)"),
                         new Tag().name("Conversión de color").description("Conversión RGB→CMYK (ICC / LittleCMS)"),
                         new Tag().name("Estimación de tinta").description("Estimación de consumo de tinta CMYK/spot"),
                         new Tag().name("Archivos estimación tinta").description(

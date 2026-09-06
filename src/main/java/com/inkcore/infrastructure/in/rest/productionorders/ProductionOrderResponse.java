@@ -44,6 +44,8 @@ public record ProductionOrderResponse(
         String sellerId,
         LocalDate orderDate,
         Integer requestedQuantity,
+        @Schema(description = "Unidades disponibles para pedidos (agregado station; 0 si no hay fila)", example = "1500")
+        Integer cantidadDisponible,
         Integer proposalQuantity1,
         Integer proposalQuantity2,
         LocalDateTime specificationsCompletedAt,
@@ -69,6 +71,10 @@ public record ProductionOrderResponse(
         List<PostpressRecordResponse> postpressRecords
 ) {
     public static ProductionOrderResponse from(ProductionOrder order) {
+        return from(order, 0);
+    }
+
+    public static ProductionOrderResponse from(ProductionOrder order, int cantidadDisponible) {
         return new ProductionOrderResponse(
                 order.getProductionOrderId(),
                 order.getCompanyId(),
@@ -79,6 +85,7 @@ public record ProductionOrderResponse(
                 order.getSellerId(),
                 order.getOrderDate(),
                 order.getRequestedQuantity(),
+                cantidadDisponible,
                 order.getProposalQuantity1(),
                 order.getProposalQuantity2(),
                 order.getSpecificationsCompletedAt(),

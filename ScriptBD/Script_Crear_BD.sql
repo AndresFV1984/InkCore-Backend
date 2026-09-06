@@ -588,6 +588,90 @@ GRANT ALL PRIVILEGES ON TABLE indicolors.finishing_processes TO indicolors_owner
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.finishing_processes TO indicolors_app;
 
 -- ============================================
+-- 22.4 CREAR TABLA HISTORIAL DE CONVERSIONES RGB → CMYK
+-- ============================================
+CREATE TABLE indicolors.conversion_history (
+    conversion_history_id CHARACTER VARYING(64)  NOT NULL,
+    original_file_name    CHARACTER VARYING(255) NOT NULL,
+    original_size_bytes   BIGINT                 NOT NULL,
+    final_size_bytes      BIGINT                 NOT NULL,
+    rendering_intent      CHARACTER VARYING(40)  NOT NULL,
+    icc_profile_used      CHARACTER VARYING(120),
+    conversion_date       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    duration_ms           BIGINT                 NOT NULL,
+    user_id               CHARACTER VARYING(64),
+    mime_type             CHARACTER VARYING(120),
+    CONSTRAINT conversion_history_pkey PRIMARY KEY (conversion_history_id),
+    CONSTRAINT conversion_history_sizes_check
+        CHECK (original_size_bytes >= 0 AND final_size_bytes >= 0),
+    CONSTRAINT conversion_history_duration_check
+        CHECK (duration_ms >= 0),
+    CONSTRAINT conversion_history_intent_check
+        CHECK (rendering_intent IN ('PERCEPTUAL', 'RELATIVE_COLORIMETRIC'))
+);
+
+CREATE INDEX idx_conversion_history_user_id ON indicolors.conversion_history (user_id);
+CREATE INDEX idx_conversion_history_conversion_date ON indicolors.conversion_history (conversion_date DESC);
+CREATE INDEX idx_conversion_history_intent ON indicolors.conversion_history (rendering_intent);
+
+COMMENT ON TABLE indicolors.conversion_history IS 'Metadatos de conversiones de color RGB→CMYK (el binario no se persiste)';
+COMMENT ON COLUMN indicolors.conversion_history.conversion_history_id IS 'Identificador único de la conversión';
+COMMENT ON COLUMN indicolors.conversion_history.original_file_name IS 'Nombre del archivo original subido';
+COMMENT ON COLUMN indicolors.conversion_history.original_size_bytes IS 'Tamaño en bytes del archivo de entrada';
+COMMENT ON COLUMN indicolors.conversion_history.final_size_bytes IS 'Tamaño en bytes del archivo CMYK (suele ser mayor por 4 canales)';
+COMMENT ON COLUMN indicolors.conversion_history.rendering_intent IS 'Intent ICC: PERCEPTUAL o RELATIVE_COLORIMETRIC';
+COMMENT ON COLUMN indicolors.conversion_history.icc_profile_used IS 'Nombre del perfil ICC de destino usado';
+COMMENT ON COLUMN indicolors.conversion_history.conversion_date IS 'Fecha/hora UTC de la conversión';
+COMMENT ON COLUMN indicolors.conversion_history.duration_ms IS 'Duración del procesamiento en milisegundos';
+COMMENT ON COLUMN indicolors.conversion_history.user_id IS 'Usuario autenticado (subject del JWT), si aplica';
+COMMENT ON COLUMN indicolors.conversion_history.mime_type IS 'MIME type declarado en la petición';
+
+GRANT ALL PRIVILEGES ON TABLE indicolors.conversion_history TO indicolors_owner;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.conversion_history TO indicolors_app;
+
+-- ============================================
+-- 22.5 CREAR TABLA HISTORIAL DE ESTIMACIONES DE TINTA
+-- ============================================
+CREATE TABLE indicolors.ink_estimate_history (
+    ink_estimate_history_id CHARACTER VARYING(64)   NOT NULL,
+    original_file_name      CHARACTER VARYING(255) NOT NULL,
+    original_size_bytes     BIGINT                  NOT NULL,
+    mime_type               CHARACTER VARYING(120),
+    width_cm                NUMERIC(12, 4)          NOT NULL,
+    height_cm               NUMERIC(12, 4)          NOT NULL,
+    sheet_count             INTEGER                 NOT NULL,
+    dpi                     INTEGER                 NOT NULL,
+    grams_per_cm2           NUMERIC(16, 10)         NOT NULL,
+    process_grams_order     NUMERIC(18, 6)          NOT NULL,
+    spot_grams_order        NUMERIC(18, 6)          NOT NULL,
+    total_grams_order       NUMERIC(18, 6)          NOT NULL,
+    spot_count              INTEGER                 NOT NULL DEFAULT 0,
+    icc_profile_used        CHARACTER VARYING(120),
+    estimate_date           TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    duration_ms             BIGINT                  NOT NULL,
+    user_id                 CHARACTER VARYING(64),
+    CONSTRAINT ink_estimate_history_pkey PRIMARY KEY (ink_estimate_history_id),
+    CONSTRAINT ink_estimate_history_sizes_check
+        CHECK (original_size_bytes >= 0),
+    CONSTRAINT ink_estimate_history_dims_check
+        CHECK (width_cm > 0 AND height_cm > 0),
+    CONSTRAINT ink_estimate_history_sheets_check
+        CHECK (sheet_count > 0),
+    CONSTRAINT ink_estimate_history_dpi_check
+        CHECK (dpi > 0),
+    CONSTRAINT ink_estimate_history_duration_check
+        CHECK (duration_ms >= 0)
+);
+
+CREATE INDEX idx_ink_estimate_history_user_id ON indicolors.ink_estimate_history (user_id);
+CREATE INDEX idx_ink_estimate_history_estimate_date ON indicolors.ink_estimate_history (estimate_date DESC);
+
+COMMENT ON TABLE indicolors.ink_estimate_history IS 'Metadatos de estimaciones de consumo de tinta (el binario no se persiste)';
+
+GRANT ALL PRIVILEGES ON TABLE indicolors.ink_estimate_history TO indicolors_owner;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.ink_estimate_history TO indicolors_app;
+
+-- ============================================
 -- 23. CREAR TABLA DESPIECES (formulario "Nuevo despiece")
 -- ============================================
 CREATE TABLE indicolors.cut_layouts (
@@ -1648,3 +1732,636 @@ COMMENT ON COLUMN indicolors.production_order_postpress_lines.created_at IS 'Fec
 
 GRANT ALL PRIVILEGES ON TABLE indicolors.production_order_postpress_lines TO indicolors_owner;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.production_order_postpress_lines TO indicolors_app;
+
+-- ============================================
+-- MÓDULO ESTACIÓN — Bitácora operativa de planta
+-- Ver: PROMPT_BASE_DATOS_ESTACION_COMPLETO.md
+-- ============================================
+
+-- ============================================
+-- 36. CREAR TABLA BITÁCORA OPERATIVA DE ESTACIÓN (append-only, fuente de verdad)
+-- ============================================
+CREATE TABLE indicolors.station_operation_events (
+    station_operation_event_id   CHARACTER VARYING(64)       NOT NULL DEFAULT gen_random_uuid()::text,
+    company_id                   CHARACTER VARYING(64)       NOT NULL,
+    production_order_id          CHARACTER VARYING(64),
+    client_id                    CHARACTER VARYING(64),
+    user_id                      CHARACTER VARYING(64)       NOT NULL,
+    actor_user_id                CHARACTER VARYING(64)       NOT NULL,
+    actor_name                   CHARACTER VARYING(255),
+    work_name                    CHARACTER VARYING(150),
+    phase                        CHARACTER VARYING(32)       NOT NULL,
+    process_key                  CHARACTER VARYING(128)      NOT NULL,
+    catalog_item_kind            CHARACTER VARYING(16),  -- terminado | acabado
+    catalog_item_id              CHARACTER VARYING(64),  -- FK lógica a production_order_postpress_lines.catalog_item_id (catálogo maestro); no hay FK física, ver comentario de columna
+    catalog_item_label           CHARACTER VARYING(255),
+    event_type                   CHARACTER VARYING(32)       NOT NULL,  -- asignacion|cambio_estado_orden|entrega_parcial|entrega_total|avance_unidades|marca_horario|inicio_fase|fin_fase|paro|reanudacion
+    occurred_at                  TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    units                        INTEGER,
+    pause_reason                 CHARACTER VARYING(64),
+    note                         TEXT,
+    production_status_snapshot   CHARACTER VARYING(64),
+    order_status_snapshot        CHARACTER VARYING(64),
+    is_shift_event                BOOLEAN                     NOT NULL DEFAULT FALSE,
+
+    created_at                   TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
+
+    CONSTRAINT station_operation_events_pkey PRIMARY KEY (station_operation_event_id),
+    CONSTRAINT station_operation_events_company_fk
+        FOREIGN KEY (company_id) REFERENCES indicolors.companies (company_id),
+    CONSTRAINT station_operation_events_order_fk
+        FOREIGN KEY (production_order_id) REFERENCES indicolors.production_orders (production_order_id),
+    CONSTRAINT station_operation_events_client_fk
+        FOREIGN KEY (client_id) REFERENCES indicolors.clients (client_id),
+    CONSTRAINT station_operation_events_user_fk
+        FOREIGN KEY (user_id) REFERENCES indicolors.users (user_id),
+    CONSTRAINT station_operation_events_actor_user_fk
+        FOREIGN KEY (actor_user_id) REFERENCES indicolors.users (user_id),
+    CONSTRAINT station_operation_events_order_or_shift_check
+        CHECK (production_order_id IS NOT NULL OR is_shift_event = TRUE),
+    CONSTRAINT station_operation_events_event_type_check CHECK (
+        event_type IN (
+            'asignacion', 'cambio_estado_orden', 'entrega_parcial', 'entrega_total',
+            'avance_unidades', 'marca_horario', 'inicio_fase', 'fin_fase',
+            'paro', 'reanudacion'
+        )
+    ),
+    CONSTRAINT station_operation_events_catalog_item_kind_check
+        CHECK (catalog_item_kind IS NULL OR catalog_item_kind IN ('terminado', 'acabado'))
+);
+
+CREATE INDEX idx_station_operation_events_company_id ON indicolors.station_operation_events (company_id);
+CREATE INDEX idx_station_operation_events_order_time ON indicolors.station_operation_events (company_id, production_order_id, occurred_at DESC);
+CREATE INDEX idx_station_operation_events_user_time ON indicolors.station_operation_events (company_id, user_id, occurred_at DESC);
+CREATE INDEX idx_station_operation_events_client_time ON indicolors.station_operation_events (company_id, client_id, occurred_at DESC);
+CREATE INDEX idx_station_operation_events_process ON indicolors.station_operation_events (production_order_id, process_key, occurred_at DESC);
+CREATE INDEX idx_station_operation_events_catalog_item ON indicolors.station_operation_events (production_order_id, catalog_item_kind, catalog_item_id, occurred_at DESC)
+    WHERE catalog_item_id IS NOT NULL;
+CREATE INDEX idx_station_operation_events_event_type ON indicolors.station_operation_events (company_id, event_type, occurred_at DESC);
+CREATE INDEX idx_station_operation_events_shift ON indicolors.station_operation_events (company_id, user_id, occurred_at DESC)
+    WHERE is_shift_event = TRUE;
+
+COMMENT ON TABLE indicolors.station_operation_events IS 'Bitácora operativa append-only del módulo Estación: cada fila es un hecho ocurrido en planta (avance, pausa, entrega, jornada). No admite UPDATE ni DELETE en producción; correcciones = nuevo evento con note explicativa';
+
+COMMENT ON COLUMN indicolors.station_operation_events.station_operation_event_id IS 'Identificador único del evento';
+COMMENT ON COLUMN indicolors.station_operation_events.company_id IS 'Identificador de la empresa dueña del evento';
+COMMENT ON COLUMN indicolors.station_operation_events.production_order_id IS 'Identificador de la Orden de Producción asociada; NULL solo si is_shift_event = TRUE (jornada sin OP)';
+COMMENT ON COLUMN indicolors.station_operation_events.client_id IS 'Snapshot del cliente de la OP al momento de insertar; obligatorio si hay OP';
+COMMENT ON COLUMN indicolors.station_operation_events.user_id IS 'Operario asignado al proceso sobre el que ocurre el evento';
+COMMENT ON COLUMN indicolors.station_operation_events.actor_user_id IS 'Usuario que ejecutó la acción (tomado del JWT), puede diferir del operario asignado';
+COMMENT ON COLUMN indicolors.station_operation_events.actor_name IS 'Snapshot del nombre del actor al momento de insertar (reportes históricos)';
+COMMENT ON COLUMN indicolors.station_operation_events.work_name IS 'Snapshot del nombre del trabajo/pieza de la OP al momento de insertar';
+COMMENT ON COLUMN indicolors.station_operation_events.phase IS 'Etapa del wizard sobre la que ocurre el evento (preprensa, corte-papel, impresion, terminados, acabados, jornada)';
+COMMENT ON COLUMN indicolors.station_operation_events.process_key IS 'Clave exacta del proceso o ítem: nombre de fase, fase plural de catálogo, terminado:{catalogItemId}, acabado:{catalogItemId} o jornada. El catalogItemId es el id del catálogo maestro (mismo valor que production_order_postpress_lines.catalog_item_id), no el id de production_order_postpress_records';
+COMMENT ON COLUMN indicolors.station_operation_events.catalog_item_kind IS 'Tipo de ítem de catálogo cuando process_key referencia uno: terminado | acabado';
+COMMENT ON COLUMN indicolors.station_operation_events.catalog_item_id IS 'Referencia lógica al catálogo maestro de Terminados/Acabados (mismo valor que production_order_postpress_lines.catalog_item_id); sin FK física por no ser una tabla única de origen, validar en el Service que exista al menos una línea de la OP con este catalog_item_id';
+COMMENT ON COLUMN indicolors.station_operation_events.catalog_item_label IS 'Snapshot de la etiqueta del ítem de catálogo al momento de insertar';
+COMMENT ON COLUMN indicolors.station_operation_events.event_type IS 'Tipo de hecho operativo registrado';
+COMMENT ON COLUMN indicolors.station_operation_events.occurred_at IS 'Fecha/hora del hecho operativo (puede venir del cliente; el backend valida que no sea futuro lejano)';
+COMMENT ON COLUMN indicolors.station_operation_events.units IS 'Unidades involucradas; solo aplica en avance_unidades, entrega_parcial y entrega_total';
+COMMENT ON COLUMN indicolors.station_operation_events.pause_reason IS 'Motivo de la pausa; solo aplica en paro y marca_horario';
+COMMENT ON COLUMN indicolors.station_operation_events.note IS 'Nota libre; usada también para explicar correcciones sobre eventos previos';
+COMMENT ON COLUMN indicolors.station_operation_events.production_status_snapshot IS 'Snapshot del estado de producción en planta al momento del evento';
+COMMENT ON COLUMN indicolors.station_operation_events.order_status_snapshot IS 'Snapshot de production_orders.status al momento del evento';
+COMMENT ON COLUMN indicolors.station_operation_events.is_shift_event IS 'True=evento de jornada laboral sin OP asociada (orderId = __jornada__ en el SPA)';
+COMMENT ON COLUMN indicolors.station_operation_events.created_at IS 'Fecha y hora de persistencia del registro (distinta de occurred_at)';
+
+GRANT ALL PRIVILEGES ON TABLE indicolors.station_operation_events TO indicolors_owner;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.station_operation_events TO indicolors_app;
+
+-- ============================================
+-- 37. CREAR TABLA INTERVALOS DE OPERACIÓN DE ESTACIÓN (derivada, para reportes de tiempo)
+-- ============================================
+CREATE TABLE indicolors.station_operation_intervals (
+    station_operation_interval_id CHARACTER VARYING(64)       NOT NULL DEFAULT gen_random_uuid()::text,
+    company_id                    CHARACTER VARYING(64)       NOT NULL,
+    production_order_id           CHARACTER VARYING(64),
+    client_id                     CHARACTER VARYING(64),
+    user_id                       CHARACTER VARYING(64)       NOT NULL,
+    process_key                   CHARACTER VARYING(128),
+    phase                         CHARACTER VARYING(32),
+    catalog_item_id               CHARACTER VARYING(64),  -- FK lógica a production_order_postpress_lines.catalog_item_id (catálogo maestro); no hay FK física
+    interval_kind                 CHARACTER VARYING(16)       NOT NULL,  -- labor | pause | shift
+    started_at                    TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    ended_at                      TIMESTAMP WITHOUT TIME ZONE,
+    duration_ms                   BIGINT,
+    pause_reason                  CHARACTER VARYING(64),
+    note                          TEXT,
+    opened_by_event_id            CHARACTER VARYING(64)       NOT NULL,
+    closed_by_event_id            CHARACTER VARYING(64),
+    is_open                       BOOLEAN                     NOT NULL DEFAULT TRUE,
+
+    created_at                    TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
+
+    CONSTRAINT station_operation_intervals_pkey PRIMARY KEY (station_operation_interval_id),
+    CONSTRAINT station_operation_intervals_company_fk
+        FOREIGN KEY (company_id) REFERENCES indicolors.companies (company_id),
+    CONSTRAINT station_operation_intervals_order_fk
+        FOREIGN KEY (production_order_id) REFERENCES indicolors.production_orders (production_order_id),
+    CONSTRAINT station_operation_intervals_client_fk
+        FOREIGN KEY (client_id) REFERENCES indicolors.clients (client_id),
+    CONSTRAINT station_operation_intervals_user_fk
+        FOREIGN KEY (user_id) REFERENCES indicolors.users (user_id),
+    CONSTRAINT station_operation_intervals_opened_by_event_fk
+        FOREIGN KEY (opened_by_event_id) REFERENCES indicolors.station_operation_events (station_operation_event_id),
+    CONSTRAINT station_operation_intervals_closed_by_event_fk
+        FOREIGN KEY (closed_by_event_id) REFERENCES indicolors.station_operation_events (station_operation_event_id),
+    CONSTRAINT station_operation_intervals_kind_check
+        CHECK (interval_kind IN ('labor', 'pause', 'shift')),
+    CONSTRAINT station_operation_intervals_duration_check
+        CHECK (duration_ms IS NULL OR duration_ms >= 0),
+    CONSTRAINT station_operation_intervals_open_consistency_check
+        CHECK (is_open = FALSE OR (ended_at IS NULL AND closed_by_event_id IS NULL))
+);
+
+CREATE INDEX idx_station_operation_intervals_user_range ON indicolors.station_operation_intervals (company_id, user_id, started_at, ended_at);
+CREATE INDEX idx_station_operation_intervals_order_process ON indicolors.station_operation_intervals (production_order_id, process_key, started_at)
+    WHERE production_order_id IS NOT NULL;
+CREATE INDEX idx_station_operation_intervals_catalog_item ON indicolors.station_operation_intervals (production_order_id, catalog_item_id, started_at)
+    WHERE catalog_item_id IS NOT NULL;
+CREATE INDEX idx_station_operation_intervals_open ON indicolors.station_operation_intervals (company_id, user_id, is_open)
+    WHERE is_open = TRUE;
+
+COMMENT ON TABLE indicolors.station_operation_intervals IS 'Intervalos de labor/pausa/jornada materializados a partir de station_operation_events, para reportes de tiempo sin recalcular en cada request. Se puebla en la misma transacción del evento (servicio de aplicación) o vía trigger';
+
+COMMENT ON COLUMN indicolors.station_operation_intervals.station_operation_interval_id IS 'Identificador único del intervalo';
+COMMENT ON COLUMN indicolors.station_operation_intervals.company_id IS 'Identificador de la empresa dueña del intervalo';
+COMMENT ON COLUMN indicolors.station_operation_intervals.production_order_id IS 'Identificador de la Orden de Producción asociada; NULL en intervalos de jornada (shift)';
+COMMENT ON COLUMN indicolors.station_operation_intervals.client_id IS 'Snapshot del cliente de la OP asociada';
+COMMENT ON COLUMN indicolors.station_operation_intervals.user_id IS 'Operario dueño del intervalo';
+COMMENT ON COLUMN indicolors.station_operation_intervals.process_key IS 'Clave del proceso o ítem al que pertenece el intervalo (ver process_key en station_operation_events)';
+COMMENT ON COLUMN indicolors.station_operation_intervals.phase IS 'Etapa del wizard a la que pertenece el intervalo';
+COMMENT ON COLUMN indicolors.station_operation_intervals.catalog_item_id IS 'Referencia lógica al catálogo maestro de Terminados/Acabados (mismo valor que production_order_postpress_lines.catalog_item_id); sin FK física, validar en el Service';
+COMMENT ON COLUMN indicolors.station_operation_intervals.interval_kind IS 'Tipo de intervalo: labor (trabajo activo) | pause (paro) | shift (jornada)';
+COMMENT ON COLUMN indicolors.station_operation_intervals.started_at IS 'Inicio del intervalo';
+COMMENT ON COLUMN indicolors.station_operation_intervals.ended_at IS 'Fin del intervalo; NULL mientras is_open = TRUE';
+COMMENT ON COLUMN indicolors.station_operation_intervals.duration_ms IS 'Duración en milisegundos, calculada al cerrar el intervalo';
+COMMENT ON COLUMN indicolors.station_operation_intervals.pause_reason IS 'Motivo de la pausa; solo aplica cuando interval_kind = pause';
+COMMENT ON COLUMN indicolors.station_operation_intervals.note IS 'Nota libre asociada al intervalo';
+COMMENT ON COLUMN indicolors.station_operation_intervals.opened_by_event_id IS 'Evento de station_operation_events que abrió el intervalo';
+COMMENT ON COLUMN indicolors.station_operation_intervals.closed_by_event_id IS 'Evento de station_operation_events que cerró el intervalo';
+COMMENT ON COLUMN indicolors.station_operation_intervals.is_open IS 'True=el intervalo sigue abierto (sin ended_at ni closed_by_event_id)';
+COMMENT ON COLUMN indicolors.station_operation_intervals.created_at IS 'Fecha y hora de creación del registro';
+
+GRANT ALL PRIVILEGES ON TABLE indicolors.station_operation_intervals TO indicolors_owner;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.station_operation_intervals TO indicolors_app;
+
+-- ============================================
+-- 38. CREAR TABLA PROGRESO AGREGADO DE PROCESO DE ESTACIÓN (opcional, performance de inbox)
+-- ============================================
+CREATE TABLE indicolors.station_process_progress (
+    company_id            CHARACTER VARYING(64)       NOT NULL,
+    production_order_id   CHARACTER VARYING(64)       NOT NULL,
+    process_key           CHARACTER VARYING(128)      NOT NULL,
+    user_id               CHARACTER VARYING(64)       NOT NULL,
+    phase                 CHARACTER VARYING(32)       NOT NULL,
+    catalog_item_id       CHARACTER VARYING(64),  -- FK lógica a production_order_postpress_lines.catalog_item_id (catálogo maestro); no hay FK física
+    total_units           INTEGER                     NOT NULL DEFAULT 0,
+    completed_units       INTEGER                     NOT NULL DEFAULT 0,
+    delivered_units       INTEGER                     NOT NULL DEFAULT 0,
+    status                CHARACTER VARYING(16)       NOT NULL DEFAULT 'pendiente',
+    last_event_at         TIMESTAMP WITHOUT TIME ZONE,
+
+    created_at             TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
+    updated_at             TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
+
+    CONSTRAINT station_process_progress_pkey PRIMARY KEY (production_order_id, process_key),
+    CONSTRAINT station_process_progress_company_fk
+        FOREIGN KEY (company_id) REFERENCES indicolors.companies (company_id),
+    CONSTRAINT station_process_progress_order_fk
+        FOREIGN KEY (production_order_id) REFERENCES indicolors.production_orders (production_order_id) ON DELETE CASCADE,
+    CONSTRAINT station_process_progress_user_fk
+        FOREIGN KEY (user_id) REFERENCES indicolors.users (user_id),
+    CONSTRAINT station_process_progress_status_check
+        CHECK (status IN ('pendiente', 'en-proceso', 'terminado')),
+    CONSTRAINT station_process_progress_units_check
+        CHECK (total_units >= 0 AND completed_units >= 0 AND delivered_units >= 0)
+);
+
+CREATE INDEX idx_station_process_progress_user ON indicolors.station_process_progress (company_id, user_id, status);
+CREATE INDEX idx_station_process_progress_company_id ON indicolors.station_process_progress (company_id);
+
+COMMENT ON TABLE indicolors.station_process_progress IS 'Agregados de progreso por proceso/ítem de una OP, para inbox y listados rápidos; se recalcula desde station_operation_events y se actualiza en la misma transacción que inserta el evento. Opcional en v1: la UI puede calcular desde eventos si esta tabla no existe';
+
+COMMENT ON COLUMN indicolors.station_process_progress.company_id IS 'Identificador de la empresa dueña del registro';
+COMMENT ON COLUMN indicolors.station_process_progress.production_order_id IS 'Identificador de la Orden de Producción a la que pertenece el proceso';
+COMMENT ON COLUMN indicolors.station_process_progress.process_key IS 'Clave del proceso o ítem agregado (ver process_key en station_operation_events)';
+COMMENT ON COLUMN indicolors.station_process_progress.user_id IS 'Operario asignado al proceso';
+COMMENT ON COLUMN indicolors.station_process_progress.phase IS 'Etapa del wizard a la que pertenece el proceso';
+COMMENT ON COLUMN indicolors.station_process_progress.catalog_item_id IS 'Referencia lógica al catálogo maestro de Terminados/Acabados (mismo valor que production_order_postpress_lines.catalog_item_id); sin FK física, validar en el Service';
+COMMENT ON COLUMN indicolors.station_process_progress.total_units IS 'Unidades totales esperadas para el proceso/ítem';
+COMMENT ON COLUMN indicolors.station_process_progress.completed_units IS 'Unidades procesadas acumuladas (avance_unidades)';
+COMMENT ON COLUMN indicolors.station_process_progress.delivered_units IS 'Unidades entregadas acumuladas (entrega_parcial/entrega_total)';
+COMMENT ON COLUMN indicolors.station_process_progress.status IS 'Estado agregado del proceso/ítem: pendiente | en-proceso | terminado';
+COMMENT ON COLUMN indicolors.station_process_progress.last_event_at IS 'occurred_at del último evento que actualizó este agregado';
+COMMENT ON COLUMN indicolors.station_process_progress.created_at IS 'Fecha y hora de creación del registro';
+COMMENT ON COLUMN indicolors.station_process_progress.updated_at IS 'Fecha y hora de la última actualización del registro';
+
+GRANT ALL PRIVILEGES ON TABLE indicolors.station_process_progress TO indicolors_owner;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.station_process_progress TO indicolors_app;
+
+-- Agregado de cantidad disponible por OP (módulo Estación). Una fila por orden.
+CREATE TABLE indicolors.station_order_progress (
+    company_id            CHARACTER VARYING(64)       NOT NULL,
+    production_order_id   CHARACTER VARYING(64)       NOT NULL,
+    cantidad_disponible   INTEGER                     NOT NULL DEFAULT 0,
+    updated_at            TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
+
+    CONSTRAINT station_order_progress_pkey PRIMARY KEY (production_order_id),
+    CONSTRAINT station_order_progress_company_fk
+        FOREIGN KEY (company_id) REFERENCES indicolors.companies (company_id),
+    CONSTRAINT station_order_progress_order_fk
+        FOREIGN KEY (production_order_id) REFERENCES indicolors.production_orders (production_order_id) ON DELETE CASCADE,
+    CONSTRAINT station_order_progress_cantidad_check
+        CHECK (cantidad_disponible >= 0)
+);
+
+CREATE INDEX idx_station_order_progress_company
+    ON indicolors.station_order_progress (company_id, cantidad_disponible);
+
+COMMENT ON TABLE indicolors.station_order_progress IS
+    'Agregado de cantidad disponible para entrega comercial por OP. cantidad_disponible = MIN(unidades procesadas por proceso real de la OP); no resta pedidos OPE. Se recalcula en la misma transacción que inserta avance_unidades.';
+
+COMMENT ON COLUMN indicolors.station_order_progress.company_id IS 'Empresa dueña del registro (multi-tenant)';
+COMMENT ON COLUMN indicolors.station_order_progress.production_order_id IS 'OP (PK; una fila por orden)';
+COMMENT ON COLUMN indicolors.station_order_progress.cantidad_disponible IS 'Unidades disponibles para pedidos comerciales (≥ 0)';
+COMMENT ON COLUMN indicolors.station_order_progress.updated_at IS 'Última actualización del agregado';
+
+GRANT ALL PRIVILEGES ON TABLE indicolors.station_order_progress TO indicolors_owner;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.station_order_progress TO indicolors_app;
+
+-- ============================================
+-- MÓDULO PEDIDOS / CUENTAS POR COBRAR / ABONOS
+-- Continuación de Script_Crear_BD.sql (después de la sección 38,
+-- station_order_progress). Sigue exactamente las mismas convenciones:
+-- ids CHARACTER VARYING(64) con gen_random_uuid()::text, company_id en
+-- todas las tablas, TIMESTAMP WITHOUT TIME ZONE, comentarios y GRANTs
+-- explícitos por tabla.
+--
+-- Principio de diseño (igual que Estación): las tablas nuevas NO
+-- modifican production_orders ni las tablas de Estación. order_deliveries
+-- y order_payments son ledgers append-only (fuente de verdad);
+-- ar_summary es una tabla DERIVADA que se mantiene
+-- sincronizada con triggers, en la misma transacción del INSERT, para
+-- que nunca pueda desincronizarse por un olvido en el backend.
+-- ============================================
+
+-- ============================================
+-- 39. CREAR TABLA ENTREGAS DE PEDIDO (append-only, fuente de verdad comercial)
+-- ============================================
+CREATE TABLE indicolors.order_deliveries (
+    order_delivery_id     CHARACTER VARYING(64)       NOT NULL DEFAULT gen_random_uuid()::text,
+    company_id            CHARACTER VARYING(64)       NOT NULL,
+    production_order_id   CHARACTER VARYING(64)       NOT NULL,
+    client_id             CHARACTER VARYING(64)       NOT NULL,
+    seller_id             CHARACTER VARYING(64),
+
+    delivery_type         CHARACTER VARYING(16)       NOT NULL,  -- parcial | total
+    quantity_delivered    INTEGER                     NOT NULL,
+    unit_price            NUMERIC(12,2)               NOT NULL DEFAULT 0,
+    total_value           NUMERIC(14,2)               NOT NULL DEFAULT 0,
+    available_before      INTEGER                     NOT NULL,  -- calculado por trigger, no lo envía el cliente
+
+    work_name_snapshot    CHARACTER VARYING(150),
+    client_name_snapshot  CHARACTER VARYING(200),
+
+    delivered_at          TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    delivered_by          CHARACTER VARYING(64)       NOT NULL,
+    notes                 TEXT,
+
+    created_at            TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
+
+    CONSTRAINT order_deliveries_pkey PRIMARY KEY (order_delivery_id),
+    CONSTRAINT order_deliveries_company_fk
+        FOREIGN KEY (company_id) REFERENCES indicolors.companies (company_id),
+    CONSTRAINT order_deliveries_order_fk
+        FOREIGN KEY (production_order_id) REFERENCES indicolors.production_orders (production_order_id),
+    CONSTRAINT order_deliveries_client_fk
+        FOREIGN KEY (client_id) REFERENCES indicolors.clients (client_id),
+    CONSTRAINT order_deliveries_seller_fk
+        FOREIGN KEY (seller_id) REFERENCES indicolors.sellers (seller_id),
+    CONSTRAINT order_deliveries_delivered_by_fk
+        FOREIGN KEY (delivered_by) REFERENCES indicolors.users (user_id),
+    CONSTRAINT order_deliveries_type_check
+        CHECK (delivery_type IN ('parcial', 'total')),
+    CONSTRAINT order_deliveries_quantity_check
+        CHECK (quantity_delivered > 0),
+    CONSTRAINT order_deliveries_unit_price_check
+        CHECK (unit_price >= 0),
+    CONSTRAINT order_deliveries_available_before_check
+        CHECK (available_before >= 0)
+);
+
+CREATE INDEX idx_order_deliveries_company_id ON indicolors.order_deliveries (company_id);
+CREATE INDEX idx_order_deliveries_order_time ON indicolors.order_deliveries (company_id, production_order_id, delivered_at DESC);
+CREATE INDEX idx_order_deliveries_client_time ON indicolors.order_deliveries (company_id, client_id, delivered_at DESC);
+CREATE INDEX idx_order_deliveries_seller_time ON indicolors.order_deliveries (company_id, seller_id, delivered_at DESC)
+    WHERE seller_id IS NOT NULL;
+
+COMMENT ON TABLE indicolors.order_deliveries IS 'Bitácora append-only de entregas comerciales (parciales/totales) de una OP a su cliente/representante. No admite UPDATE ni DELETE en producción; correcciones = nueva fila con notes explicativa';
+
+COMMENT ON COLUMN indicolors.order_deliveries.order_delivery_id IS 'Identificador único de la entrega';
+COMMENT ON COLUMN indicolors.order_deliveries.company_id IS 'Identificador de la empresa dueña del registro';
+COMMENT ON COLUMN indicolors.order_deliveries.production_order_id IS 'Identificador de la Orden de Producción entregada';
+COMMENT ON COLUMN indicolors.order_deliveries.client_id IS 'Cliente que recibe la entrega (snapshot desde production_orders.client_id)';
+COMMENT ON COLUMN indicolors.order_deliveries.seller_id IS 'Representante/vendedor asociado a la entrega, si aplica';
+COMMENT ON COLUMN indicolors.order_deliveries.delivery_type IS 'parcial=entrega parcial de unidades | total=entrega final que cierra la OP comercialmente';
+COMMENT ON COLUMN indicolors.order_deliveries.quantity_delivered IS 'Unidades entregadas en este movimiento (> 0)';
+COMMENT ON COLUMN indicolors.order_deliveries.unit_price IS 'Precio unitario snapshot usado para valorizar esta entrega';
+COMMENT ON COLUMN indicolors.order_deliveries.total_value IS 'quantity_delivered * unit_price, calculado por el backend al insertar';
+COMMENT ON COLUMN indicolors.order_deliveries.available_before IS 'Unidades disponibles para entrega justo antes de este movimiento; lo calcula el trigger de validación, no lo envía el cliente';
+COMMENT ON COLUMN indicolors.order_deliveries.work_name_snapshot IS 'Snapshot de production_orders.work_name al momento de insertar';
+COMMENT ON COLUMN indicolors.order_deliveries.client_name_snapshot IS 'Snapshot de clients.name al momento de insertar';
+COMMENT ON COLUMN indicolors.order_deliveries.delivered_at IS 'Fecha/hora real de la entrega (puede venir del cliente)';
+COMMENT ON COLUMN indicolors.order_deliveries.delivered_by IS 'Usuario que registró la entrega';
+COMMENT ON COLUMN indicolors.order_deliveries.notes IS 'Nota libre; usada también para explicar anulaciones';
+COMMENT ON COLUMN indicolors.order_deliveries.created_at IS 'Fecha y hora de persistencia del registro';
+
+GRANT ALL PRIVILEGES ON TABLE indicolors.order_deliveries TO indicolors_owner;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.order_deliveries TO indicolors_app;
+
+-- ============================================
+-- 40. CREAR TABLA ABONOS DE PEDIDO (append-only, ledger de pagos)
+-- ============================================
+CREATE TABLE indicolors.order_payments (
+    order_payment_id      CHARACTER VARYING(64)       NOT NULL DEFAULT gen_random_uuid()::text,
+    company_id            CHARACTER VARYING(64)       NOT NULL,
+    production_order_id   CHARACTER VARYING(64)       NOT NULL,
+    client_id             CHARACTER VARYING(64)       NOT NULL,
+
+    payment_type          CHARACTER VARYING(16)       NOT NULL DEFAULT 'abono',  -- abono | reversion
+    amount                NUMERIC(14,2)               NOT NULL,
+    payment_method        CHARACTER VARYING(32)       NOT NULL,  -- efectivo | transferencia | cheque | tarjeta | otro
+    reference             CHARACTER VARYING(100),
+    reversed_payment_id   CHARACTER VARYING(64),
+
+    paid_at               TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    registered_by         CHARACTER VARYING(64)       NOT NULL,
+    notes                 TEXT,
+
+    created_at            TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
+
+    CONSTRAINT order_payments_pkey PRIMARY KEY (order_payment_id),
+    CONSTRAINT order_payments_company_fk
+        FOREIGN KEY (company_id) REFERENCES indicolors.companies (company_id),
+    CONSTRAINT order_payments_order_fk
+        FOREIGN KEY (production_order_id) REFERENCES indicolors.production_orders (production_order_id),
+    CONSTRAINT order_payments_client_fk
+        FOREIGN KEY (client_id) REFERENCES indicolors.clients (client_id),
+    CONSTRAINT order_payments_registered_by_fk
+        FOREIGN KEY (registered_by) REFERENCES indicolors.users (user_id),
+    CONSTRAINT order_payments_reversed_fk
+        FOREIGN KEY (reversed_payment_id) REFERENCES indicolors.order_payments (order_payment_id),
+    CONSTRAINT order_payments_type_check
+        CHECK (payment_type IN ('abono', 'reversion')),
+    CONSTRAINT order_payments_amount_check
+        CHECK (amount > 0),
+    CONSTRAINT order_payments_method_check
+        CHECK (payment_method IN ('efectivo', 'transferencia', 'cheque', 'tarjeta', 'otro')),
+    CONSTRAINT order_payments_reversion_ref_check
+        CHECK (payment_type <> 'reversion' OR reversed_payment_id IS NOT NULL)
+);
+
+CREATE INDEX idx_order_payments_company_id ON indicolors.order_payments (company_id);
+CREATE INDEX idx_order_payments_order_time ON indicolors.order_payments (company_id, production_order_id, paid_at DESC);
+CREATE INDEX idx_order_payments_client_time ON indicolors.order_payments (company_id, client_id, paid_at DESC);
+
+COMMENT ON TABLE indicolors.order_payments IS 'Bitácora append-only de abonos/pagos de un cliente contra una OP. Un abono nunca se edita ni se borra; se anula insertando una fila payment_type=reversion que referencia al abono original';
+
+COMMENT ON COLUMN indicolors.order_payments.order_payment_id IS 'Identificador único del movimiento de pago';
+COMMENT ON COLUMN indicolors.order_payments.company_id IS 'Identificador de la empresa dueña del registro';
+COMMENT ON COLUMN indicolors.order_payments.production_order_id IS 'Orden de Producción contra la que se abona';
+COMMENT ON COLUMN indicolors.order_payments.client_id IS 'Cliente que realiza el abono (snapshot desde production_orders.client_id)';
+COMMENT ON COLUMN indicolors.order_payments.payment_type IS 'abono=pago normal | reversion=anulación de un abono previo';
+COMMENT ON COLUMN indicolors.order_payments.amount IS 'Monto del movimiento, siempre positivo; el signo lo aplica el trigger según payment_type';
+COMMENT ON COLUMN indicolors.order_payments.payment_method IS 'Medio de pago usado';
+COMMENT ON COLUMN indicolors.order_payments.reference IS 'Número de transferencia, cheque o comprobante, si aplica';
+COMMENT ON COLUMN indicolors.order_payments.reversed_payment_id IS 'order_payment_id del abono que se está anulando; obligatorio si payment_type=reversion';
+COMMENT ON COLUMN indicolors.order_payments.paid_at IS 'Fecha/hora real del pago';
+COMMENT ON COLUMN indicolors.order_payments.registered_by IS 'Usuario que registró el abono';
+COMMENT ON COLUMN indicolors.order_payments.notes IS 'Nota libre asociada al movimiento';
+COMMENT ON COLUMN indicolors.order_payments.created_at IS 'Fecha y hora de persistencia del registro';
+
+GRANT ALL PRIVILEGES ON TABLE indicolors.order_payments TO indicolors_owner;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.order_payments TO indicolors_app;
+
+-- ============================================
+-- 41. CREAR TABLA CUENTAS POR COBRAR (derivada, se mantiene por trigger)
+-- ============================================
+CREATE TABLE indicolors.ar_summary (
+    company_id           CHARACTER VARYING(64)       NOT NULL,
+    production_order_id  CHARACTER VARYING(64)       NOT NULL,
+    client_id            CHARACTER VARYING(64)       NOT NULL,
+
+    total_units          INTEGER                     NOT NULL DEFAULT 0,
+    delivered_units      INTEGER                     NOT NULL DEFAULT 0,
+    pending_units        INTEGER                     NOT NULL DEFAULT 0,
+
+    total_owed           NUMERIC(14,2)                NOT NULL DEFAULT 0,
+    total_paid           NUMERIC(14,2)                NOT NULL DEFAULT 0,
+    total_remaining      NUMERIC(14,2)                NOT NULL DEFAULT 0,
+
+    status               CHARACTER VARYING(16)        NOT NULL DEFAULT 'pendiente',  -- pendiente | parcial | pagado
+    last_delivery_at     TIMESTAMP WITHOUT TIME ZONE,
+    last_payment_at      TIMESTAMP WITHOUT TIME ZONE,
+
+    updated_at           TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
+
+    CONSTRAINT ar_summary_pkey PRIMARY KEY (production_order_id),
+    CONSTRAINT ar_summary_company_fk
+        FOREIGN KEY (company_id) REFERENCES indicolors.companies (company_id),
+    CONSTRAINT ar_summary_order_fk
+        FOREIGN KEY (production_order_id) REFERENCES indicolors.production_orders (production_order_id) ON DELETE CASCADE,
+    CONSTRAINT ar_summary_client_fk
+        FOREIGN KEY (client_id) REFERENCES indicolors.clients (client_id),
+    CONSTRAINT ar_summary_status_check
+        CHECK (status IN ('pendiente', 'parcial', 'pagado')),
+    CONSTRAINT ar_summary_units_check
+        CHECK (total_units >= 0 AND delivered_units >= 0 AND pending_units >= 0)
+);
+
+CREATE INDEX idx_ar_summary_company ON indicolors.ar_summary (company_id, status);
+CREATE INDEX idx_ar_summary_client ON indicolors.ar_summary (company_id, client_id);
+
+COMMENT ON TABLE indicolors.ar_summary IS 'Agregado por OP para el dashboard Cuentas por cobrar: unidades entregadas/faltantes, total abonado y saldo restante. Se recalcula por trigger en la misma transacción de order_deliveries/order_payments; nunca se edita manualmente desde el backend';
+
+COMMENT ON COLUMN indicolors.ar_summary.company_id IS 'Identificador de la empresa dueña del registro';
+COMMENT ON COLUMN indicolors.ar_summary.production_order_id IS 'OP a la que pertenece el resumen (PK, una fila por orden)';
+COMMENT ON COLUMN indicolors.ar_summary.client_id IS 'Cliente de la OP';
+COMMENT ON COLUMN indicolors.ar_summary.total_units IS 'Unidades totales de la OP (snapshot de production_orders.requested_quantity)';
+COMMENT ON COLUMN indicolors.ar_summary.delivered_units IS 'Unidades entregadas acumuladas (suma de order_deliveries.quantity_delivered)';
+COMMENT ON COLUMN indicolors.ar_summary.pending_units IS 'total_units - delivered_units, nunca negativo';
+COMMENT ON COLUMN indicolors.ar_summary.total_owed IS 'Valor acumulado de lo entregado (suma de order_deliveries.total_value)';
+COMMENT ON COLUMN indicolors.ar_summary.total_paid IS 'Suma neta de abonos (abonos - reversiones)';
+COMMENT ON COLUMN indicolors.ar_summary.total_remaining IS 'total_owed - total_paid';
+COMMENT ON COLUMN indicolors.ar_summary.status IS 'pendiente=sin abonos | parcial=abonos parciales | pagado=total_paid >= total_owed';
+COMMENT ON COLUMN indicolors.ar_summary.last_delivery_at IS 'delivered_at de la última entrega registrada';
+COMMENT ON COLUMN indicolors.ar_summary.last_payment_at IS 'paid_at del último abono registrado';
+COMMENT ON COLUMN indicolors.ar_summary.updated_at IS 'Fecha y hora de la última actualización del agregado';
+
+GRANT ALL PRIVILEGES ON TABLE indicolors.ar_summary TO indicolors_owner;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.ar_summary TO indicolors_app;
+
+-- ============================================
+-- 42. TRIGGER 1 — Validar disponibilidad ANTES de insertar una entrega
+-- ============================================
+-- Regla de negocio: solo se puede entregar si hay cantidad procesada
+-- disponible. Disponible = station_order_progress.cantidad_disponible
+-- (lo que Estación ya terminó) menos lo que ya se entregó comercialmente
+-- (ar_summary.delivered_units). Este trigger BEFORE
+-- calcula ese valor, lo guarda en available_before para auditoría, y
+-- rechaza el INSERT si la cantidad solicitada lo supera.
+CREATE OR REPLACE FUNCTION indicolors.fn_validate_delivery()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_processed   INTEGER;
+    v_delivered   INTEGER;
+    v_available   INTEGER;
+BEGIN
+    SELECT cantidad_disponible INTO v_processed
+    FROM indicolors.station_order_progress
+    WHERE production_order_id = NEW.production_order_id;
+
+    SELECT delivered_units INTO v_delivered
+    FROM indicolors.ar_summary
+    WHERE production_order_id = NEW.production_order_id;
+
+    v_available := COALESCE(v_processed, 0) - COALESCE(v_delivered, 0);
+    NEW.available_before := v_available;
+
+    IF NEW.quantity_delivered > v_available THEN
+        RAISE EXCEPTION
+            'No se puede entregar % unidades: solo hay % disponibles para la OP %',
+            NEW.quantity_delivered, v_available, NEW.production_order_id;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_deliveries_validate
+    BEFORE INSERT ON indicolors.order_deliveries
+    FOR EACH ROW
+    EXECUTE FUNCTION indicolors.fn_validate_delivery();
+
+COMMENT ON FUNCTION indicolors.fn_validate_delivery() IS 'Calcula available_before y rechaza la entrega si quantity_delivered supera lo disponible (procesado en Estación menos ya entregado)';
+
+-- ============================================
+-- 43. TRIGGER 2 — Sincronizar Cuentas por cobrar DESPUÉS de una entrega
+-- ============================================
+CREATE OR REPLACE FUNCTION indicolors.fn_sync_ar_delivery()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_total_units INTEGER;
+BEGIN
+    SELECT requested_quantity INTO v_total_units
+    FROM indicolors.production_orders
+    WHERE production_order_id = NEW.production_order_id;
+
+    INSERT INTO indicolors.ar_summary (
+        company_id, production_order_id, client_id,
+        total_units, delivered_units, pending_units,
+        total_owed, total_paid, total_remaining,
+        status, last_delivery_at, updated_at
+    )
+    VALUES (
+        NEW.company_id, NEW.production_order_id, NEW.client_id,
+        COALESCE(v_total_units, NEW.quantity_delivered),
+        NEW.quantity_delivered,
+        GREATEST(COALESCE(v_total_units, NEW.quantity_delivered) - NEW.quantity_delivered, 0),
+        NEW.total_value, 0, NEW.total_value,
+        'pendiente', NEW.delivered_at, now()
+    )
+    ON CONFLICT (production_order_id) DO UPDATE SET
+        delivered_units  = indicolors.ar_summary.delivered_units + NEW.quantity_delivered,
+        pending_units    = GREATEST(
+                                indicolors.ar_summary.total_units
+                                - (indicolors.ar_summary.delivered_units + NEW.quantity_delivered),
+                                0
+                            ),
+        total_owed       = indicolors.ar_summary.total_owed + NEW.total_value,
+        total_remaining  = (indicolors.ar_summary.total_owed + NEW.total_value)
+                            - indicolors.ar_summary.total_paid,
+        last_delivery_at = NEW.delivered_at,
+        updated_at       = now(),
+        status = CASE
+            WHEN indicolors.ar_summary.total_paid
+                 >= (indicolors.ar_summary.total_owed + NEW.total_value)
+                 AND (indicolors.ar_summary.total_owed + NEW.total_value) > 0 THEN 'pagado'
+            WHEN indicolors.ar_summary.total_paid > 0 THEN 'parcial'
+            ELSE 'pendiente'
+        END;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_deliveries_sync_ar
+    AFTER INSERT ON indicolors.order_deliveries
+    FOR EACH ROW
+    EXECUTE FUNCTION indicolors.fn_sync_ar_delivery();
+
+COMMENT ON FUNCTION indicolors.fn_sync_ar_delivery() IS 'Upsert de ar_summary tras cada entrega: actualiza unidades entregadas/faltantes y el valor adeudado, en la misma transacción del INSERT';
+
+-- ============================================
+-- 44. TRIGGER 3 — Sincronizar Cuentas por cobrar DESPUÉS de un abono
+-- ============================================
+CREATE OR REPLACE FUNCTION indicolors.fn_sync_ar_payment()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_signed_amount NUMERIC(14,2);
+BEGIN
+    v_signed_amount := CASE WHEN NEW.payment_type = 'reversion' THEN -NEW.amount ELSE NEW.amount END;
+
+    INSERT INTO indicolors.ar_summary (
+        company_id, production_order_id, client_id,
+        total_units, delivered_units, pending_units,
+        total_owed, total_paid, total_remaining,
+        status, last_payment_at, updated_at
+    )
+    VALUES (
+        NEW.company_id, NEW.production_order_id, NEW.client_id,
+        0, 0, 0, 0, v_signed_amount, -v_signed_amount,
+        'pendiente', NEW.paid_at, now()
+    )
+    ON CONFLICT (production_order_id) DO UPDATE SET
+        total_paid      = indicolors.ar_summary.total_paid + v_signed_amount,
+        total_remaining = indicolors.ar_summary.total_owed
+                            - (indicolors.ar_summary.total_paid + v_signed_amount),
+        last_payment_at = NEW.paid_at,
+        updated_at      = now(),
+        status = CASE
+            WHEN indicolors.ar_summary.total_owed > 0
+                 AND (indicolors.ar_summary.total_paid + v_signed_amount)
+                     >= indicolors.ar_summary.total_owed THEN 'pagado'
+            WHEN (indicolors.ar_summary.total_paid + v_signed_amount) > 0 THEN 'parcial'
+            ELSE 'pendiente'
+        END;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_payments_sync_ar
+    AFTER INSERT ON indicolors.order_payments
+    FOR EACH ROW
+    EXECUTE FUNCTION indicolors.fn_sync_ar_payment();
+
+COMMENT ON FUNCTION indicolors.fn_sync_ar_payment() IS 'Upsert de ar_summary tras cada abono/reversión: actualiza total_paid, total_remaining y status, en la misma transacción del INSERT';
+
+-- ============================================
+-- NOTA IMPORTANTE PARA EL BACKEND
+-- ============================================
+-- 1. ar_summary NO se inserta ni actualiza manualmente
+--    desde el backend: solo la escriben los triggers de arriba.
+-- 2. Anular una entrega o un abono NO se hace con UPDATE/DELETE; se
+--    sigue el mismo patrón append-only de Estación:
+--      - abono: insertar una fila nueva con payment_type='reversion' y
+--        reversed_payment_id apuntando al abono original.
+--      - entrega: v1 no contempla reversión de entregas (una entrega ya
+--        despachada no se "devuelve" a disponible); si se requiere,
+--        agregar en v2 una tabla order_delivery_reversals siguiendo el
+--        mismo patrón, fuera del alcance de este script.
+-- 3. El Service debe volver a leer ar_summary después
+--    del INSERT (mismo request/transacción) para devolver el estado
+--    actualizado al frontend, en vez de recalcularlo en memoria.

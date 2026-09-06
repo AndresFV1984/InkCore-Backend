@@ -21,6 +21,8 @@ import com.inkcore.application.productionorder.usecase.UpdateProductionOrderSpec
 import com.inkcore.application.productionorder.usecase.UpdateProductionOrderSpecificationsUseCase;
 import com.inkcore.application.productionorder.usecase.UpdateProductionOrderStatusCommand;
 import com.inkcore.application.productionorder.usecase.UpdateProductionOrderStatusUseCase;
+import com.inkcore.application.shared.AuthenticatedCompanyResolver;
+import com.inkcore.application.station.StationOrderProgressService;
 import com.inkcore.domain.productionorder.model.PostpressType;
 import com.inkcore.domain.productionorder.model.ProductionOrder;
 import com.inkcore.domain.shared.PageQuery;
@@ -94,6 +96,8 @@ public class ProductionOrderController {
     private final UpdateProductionOrderStatusUseCase updateStatusUseCase;
     private final DeleteProductionOrderUseCase deleteUseCase;
     private final GenerateProductionOrderBillingPdfUseCase generatePdfUseCase;
+    private final StationOrderProgressService orderProgressService;
+    private final AuthenticatedCompanyResolver companyResolver;
     private final ApiResponseFactory responseFactory;
 
     public ProductionOrderController(
@@ -109,6 +113,8 @@ public class ProductionOrderController {
             UpdateProductionOrderStatusUseCase updateStatusUseCase,
             DeleteProductionOrderUseCase deleteUseCase,
             GenerateProductionOrderBillingPdfUseCase generatePdfUseCase,
+            StationOrderProgressService orderProgressService,
+            AuthenticatedCompanyResolver companyResolver,
             ApiResponseFactory responseFactory
     ) {
         this.createUseCase = createUseCase;
@@ -123,6 +129,8 @@ public class ProductionOrderController {
         this.updateStatusUseCase = updateStatusUseCase;
         this.deleteUseCase = deleteUseCase;
         this.generatePdfUseCase = generatePdfUseCase;
+        this.orderProgressService = orderProgressService;
+        this.companyResolver = companyResolver;
         this.responseFactory = responseFactory;
     }
 
@@ -192,8 +200,11 @@ public class ProductionOrderController {
             Authentication authentication,
             HttpServletRequest httpRequest
     ) {
+        ProductionOrder order = getUseCase.execute(productionOrderId, authentication);
+        String companyId = companyResolver.resolveCompanyId(authentication);
+        int cantidad = orderProgressService.getCantidadDisponible(companyId, order.getProductionOrderId());
         return responseFactory.success(httpRequest, HttpStatus.OK,
-                ProductionOrderResponse.from(getUseCase.execute(productionOrderId, authentication)));
+                ProductionOrderResponse.from(order, cantidad));
     }
 
     @GetMapping("/list")
@@ -237,7 +248,18 @@ public class ProductionOrderController {
     ) {
         var result = listUseCase.execute(status, clientId, orderNumber, fromDate, toDate, state,
                 PageQuery.of(page, size), authentication);
-        PageResponse<ProductionOrderResponse> data = PageResponse.from(result, ProductionOrderResponse::from);
+        String companyId = companyResolver.resolveCompanyId(authentication);
+        var cantidadByOrder = orderProgressService.mapCantidadDisponible(
+                companyId,
+                result.content().stream().map(ProductionOrder::getProductionOrderId).toList()
+        );
+        PageResponse<ProductionOrderResponse> data = PageResponse.from(
+                result,
+                order -> ProductionOrderResponse.from(
+                        order,
+                        cantidadByOrder.getOrDefault(order.getProductionOrderId(), 0)
+                )
+        );
         return responseFactory.okStandard(httpRequest, data);
     }
 
