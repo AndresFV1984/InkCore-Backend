@@ -105,6 +105,7 @@ public class ClientController {
                                         "phone": "604 123 4567",
                                         "email": "correo@empresa.com",
                                         "contactPerson": "Ana Gómez",
+                                        "creditDays": 30,
                                         "state": true,
                                         "creationDate": "2026-07-22"
                                       }
@@ -136,6 +137,7 @@ public class ClientController {
                                               "phone": "604 123 4567",
                                               "email": "correo@empresa.com",
                                               "contactPerson": "Ana Gómez",
+                                              "creditDays": 30,
                                               "state": true
                                             }
                                             """
@@ -194,6 +196,7 @@ public class ClientController {
                                         "phone": "604 987 6543",
                                         "email": "contacto@abc.com",
                                         "contactPerson": "Luis Pérez",
+                                        "creditDays": 15,
                                         "state": true,
                                         "creationDate": "2026-07-22"
                                       }
@@ -231,6 +234,7 @@ public class ClientController {
                                               "phone": "604 987 6543",
                                               "email": "contacto@abc.com",
                                               "contactPerson": "Luis Pérez",
+                                              "creditDays": 15,
                                               "state": true
                                             }
                                             """
@@ -286,6 +290,7 @@ public class ClientController {
                                             "phone": "604 123 4567",
                                             "email": "correo@empresa.com",
                                             "contactPerson": "Ana Gómez",
+                                            "creditDays": 30,
                                             "state": true,
                                             "creationDate": "2026-07-22"
                                           }
@@ -361,6 +366,7 @@ public class ClientController {
                                         "phone": "604 123 4567",
                                         "email": "correo@empresa.com",
                                         "contactPerson": "Ana Gómez",
+                                        "creditDays": 30,
                                         "state": true,
                                         "creationDate": "2026-07-22"
                                       }
@@ -404,6 +410,7 @@ public class ClientController {
                 request.phone(),
                 request.email(),
                 request.contactPerson(),
+                request.creditDays(),
                 request.state()
         );
     }
@@ -420,6 +427,7 @@ public class ClientController {
                 request.phone(),
                 request.email(),
                 request.contactPerson(),
+                request.creditDays(),
                 Boolean.TRUE.equals(request.state())
         );
     }

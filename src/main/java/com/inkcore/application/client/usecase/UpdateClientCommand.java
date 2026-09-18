@@ -11,6 +11,7 @@ public record UpdateClientCommand(
         String phone,
         String email,
         String contactPerson,
+        Integer creditDays,
         boolean state
 ) {
 }

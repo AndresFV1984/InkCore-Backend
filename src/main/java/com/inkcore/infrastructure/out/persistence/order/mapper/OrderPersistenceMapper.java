@@ -1,14 +1,18 @@
 package com.inkcore.infrastructure.out.persistence.order.mapper;
 
-import com.inkcore.domain.order.model.ArStatus;
-import com.inkcore.domain.order.model.ArSummary;
+import com.inkcore.domain.order.model.AccountsReceivableStatus;
+import com.inkcore.domain.order.model.AccountsReceivable;
+import com.inkcore.domain.order.model.DeliveryMovementType;
 import com.inkcore.domain.order.model.DeliveryType;
+import com.inkcore.domain.order.model.CustomerOrder;
 import com.inkcore.domain.order.model.OrderDelivery;
 import com.inkcore.domain.order.model.OrderPayment;
 import com.inkcore.domain.order.model.PaymentMethod;
 import com.inkcore.domain.order.model.PaymentType;
-import com.inkcore.infrastructure.out.persistence.order.entity.ArSummaryEntity;
+import com.inkcore.domain.order.model.WithholdingType;
+import com.inkcore.infrastructure.out.persistence.order.entity.AccountsReceivableEntity;
 import com.inkcore.infrastructure.out.persistence.order.entity.OrderDeliveryEntity;
+import com.inkcore.infrastructure.out.persistence.order.entity.CustomerOrderEntity;
 import com.inkcore.infrastructure.out.persistence.order.entity.OrderPaymentEntity;
 
 public final class OrderPersistenceMapper {
@@ -26,14 +30,18 @@ public final class OrderPersistenceMapper {
     public static void copy(OrderDelivery delivery, OrderDeliveryEntity entity) {
         entity.setOrderDeliveryId(delivery.getOrderDeliveryId());
         entity.setCompanyId(delivery.getCompanyId());
+        entity.setDeliveryNumber(delivery.getDeliveryNumber());
         entity.setProductionOrderId(delivery.getProductionOrderId());
         entity.setClientId(delivery.getClientId());
         entity.setSellerId(delivery.getSellerId());
+        entity.setMovementType(delivery.getMovementType() == null
+                ? DeliveryMovementType.ENTREGA.getDbValue()
+                : delivery.getMovementType().getDbValue());
         entity.setDeliveryType(delivery.getDeliveryType().getDbValue());
+        entity.setReversedDeliveryId(delivery.getReversedDeliveryId());
         entity.setQuantityDelivered(delivery.getQuantityDelivered());
         entity.setUnitPrice(delivery.getUnitPrice());
         entity.setTotalValue(delivery.getTotalValue());
-        entity.setAvailableBefore(delivery.getAvailableBefore());
         entity.setWorkNameSnapshot(delivery.getWorkNameSnapshot());
         entity.setClientNameSnapshot(delivery.getClientNameSnapshot());
         entity.setDeliveredAt(delivery.getDeliveredAt());
@@ -46,10 +54,13 @@ public final class OrderPersistenceMapper {
         OrderDelivery delivery = new OrderDelivery();
         delivery.setOrderDeliveryId(entity.getOrderDeliveryId());
         delivery.setCompanyId(entity.getCompanyId());
+        delivery.setDeliveryNumber(entity.getDeliveryNumber());
         delivery.setProductionOrderId(entity.getProductionOrderId());
         delivery.setClientId(entity.getClientId());
         delivery.setSellerId(entity.getSellerId());
+        delivery.setMovementType(DeliveryMovementType.fromValue(entity.getMovementType()));
         delivery.setDeliveryType(DeliveryType.fromValue(entity.getDeliveryType()));
+        delivery.setReversedDeliveryId(entity.getReversedDeliveryId());
         delivery.setQuantityDelivered(entity.getQuantityDelivered());
         delivery.setUnitPrice(entity.getUnitPrice());
         delivery.setTotalValue(entity.getTotalValue());
@@ -73,6 +84,7 @@ public final class OrderPersistenceMapper {
     public static void copy(OrderPayment payment, OrderPaymentEntity entity) {
         entity.setOrderPaymentId(payment.getOrderPaymentId());
         entity.setCompanyId(payment.getCompanyId());
+        entity.setPaymentNumber(payment.getPaymentNumber());
         entity.setProductionOrderId(payment.getProductionOrderId());
         entity.setClientId(payment.getClientId());
         entity.setPaymentType(payment.getPaymentType().getDbValue());
@@ -80,6 +92,13 @@ public final class OrderPersistenceMapper {
         entity.setPaymentMethod(payment.getPaymentMethod().getDbValue());
         entity.setReference(payment.getReference());
         entity.setReversedPaymentId(payment.getReversedPaymentId());
+        entity.setWithholdingType(payment.getWithholdingType() == null
+                ? null
+                : payment.getWithholdingType().getDbValue());
+        entity.setWithholdingBase(payment.getWithholdingBase());
+        entity.setWithholdingRate(payment.getWithholdingRate());
+        entity.setCertificateRef(payment.getCertificateRef());
+        entity.setInvoiceId(payment.getInvoiceId());
         entity.setPaidAt(payment.getPaidAt());
         entity.setRegisteredBy(payment.getRegisteredBy());
         entity.setNotes(payment.getNotes());
@@ -90,6 +109,7 @@ public final class OrderPersistenceMapper {
         OrderPayment payment = new OrderPayment();
         payment.setOrderPaymentId(entity.getOrderPaymentId());
         payment.setCompanyId(entity.getCompanyId());
+        payment.setPaymentNumber(entity.getPaymentNumber());
         payment.setProductionOrderId(entity.getProductionOrderId());
         payment.setClientId(entity.getClientId());
         payment.setPaymentType(PaymentType.fromValue(entity.getPaymentType()));
@@ -97,6 +117,11 @@ public final class OrderPersistenceMapper {
         payment.setPaymentMethod(PaymentMethod.fromValue(entity.getPaymentMethod()));
         payment.setReference(entity.getReference());
         payment.setReversedPaymentId(entity.getReversedPaymentId());
+        payment.setWithholdingType(WithholdingType.fromValue(entity.getWithholdingType()));
+        payment.setWithholdingBase(entity.getWithholdingBase());
+        payment.setWithholdingRate(entity.getWithholdingRate());
+        payment.setCertificateRef(entity.getCertificateRef());
+        payment.setInvoiceId(entity.getInvoiceId());
         payment.setPaidAt(entity.getPaidAt());
         payment.setRegisteredBy(entity.getRegisteredBy());
         payment.setNotes(entity.getNotes());
@@ -104,9 +129,11 @@ public final class OrderPersistenceMapper {
         return payment;
     }
 
-    public static ArSummary toDomain(ArSummaryEntity entity) {
-        ArSummary summary = new ArSummary();
+    public static AccountsReceivable toDomain(AccountsReceivableEntity entity) {
+        AccountsReceivable summary = new AccountsReceivable();
+        summary.setAccountsReceivableId(entity.getAccountsReceivableId());
         summary.setCompanyId(entity.getCompanyId());
+        summary.setCxcNumber(entity.getCxcNumber());
         summary.setProductionOrderId(entity.getProductionOrderId());
         summary.setClientId(entity.getClientId());
         summary.setTotalUnits(entity.getTotalUnits());
@@ -115,10 +142,42 @@ public final class OrderPersistenceMapper {
         summary.setTotalOwed(entity.getTotalOwed());
         summary.setTotalPaid(entity.getTotalPaid());
         summary.setTotalRemaining(entity.getTotalRemaining());
-        summary.setStatus(ArStatus.fromValue(entity.getStatus()));
+        summary.setTotalCashPaid(entity.getTotalCashPaid() == null ? java.math.BigDecimal.ZERO : entity.getTotalCashPaid());
+        summary.setTotalWithheld(entity.getTotalWithheld() == null ? java.math.BigDecimal.ZERO : entity.getTotalWithheld());
+        summary.setTotalAdvancePaid(entity.getTotalAdvancePaid() == null ? java.math.BigDecimal.ZERO : entity.getTotalAdvancePaid());
+        summary.setOpenedAt(entity.getOpenedAt());
+        summary.setDueDate(entity.getDueDate());
+        summary.setPaymentTermDays(entity.getPaymentTermDays());
+        summary.setStatus(AccountsReceivableStatus.fromValue(entity.getStatus()));
         summary.setLastDeliveryAt(entity.getLastDeliveryAt());
+        summary.setLastPaymentNumber(entity.getLastPaymentNumber());
         summary.setLastPaymentAt(entity.getLastPaymentAt());
         summary.setUpdatedAt(entity.getUpdatedAt());
         return summary;
+    }
+
+    public static CustomerOrderEntity toEntity(CustomerOrder order) {
+        CustomerOrderEntity entity = new CustomerOrderEntity();
+        entity.markNew();
+        entity.setCustomerOrderId(order.getCustomerOrderId());
+        entity.setCompanyId(order.getCompanyId());
+        entity.setOdpNumber(order.getOdpNumber());
+        entity.setProductionOrderId(order.getProductionOrderId());
+        entity.setClientId(order.getClientId());
+        entity.setCreatedAt(order.getCreatedAt());
+        entity.setCreatedBy(order.getCreatedBy());
+        return entity;
+    }
+
+    public static CustomerOrder toDomain(CustomerOrderEntity entity) {
+        CustomerOrder order = new CustomerOrder();
+        order.setCustomerOrderId(entity.getCustomerOrderId());
+        order.setCompanyId(entity.getCompanyId());
+        order.setOdpNumber(entity.getOdpNumber());
+        order.setProductionOrderId(entity.getProductionOrderId());
+        order.setClientId(entity.getClientId());
+        order.setCreatedAt(entity.getCreatedAt());
+        order.setCreatedBy(entity.getCreatedBy());
+        return order;
     }
 }

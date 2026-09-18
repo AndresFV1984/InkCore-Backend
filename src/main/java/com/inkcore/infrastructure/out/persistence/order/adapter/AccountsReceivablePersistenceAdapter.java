@@ -1,12 +1,12 @@
 package com.inkcore.infrastructure.out.persistence.order.adapter;
 
-import com.inkcore.domain.order.model.ArSummary;
-import com.inkcore.domain.order.ports.out.ArSummaryRepositoryPort;
+import com.inkcore.domain.order.model.AccountsReceivable;
+import com.inkcore.domain.order.ports.out.AccountsReceivableRepositoryPort;
 import com.inkcore.domain.shared.PageQuery;
 import com.inkcore.domain.shared.PageResult;
-import com.inkcore.infrastructure.out.persistence.order.entity.ArSummaryEntity;
+import com.inkcore.infrastructure.out.persistence.order.entity.AccountsReceivableEntity;
 import com.inkcore.infrastructure.out.persistence.order.mapper.OrderPersistenceMapper;
-import com.inkcore.infrastructure.out.persistence.order.repository.JpaArSummaryRepository;
+import com.inkcore.infrastructure.out.persistence.order.repository.JpaAccountsReceivableRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -19,29 +19,37 @@ import java.util.List;
 import java.util.Optional;
 
 @Component
-public class ArSummaryPersistenceAdapter implements ArSummaryRepositoryPort {
+public class AccountsReceivablePersistenceAdapter implements AccountsReceivableRepositoryPort {
 
-    private final JpaArSummaryRepository repository;
+    private final JpaAccountsReceivableRepository repository;
 
-    public ArSummaryPersistenceAdapter(JpaArSummaryRepository repository) {
+    public AccountsReceivablePersistenceAdapter(JpaAccountsReceivableRepository repository) {
         this.repository = repository;
     }
 
     @Override
-    public Optional<ArSummary> findByProductionOrderId(String companyId, String productionOrderId) {
+    public Optional<AccountsReceivable> findByProductionOrderId(String companyId, String productionOrderId) {
         return repository.findByCompanyIdAndProductionOrderId(companyId, productionOrderId)
                 .map(OrderPersistenceMapper::toDomain);
     }
 
     @Override
-    public PageResult<ArSummary> findPage(
+    public List<AccountsReceivable> findByClientId(String companyId, String clientId) {
+        return repository.findAllByCompanyIdAndClientIdOrderByUpdatedAtDesc(companyId, clientId)
+                .stream()
+                .map(OrderPersistenceMapper::toDomain)
+                .toList();
+    }
+
+    @Override
+    public PageResult<AccountsReceivable> findPage(
             String companyId,
             String status,
             String clientId,
             PageQuery pageQuery
     ) {
         PageQuery query = pageQuery == null ? PageQuery.of(0, PageQuery.DEFAULT_SIZE) : pageQuery;
-        Page<ArSummaryEntity> page = repository.findAll(
+        Page<AccountsReceivableEntity> page = repository.findAll(
                 toSpecification(companyId, status, clientId),
                 PageRequest.of(query.page(), query.size(), Sort.by(Sort.Direction.DESC, "updatedAt"))
         );
@@ -53,7 +61,7 @@ public class ArSummaryPersistenceAdapter implements ArSummaryRepositoryPort {
         );
     }
 
-    private static Specification<ArSummaryEntity> toSpecification(
+    private static Specification<AccountsReceivableEntity> toSpecification(
             String companyId,
             String status,
             String clientId

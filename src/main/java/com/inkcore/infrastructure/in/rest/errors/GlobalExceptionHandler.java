@@ -23,6 +23,7 @@ import com.inkcore.domain.finish.exception.FinishAlreadyExistsException;
 import com.inkcore.domain.finishingprocess.exception.FinishingProcessAlreadyExistsException;
 import com.inkcore.domain.productionorder.exception.ProductionOrderBusinessRuleException;
 import com.inkcore.domain.station.exception.StationBusinessRuleException;
+import com.inkcore.domain.order.exception.InsufficientAvailabilityException;
 import com.inkcore.domain.order.exception.OrderBusinessRuleException;
 import com.inkcore.domain.order.exception.OrderConflictException;
 import com.inkcore.domain.productionorder.exception.ProductionOrderNotDeletableException;
@@ -541,11 +542,24 @@ public class GlobalExceptionHandler {
         List<String> errors = ex.getErrors().isEmpty() ? List.of(ex.getCode()) : ex.getErrors();
         return responseFactory.error(
                 request,
-                HttpStatus.BAD_REQUEST,
+                HttpStatus.UNPROCESSABLE_ENTITY,
                 ex.getMessage() == null || ex.getMessage().isBlank()
                         ? "Regla de negocio de pedidos incumplida"
                         : ex.getMessage(),
                 errors
+        );
+    }
+
+    @ExceptionHandler(InsufficientAvailabilityException.class)
+    public ResponseEntity<ApiErrorEnvelope> handleInsufficientAvailability(
+            InsufficientAvailabilityException ex,
+            HttpServletRequest request
+    ) {
+        return responseFactory.error(
+                request,
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                ex.getMessage(),
+                List.of(ex.getCode())
         );
     }
 

@@ -7,7 +7,10 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.Instant;
 
-@Schema(name = "ProductionOrderListSuccessEnvelope", description = "Listado paginado de órdenes de producción")
+@Schema(
+        name = "ProductionOrderListSuccessEnvelope",
+        description = "Listado paginado de OP. status de planta canónico; anulación = ANULADA (nunca CANCELLED)."
+)
 public record ProductionOrderListSuccessEnvelope(
         @Schema(description = "Metadatos de la respuesta")
         ApiHeaders headers,

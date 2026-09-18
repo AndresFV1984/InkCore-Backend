@@ -23,6 +23,8 @@ import com.inkcore.application.productionorder.usecase.UpdateProductionOrderStat
 import com.inkcore.application.productionorder.usecase.UpdateProductionOrderStatusUseCase;
 import com.inkcore.application.shared.AuthenticatedCompanyResolver;
 import com.inkcore.application.station.StationOrderProgressService;
+import com.inkcore.domain.order.model.CustomerOrder;
+import com.inkcore.domain.order.ports.out.CustomerOrderRepositoryPort;
 import com.inkcore.domain.productionorder.model.PostpressType;
 import com.inkcore.domain.productionorder.model.ProductionOrder;
 import com.inkcore.domain.shared.PageQuery;
@@ -63,6 +65,12 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -75,12 +83,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.LocalDate;
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/v1/production-orders")
-@Tag(name = "Órdenes de producción", description = "Wizard OP: especificaciones, preprensa, corte, impresión, terminados, acabados y cobro")
+@Tag(
+        name = "Órdenes de producción",
+        description = "Wizard OP (OP-{n}). Al pasar a IN_PROGRESS* crea customer_orders "
+                + "(customerOrderId + odpNumber ODP-{n}). ANULADA reemplaza CANCELLED."
+)
 @SecurityRequirement(name = "bearerAuth")
 public class ProductionOrderController {
 
@@ -97,6 +106,7 @@ public class ProductionOrderController {
     private final DeleteProductionOrderUseCase deleteUseCase;
     private final GenerateProductionOrderBillingPdfUseCase generatePdfUseCase;
     private final StationOrderProgressService orderProgressService;
+    private final CustomerOrderRepositoryPort customerOrderRepository;
     private final AuthenticatedCompanyResolver companyResolver;
     private final ApiResponseFactory responseFactory;
 
@@ -114,6 +124,7 @@ public class ProductionOrderController {
             DeleteProductionOrderUseCase deleteUseCase,
             GenerateProductionOrderBillingPdfUseCase generatePdfUseCase,
             StationOrderProgressService orderProgressService,
+            CustomerOrderRepositoryPort customerOrderRepository,
             AuthenticatedCompanyResolver companyResolver,
             ApiResponseFactory responseFactory
     ) {
@@ -130,6 +141,7 @@ public class ProductionOrderController {
         this.deleteUseCase = deleteUseCase;
         this.generatePdfUseCase = generatePdfUseCase;
         this.orderProgressService = orderProgressService;
+        this.customerOrderRepository = customerOrderRepository;
         this.companyResolver = companyResolver;
         this.responseFactory = responseFactory;
     }
@@ -181,7 +193,9 @@ public class ProductionOrderController {
             description = "Devuelve el agregado completo para rehidratar el wizard: prepress, plates "
                     + "(productionOrderPlateId), paperRows, prints, postpressRecords "
                     + "(FINISHED_PRODUCT / FINISHING_PROCESS), billing, operators, stageDiscounts, "
-                    + "timestamps de progreso y version. Solo de la empresa del usuario autenticado."
+                    + "timestamps de progreso, version, cantidadDisponible y, si ya existe, "
+                    + "customerOrderId + odpNumber del pedido comercial (customer_orders). "
+                    + "Solo de la empresa del usuario autenticado."
     )
     @ApiResponse(
             responseCode = "200",
@@ -203,8 +217,11 @@ public class ProductionOrderController {
         ProductionOrder order = getUseCase.execute(productionOrderId, authentication);
         String companyId = companyResolver.resolveCompanyId(authentication);
         int cantidad = orderProgressService.getCantidadDisponible(companyId, order.getProductionOrderId());
+        CustomerOrder linkedOrder = customerOrderRepository
+                .findByProductionOrderId(companyId, order.getProductionOrderId())
+                .orElse(null);
         return responseFactory.success(httpRequest, HttpStatus.OK,
-                ProductionOrderResponse.from(order, cantidad));
+                toResponse(order, cantidad, linkedOrder));
     }
 
     @GetMapping("/list")
@@ -212,8 +229,10 @@ public class ProductionOrderController {
     @Operation(
             operationId = "listProductionOrders",
             summary = "Lista paginada de OPs de la empresa del usuario.",
-            description = "Filtros opcionales: orderNumber (búsqueda parcial, ej. OP-42 o 42), status, "
-                    + "clientId, fromDate/toDate (orderDate), state. Siempre acotado al companyId del JWT."
+            description = "Filtros opcionales: orderNumber (búsqueda parcial, ej. OP-42 o 42), status "
+                    + "(ANULADA; CANCELLED se normaliza a ANULADA), clientId, fromDate/toDate (orderDate), state. "
+                    + "Cada ítem incluye customerOrderId/odpNumber cuando la OP ya tiene pedido comercial. "
+                    + "Siempre acotado al companyId del JWT. Las respuestas nunca devuelven CANCELLED."
     )
     @ApiResponse(
             responseCode = "200",
@@ -229,7 +248,10 @@ public class ProductionOrderController {
     public ResponseEntity<ApiSuccessEnvelope<PageResponse<ProductionOrderResponse>>> list(
             @Parameter(description = "Búsqueda por número de OP (parcial, sin distinguir mayúsculas)", example = "OP-42")
             @RequestParam(required = false) String orderNumber,
-            @Parameter(description = "Estado en planta", example = "PENDING")
+            @Parameter(
+                    description = "Estado de planta. ANULADA reemplaza CANCELLED (alias temporal de filtro).",
+                    example = "ANULADA"
+            )
             @RequestParam(required = false) String status,
             @Parameter(description = "Filtro por cliente")
             @RequestParam(required = false) String clientId,
@@ -249,15 +271,18 @@ public class ProductionOrderController {
         var result = listUseCase.execute(status, clientId, orderNumber, fromDate, toDate, state,
                 PageQuery.of(page, size), authentication);
         String companyId = companyResolver.resolveCompanyId(authentication);
-        var cantidadByOrder = orderProgressService.mapCantidadDisponible(
-                companyId,
-                result.content().stream().map(ProductionOrder::getProductionOrderId).toList()
-        );
+        List<String> orderIds = result.content().stream().map(ProductionOrder::getProductionOrderId).toList();
+        var cantidadByOrder = orderProgressService.mapCantidadDisponible(companyId, orderIds);
+        Map<String, CustomerOrder> orderByProductionOrderId = customerOrderRepository
+                .findByProductionOrderIds(companyId, orderIds)
+                .stream()
+                .collect(Collectors.toMap(CustomerOrder::getProductionOrderId, Function.identity(), (a, b) -> a));
         PageResponse<ProductionOrderResponse> data = PageResponse.from(
                 result,
-                order -> ProductionOrderResponse.from(
+                order -> toResponse(
                         order,
-                        cantidadByOrder.getOrDefault(order.getProductionOrderId(), 0)
+                        cantidadByOrder.getOrDefault(order.getProductionOrderId(), 0),
+                        orderByProductionOrderId.get(order.getProductionOrderId())
                 )
         );
         return responseFactory.okStandard(httpRequest, data);
@@ -556,14 +581,30 @@ public class ProductionOrderController {
     @Operation(
             operationId = "updateProductionOrderStatus",
             summary = "Cambia status de planta y/o baja lógica (state=false).",
-            description = "Baja lógica sin restricción. Alternativa al DELETE físico cuando la OP no es elegible."
+            description = "Baja lógica sin restricción. Alternativa al DELETE físico cuando la OP no es elegible. "
+                    + "Estado de planta: ANULADA reemplaza CANCELLED; el API acepta CANCELLED (y aliases) "
+                    + "durante la transición y persiste/responde siempre ANULADA. "
+                    + "Si el status pasa de un estado no-progreso a cualquier IN_PROGRESS*, el backend crea "
+                    + "(idempotente) customer_orders con customerOrderId + odpNumber=ODP-{n} y los devuelve "
+                    + "en la respuesta. Distinto de order_deliveries.deliveryNumber (también ODP-{n})."
     )
     @ApiResponse(
             responseCode = "200",
-            description = "Estado actualizado",
+            description = "Estado actualizado (status de planta canónico; anulación → ANULADA; progreso → pedido)",
             content = @Content(
                     mediaType = MediaType.APPLICATION_JSON_VALUE,
-                    schema = @Schema(implementation = ProductionOrderSuccessEnvelope.class)
+                    schema = @Schema(implementation = ProductionOrderSuccessEnvelope.class),
+                    examples = {
+                            @ExampleObject(
+                                    name = "OpEnProgresoConPedido",
+                                    summary = "IN_PROGRESS crea/devuelve customer_orders",
+                                    value = ProductionOrderSwaggerExamples.SUCCESS_STATUS_IN_PROGRESS
+                            ),
+                            @ExampleObject(
+                                    name = "OpAnulada",
+                                    value = ProductionOrderSwaggerExamples.SUCCESS_STATUS_ANULADA
+                            )
+                    }
             )
     )
     @ApiErrorResponses
@@ -576,19 +617,40 @@ public class ProductionOrderController {
                     content = @Content(
                             mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = UpdateStatusRequest.class),
-                            examples = @ExampleObject(name = "UpdateStatus", value = ProductionOrderSwaggerExamples.STATUS_BODY)
+                            examples = {
+                                    @ExampleObject(
+                                            name = "PasarAProgreso",
+                                            summary = "Crea customer_orders (ODP-{n}) si aún no existe",
+                                            value = ProductionOrderSwaggerExamples.STATUS_BODY_IN_PROGRESS
+                                    ),
+                                    @ExampleObject(name = "AnularOP", value = ProductionOrderSwaggerExamples.STATUS_BODY),
+                                    @ExampleObject(
+                                            name = "AnularOPCompatCancelled",
+                                            summary = "Alias temporal CANCELLED → persiste ANULADA",
+                                            value = ProductionOrderSwaggerExamples.STATUS_BODY_COMPAT_CANCELLED
+                                    )
+                            }
                     )
             )
             @Valid @RequestBody UpdateStatusRequest request,
             Authentication authentication,
             HttpServletRequest httpRequest
     ) {
-        ProductionOrder updated = updateStatusUseCase.execute(
+        UpdateProductionOrderStatusUseCase.Result updated = updateStatusUseCase.execute(
                 productionOrderId,
                 new UpdateProductionOrderStatusCommand(request.version(), request.status(), request.state()),
                 authentication
         );
-        return responseFactory.success(httpRequest, HttpStatus.OK, ProductionOrderResponse.from(updated));
+        String companyId = companyResolver.resolveCompanyId(authentication);
+        int cantidad = orderProgressService.getCantidadDisponible(
+                companyId,
+                updated.order().getProductionOrderId()
+        );
+        return responseFactory.success(
+                httpRequest,
+                HttpStatus.OK,
+                toResponse(updated.order(), cantidad, updated.customerOrder())
+        );
     }
 
     @DeleteMapping("/{productionOrderId}")
@@ -745,6 +807,19 @@ public class ProductionOrderController {
         return new UpdateProductionOrderPostpressCommand.PostpressLineInput(
                 l.lineId(), l.catalogItemId(), l.source(), l.areaFactor(), l.goodSizes(),
                 l.positive(), l.cliche()
+        );
+    }
+
+    private static ProductionOrderResponse toResponse(
+            ProductionOrder order,
+            int cantidadDisponible,
+            CustomerOrder linkedOrder
+    ) {
+        return ProductionOrderResponse.from(
+                order,
+                cantidadDisponible,
+                linkedOrder == null ? null : linkedOrder.getCustomerOrderId(),
+                linkedOrder == null ? null : linkedOrder.getOdpNumber()
         );
     }
 

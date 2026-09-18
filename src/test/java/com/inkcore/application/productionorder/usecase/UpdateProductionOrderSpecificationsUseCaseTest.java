@@ -163,7 +163,7 @@ class UpdateProductionOrderSpecificationsUseCaseTest {
     private static Client sampleClient() {
         return Client.reconstitute(
                 "client-1", "company-1", "Cliente", "NIT", "900",
-                null, null, null, null, null, null, true, LocalDate.of(2026, 1, 1)
+                null, null, null, null, null, null, 0, true, LocalDate.of(2026, 1, 1)
         );
     }
 

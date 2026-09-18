@@ -14,6 +14,7 @@ import com.inkcore.domain.productionorder.model.PrepressDetails;
 import com.inkcore.domain.productionorder.model.PrintConfig;
 import com.inkcore.domain.productionorder.model.PrintEntry;
 import com.inkcore.domain.productionorder.model.ProductionOrder;
+import com.inkcore.domain.productionorder.model.ProductionOrderStatus;
 import com.inkcore.domain.productionorder.model.StageDiscount;
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -23,7 +24,12 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
-@Schema(name = "ProductionOrderResponse", description = "Agregado completo de Orden de Producción")
+@Schema(
+        name = "ProductionOrderResponse",
+        description = "Agregado completo de Orden de Producción (planta). "
+                + "customerOrderId/odpNumber son del pedido comercial (customer_orders), no de la OP; "
+                + "null mientras la OP no haya entrado a un estado IN_PROGRESS*."
+)
 public record ProductionOrderResponse(
         @Schema(example = "a1b2c3d4-e5f6-7890-abcd-ef1234567890")
         String productionOrderId,
@@ -34,9 +40,26 @@ public record ProductionOrderResponse(
                 maxLength = 20,
                 pattern = "^OP-[0-9]+$",
                 description = "Consecutivo corto único por empresa, generado por el backend (OP-1, OP-2, …). "
-                        + "No se envía en el alta; el front lo usa para mostrar y buscar."
+                        + "No se envía en el alta; el front lo usa para mostrar y buscar. Distinto de odpNumber (pedido)."
         )
         String orderNumber,
+        @Schema(
+                description = "UUID del pedido comercial (customer_orders.customer_order_id). "
+                        + "Se crea al pasar la OP a IN_PROGRESS*; null si aún está PENDING/PAUSED/UNDER_REVIEW/etc. "
+                        + "No confundir con productionOrderId ni con orderDeliveryId.",
+                example = "c0a80163-7b2e-4f1a-9c3d-2e5f6a7b8c9d",
+                nullable = true
+        )
+        String customerOrderId,
+        @Schema(
+                description = "Número visible del pedido comercial (customer_orders.odp_number = ODP-{n}). "
+                        + "Secuencia distinta de order_deliveries.deliveryNumber (también ODP-{n}). "
+                        + "null si el pedido aún no existe.",
+                example = "ODP-7",
+                pattern = "^ODP-[0-9]+$",
+                nullable = true
+        )
+        String odpNumber,
         @Schema(description = "Versión optimista", example = "0")
         Long version,
         String clientId,
@@ -44,7 +67,11 @@ public record ProductionOrderResponse(
         String sellerId,
         LocalDate orderDate,
         Integer requestedQuantity,
-        @Schema(description = "Unidades disponibles para pedidos (agregado station; 0 si no hay fila)", example = "1500")
+        @Schema(
+                description = "Unidades liberadas por planta (station_order_progress.cantidad_disponible); "
+                        + "base para disponibilidad comercial. 0 si no hay fila de progreso.",
+                example = "1500"
+        )
         Integer cantidadDisponible,
         Integer proposalQuantity1,
         Integer proposalQuantity2,
@@ -55,6 +82,17 @@ public record ProductionOrderResponse(
         LocalDateTime finishingProcessesCompletedAt,
         Boolean clientSuppliesPaperDefault,
         Integer roundingMargin,
+        @Schema(
+                description = "Estado de planta. ANULADA reemplaza CANCELLED (alias temporal solo de entrada; "
+                        + "en respuestas nunca se expone CANCELLED).",
+                example = "ANULADA",
+                allowableValues = {
+                        "PENDING", "PAUSED", "UNDER_REVIEW", "IN_PROGRESS",
+                        "IN_PROGRESS_PREPRESS", "IN_PROGRESS_CUTTING", "IN_PROGRESS_PRINTING",
+                        "IN_PROGRESS_FINISHED_PRODUCTS", "IN_PROGRESS_FINISHING",
+                        "COMPLETED", "ANULADA"
+                }
+        )
         String status,
         Boolean state,
         LocalDateTime createdAt,
@@ -71,14 +109,25 @@ public record ProductionOrderResponse(
         List<PostpressRecordResponse> postpressRecords
 ) {
     public static ProductionOrderResponse from(ProductionOrder order) {
-        return from(order, 0);
+        return from(order, 0, null, null);
     }
 
     public static ProductionOrderResponse from(ProductionOrder order, int cantidadDisponible) {
+        return from(order, cantidadDisponible, null, null);
+    }
+
+    public static ProductionOrderResponse from(
+            ProductionOrder order,
+            int cantidadDisponible,
+            String customerOrderId,
+            String odpNumber
+    ) {
         return new ProductionOrderResponse(
                 order.getProductionOrderId(),
                 order.getCompanyId(),
                 order.getOrderNumber(),
+                customerOrderId,
+                odpNumber,
                 order.getVersion(),
                 order.getClientId(),
                 order.getWorkName(),
@@ -95,7 +144,7 @@ public record ProductionOrderResponse(
                 order.getFinishingProcessesCompletedAt(),
                 order.getClientSuppliesPaperDefault(),
                 order.getRoundingMargin(),
-                order.getStatus(),
+                ProductionOrderStatus.toWire(order.getStatus()),
                 order.isState(),
                 order.getCreatedAt(),
                 order.getUpdatedAt(),

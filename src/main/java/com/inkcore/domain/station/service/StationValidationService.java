@@ -3,6 +3,7 @@ package com.inkcore.domain.station.service;
 import com.inkcore.domain.productionorder.model.OperatorAssignment;
 import com.inkcore.domain.productionorder.model.ProductionOrder;
 import com.inkcore.domain.productionorder.model.ProductionOrderStage;
+import com.inkcore.domain.productionorder.model.ProductionOrderStatus;
 import com.inkcore.domain.station.exception.StationBusinessRuleException;
 import com.inkcore.domain.station.model.StationEventType;
 import com.inkcore.domain.station.model.StationOperationEvent;
@@ -11,7 +12,6 @@ import com.inkcore.domain.station.model.StationPhase;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 
 public class StationValidationService {
@@ -168,12 +168,19 @@ public class StationValidationService {
         }
     }
 
+    /**
+     * True si la OP está en planta: {@code IN_PROGRESS} o cualquier {@code IN_PROGRESS_*}.
+     * También acepta el alias legacy {@code EN PROCESO}.
+     */
     public static boolean isInProgressStatus(String status) {
-        if (status == null) {
+        if (status == null || status.isBlank()) {
             return false;
         }
-        String normalized = status.trim().toUpperCase(Locale.ROOT);
-        return "IN_PROGRESS".equals(normalized) || "EN PROCESO".equals(normalized);
+        String normalized = status.trim();
+        if ("EN PROCESO".equalsIgnoreCase(normalized)) {
+            return true;
+        }
+        return ProductionOrderStatus.isInProgressWire(normalized);
     }
 
     public static int sumUnits(List<StationOperationEvent> events, StationEventType type, String processKey) {

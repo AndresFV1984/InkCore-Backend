@@ -26,6 +26,9 @@ public class OrderDeliveryEntity implements Persistable<String> {
     @Column(name = "company_id", nullable = false, length = 64)
     private String companyId;
 
+    @Column(name = "delivery_number", nullable = false, length = 32)
+    private String deliveryNumber;
+
     @Column(name = "production_order_id", nullable = false, length = 64)
     private String productionOrderId;
 
@@ -35,8 +38,14 @@ public class OrderDeliveryEntity implements Persistable<String> {
     @Column(name = "seller_id", length = 64)
     private String sellerId;
 
+    @Column(name = "movement_type", nullable = false, length = 16)
+    private String movementType;
+
     @Column(name = "delivery_type", nullable = false, length = 16)
     private String deliveryType;
+
+    @Column(name = "reversed_delivery_id", length = 64)
+    private String reversedDeliveryId;
 
     @Column(name = "quantity_delivered", nullable = false)
     private int quantityDelivered;
@@ -47,7 +56,7 @@ public class OrderDeliveryEntity implements Persistable<String> {
     @Column(name = "total_value", nullable = false, precision = 14, scale = 2)
     private BigDecimal totalValue;
 
-    @Column(name = "available_before", nullable = false)
+    @Column(name = "available_before", nullable = false, insertable = false, updatable = false)
     private int availableBefore;
 
     @Column(name = "work_name_snapshot", length = 150)
@@ -84,14 +93,20 @@ public class OrderDeliveryEntity implements Persistable<String> {
     public void setOrderDeliveryId(String orderDeliveryId) { this.orderDeliveryId = orderDeliveryId; }
     public String getCompanyId() { return companyId; }
     public void setCompanyId(String companyId) { this.companyId = companyId; }
+    public String getDeliveryNumber() { return deliveryNumber; }
+    public void setDeliveryNumber(String deliveryNumber) { this.deliveryNumber = deliveryNumber; }
     public String getProductionOrderId() { return productionOrderId; }
     public void setProductionOrderId(String productionOrderId) { this.productionOrderId = productionOrderId; }
     public String getClientId() { return clientId; }
     public void setClientId(String clientId) { this.clientId = clientId; }
     public String getSellerId() { return sellerId; }
     public void setSellerId(String sellerId) { this.sellerId = sellerId; }
+    public String getMovementType() { return movementType; }
+    public void setMovementType(String movementType) { this.movementType = movementType; }
     public String getDeliveryType() { return deliveryType; }
     public void setDeliveryType(String deliveryType) { this.deliveryType = deliveryType; }
+    public String getReversedDeliveryId() { return reversedDeliveryId; }
+    public void setReversedDeliveryId(String reversedDeliveryId) { this.reversedDeliveryId = reversedDeliveryId; }
     public int getQuantityDelivered() { return quantityDelivered; }
     public void setQuantityDelivered(int quantityDelivered) { this.quantityDelivered = quantityDelivered; }
     public BigDecimal getUnitPrice() { return unitPrice; }

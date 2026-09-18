@@ -5,6 +5,8 @@ import java.util.Locale;
 
 public enum PaymentType {
     ABONO("abono"),
+    ANTICIPO("anticipo"),
+    RETENCION("retencion"),
     REVERSION("reversion");
 
     private final String dbValue;
@@ -15,6 +17,10 @@ public enum PaymentType {
 
     public String getDbValue() {
         return dbValue;
+    }
+
+    public boolean isReversibleSettlement() {
+        return this == ABONO || this == ANTICIPO || this == RETENCION;
     }
 
     public static PaymentType fromValue(String value) {

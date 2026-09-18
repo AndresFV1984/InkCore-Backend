@@ -25,6 +25,7 @@ public class ClientPersistenceMapper {
         e.setPhone(blankToNull(client.getPhone()));
         e.setEmail(blankToNull(client.getEmail()));
         e.setContactPerson(blankToNull(client.getContactPerson()));
+        e.setCreditDays(client.getCreditDays());
         e.setState(client.isState());
         e.setCreationDate(client.getCreationDate());
     }
@@ -42,6 +43,7 @@ public class ClientPersistenceMapper {
                 entity.getPhone() == null ? "" : entity.getPhone(),
                 entity.getEmail(),
                 entity.getContactPerson() == null ? "" : entity.getContactPerson(),
+                entity.getCreditDays(),
                 entity.isState(),
                 entity.getCreationDate()
         );

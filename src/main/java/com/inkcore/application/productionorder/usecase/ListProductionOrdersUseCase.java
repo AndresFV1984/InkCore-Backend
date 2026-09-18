@@ -1,6 +1,7 @@
 package com.inkcore.application.productionorder.usecase;
 
 import com.inkcore.domain.productionorder.model.ProductionOrder;
+import com.inkcore.domain.productionorder.model.ProductionOrderStatus;
 import com.inkcore.domain.productionorder.ports.out.ProductionOrderFilter;
 import com.inkcore.domain.shared.PageQuery;
 import com.inkcore.domain.shared.PageResult;
@@ -33,7 +34,7 @@ public class ListProductionOrdersUseCase {
         String companyId = support.companyId(authentication);
         ProductionOrderFilter filter = new ProductionOrderFilter(
                 companyId,
-                blankToNull(status),
+                ProductionOrderStatus.normalizeFilter(status),
                 blankToNull(clientId),
                 blankToNull(orderNumber),
                 fromDate,

@@ -55,7 +55,7 @@ class CreateProductionOrderUseCaseTest {
         when(clientRepository.findById("client-1")).thenReturn(Optional.of(
                 Client.reconstitute(
                         "client-1", "company-seed-001", "Cliente Demo", "NIT", "900",
-                        null, null, null, null, null, null, true, LocalDate.of(2026, 1, 1)
+                        null, null, null, null, null, null, 0, true, LocalDate.of(2026, 1, 1)
                 )
         ));
         when(repository.allocateNextOrderSequence("company-seed-001")).thenReturn(42L);

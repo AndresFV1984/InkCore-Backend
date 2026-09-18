@@ -11,6 +11,7 @@ public record CreateClientCommand(
         String phone,
         String email,
         String contactPerson,
+        Integer creditDays,
         Boolean state
 ) {
 }

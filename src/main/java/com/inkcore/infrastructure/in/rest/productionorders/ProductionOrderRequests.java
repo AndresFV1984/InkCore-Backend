@@ -87,14 +87,31 @@ public final class ProductionOrderRequests {
     ) {
     }
 
-    @Schema(name = "UpdateProductionOrderStatusRequest")
+    @Schema(
+            name = "UpdateProductionOrderStatusRequest",
+            description = "Cambio de estado de planta y/o baja lógica. "
+                    + "Preferir status=ANULADA. CANCELLED es alias temporal de entrada (deprecated) y se persiste como ANULADA. "
+                    + "Al pasar a cualquier IN_PROGRESS* se crea (idempotente) el pedido comercial customer_orders "
+                    + "(customerOrderId + odpNumber=ODP-{n}) si aún no existe."
+    )
     public record UpdateStatusRequest(
-            @Schema(description = "Versión optimista actual", example = "1", requiredMode = Schema.RequiredMode.REQUIRED)
+            @Schema(description = "Versión optimista actual", example = "6", requiredMode = Schema.RequiredMode.REQUIRED)
             @NotNull Long version,
-            @Schema(description = "Estado en planta", example = "IN_PROGRESS",
-                    allowableValues = {"PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"})
+            @Schema(
+                    description = "Estado de planta. ANULADA reemplaza CANCELLED (alias temporal de entrada: "
+                            + "CANCELLED, CANCELED, CANCELADA, ANULADO — deprecated). La respuesta siempre usa ANULADA. "
+                            + "IN_PROGRESS* dispara la creación del pedido comercial.",
+                    example = "IN_PROGRESS",
+                    allowableValues = {
+                            "PENDING", "PAUSED", "UNDER_REVIEW", "IN_PROGRESS",
+                            "IN_PROGRESS_PREPRESS", "IN_PROGRESS_CUTTING", "IN_PROGRESS_PRINTING",
+                            "IN_PROGRESS_FINISHED_PRODUCTS", "IN_PROGRESS_FINISHING",
+                            "COMPLETED", "ANULADA",
+                            "CANCELLED"
+                    }
+            )
             String status,
-            @Schema(description = "false = baja lógica (archivar)", example = "false")
+            @Schema(description = "false = baja lógica (archivar)", example = "true")
             Boolean state
     ) {
     }

@@ -52,6 +52,9 @@ public class ClientEntity implements Persistable<String> {
     @Column(name = "contact_person", length = 200)
     private String contactPerson;
 
+    @Column(name = "credit_days", nullable = false)
+    private int creditDays;
+
     @Column(nullable = false)
     private boolean state;
 
@@ -163,6 +166,14 @@ public class ClientEntity implements Persistable<String> {
 
     public void setContactPerson(String contactPerson) {
         this.contactPerson = contactPerson;
+    }
+
+    public int getCreditDays() {
+        return creditDays;
+    }
+
+    public void setCreditDays(int creditDays) {
+        this.creditDays = creditDays;
     }
 
     public boolean isState() {

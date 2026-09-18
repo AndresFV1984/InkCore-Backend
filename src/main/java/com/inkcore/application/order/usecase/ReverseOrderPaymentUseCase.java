@@ -3,10 +3,10 @@ package com.inkcore.application.order.usecase;
 import com.inkcore.application.order.OrderSupport;
 import com.inkcore.domain.order.exception.OrderBusinessRuleException;
 import com.inkcore.domain.order.exception.OrderConflictException;
-import com.inkcore.domain.order.model.ArSummary;
+import com.inkcore.domain.order.model.AccountsReceivable;
 import com.inkcore.domain.order.model.OrderPayment;
 import com.inkcore.domain.order.model.PaymentType;
-import com.inkcore.domain.order.ports.out.ArSummaryRepositoryPort;
+import com.inkcore.domain.order.ports.out.AccountsReceivableRepositoryPort;
 import com.inkcore.domain.order.ports.out.OrderPaymentRepositoryPort;
 import com.inkcore.domain.shared.exception.ResourceNotFoundException;
 import org.springframework.security.core.Authentication;
@@ -20,16 +20,16 @@ public class ReverseOrderPaymentUseCase {
 
     private final OrderSupport support;
     private final OrderPaymentRepositoryPort paymentRepository;
-    private final ArSummaryRepositoryPort arSummaryRepository;
+    private final AccountsReceivableRepositoryPort accountsReceivableRepository;
 
     public ReverseOrderPaymentUseCase(
             OrderSupport support,
             OrderPaymentRepositoryPort paymentRepository,
-            ArSummaryRepositoryPort arSummaryRepository
+            AccountsReceivableRepositoryPort accountsReceivableRepository
     ) {
         this.support = support;
         this.paymentRepository = paymentRepository;
-        this.arSummaryRepository = arSummaryRepository;
+        this.accountsReceivableRepository = accountsReceivableRepository;
     }
 
     @Transactional
@@ -43,29 +43,26 @@ public class ReverseOrderPaymentUseCase {
         String userId = support.userId(authentication);
         LocalDateTime now = support.now();
 
-        if (reason == null || reason.isBlank()) {
-            throw new OrderBusinessRuleException("El motivo de anulación es obligatorio");
-        }
-
         support.requireActiveOrder(productionOrderId, companyId);
-        OrderPayment original = paymentRepository.findById(companyId, paymentId)
+        OrderPayment original = paymentRepository.findByIdForUpdate(companyId, paymentId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "ORDER_PAYMENT_NOT_FOUND",
-                        "Abono no encontrado"
+                        "Movimiento de pago no encontrado"
                 ));
 
         if (!productionOrderId.equals(original.getProductionOrderId())) {
-            throw new ResourceNotFoundException("ORDER_PAYMENT_NOT_FOUND", "Abono no encontrado");
+            throw new ResourceNotFoundException("ORDER_PAYMENT_NOT_FOUND", "Movimiento de pago no encontrado");
         }
-        if (original.getPaymentType() != PaymentType.ABONO) {
-            throw new OrderBusinessRuleException("Solo se pueden anular abonos (no reversiones)");
+        if (!original.getPaymentType().isReversibleSettlement()) {
+            throw new OrderBusinessRuleException("Solo se pueden anular abonos, anticipos o retenciones");
         }
         if (paymentRepository.existsReversionFor(companyId, paymentId)) {
-            throw new OrderConflictException("Este abono ya fue anulado");
+            throw new OrderConflictException("Este movimiento ya fue anulado");
         }
 
         OrderPayment reversion = new OrderPayment();
         reversion.setCompanyId(companyId);
+        reversion.setPaymentNumber(support.nextPaymentNumber(companyId));
         reversion.setProductionOrderId(original.getProductionOrderId());
         reversion.setClientId(original.getClientId());
         reversion.setPaymentType(PaymentType.REVERSION);
@@ -73,15 +70,22 @@ public class ReverseOrderPaymentUseCase {
         reversion.setPaymentMethod(original.getPaymentMethod());
         reversion.setReference(original.getReference());
         reversion.setReversedPaymentId(original.getOrderPaymentId());
+        reversion.setWithholdingType(original.getWithholdingType());
+        reversion.setWithholdingBase(original.getWithholdingBase());
+        reversion.setWithholdingRate(original.getWithholdingRate());
+        reversion.setCertificateRef(original.getCertificateRef());
+        reversion.setInvoiceId(original.getInvoiceId());
         reversion.setPaidAt(now);
         reversion.setRegisteredBy(userId);
-        reversion.setNotes("Anulado por: " + reason.trim());
+        reversion.setNotes(reason == null || reason.isBlank()
+                ? "Movimiento anulado (" + original.getPaymentType().getDbValue() + ")"
+                : "Anulado por: " + reason.trim());
         reversion.setCreatedAt(now);
 
         OrderPayment saved = paymentRepository.save(reversion);
-        ArSummary summary = arSummaryRepository
+        AccountsReceivable summary = accountsReceivableRepository
                 .findByProductionOrderId(companyId, productionOrderId)
-                .orElseGet(ArSummary::new);
+                .orElseGet(AccountsReceivable::new);
         return new CreateOrderPaymentUseCase.CreatePaymentResult(saved, summary);
     }
 }

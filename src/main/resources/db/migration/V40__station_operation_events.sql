@@ -67,9 +67,13 @@ CREATE INDEX IF NOT EXISTS idx_station_operation_events_shift
     ON indicolors.station_operation_events (company_id, user_id, occurred_at DESC)
     WHERE is_shift_event = TRUE;
 
+CREATE INDEX IF NOT EXISTS idx_station_operation_events_occurred_at_brin
+    ON indicolors.station_operation_events USING BRIN (occurred_at);
+
 COMMENT ON TABLE indicolors.station_operation_events IS 'Bitácora operativa append-only del módulo Estación: cada fila es un hecho ocurrido en planta (avance, pausa, entrega, jornada). No admite UPDATE ni DELETE en producción; correcciones = nuevo evento con note explicativa';
 
-COMMENT ON COLUMN indicolors.station_operation_events.station_operation_event_id IS 'Identificador único del evento';
+COMMENT ON COLUMN indicolors.station_operation_events.station_operation_event_id IS
+    'Identificador único del evento (UUID en texto)';
 COMMENT ON COLUMN indicolors.station_operation_events.company_id IS 'Identificador de la empresa dueña del evento';
 COMMENT ON COLUMN indicolors.station_operation_events.production_order_id IS 'Identificador de la Orden de Producción asociada; NULL solo si is_shift_event = TRUE (jornada sin OP)';
 COMMENT ON COLUMN indicolors.station_operation_events.client_id IS 'Snapshot del cliente de la OP al momento de insertar; obligatorio si hay OP';

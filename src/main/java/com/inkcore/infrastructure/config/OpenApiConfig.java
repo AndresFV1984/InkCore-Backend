@@ -33,7 +33,7 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("InkCore API")
                         .description("")
-                        .version("0.0.44")
+                        .version("0.0.54")
                         .contact(new Contact().name("InkCore").email("admin@indicolors.com")))
                 .servers(List.of(
                         new Server().url(basePath).description("Context path local")
@@ -41,7 +41,8 @@ public class OpenApiConfig {
                 .tags(List.of(
                         new Tag().name("Autenticación").description("Login y refresh de tokens"),
                         new Tag().name("Usuarios").description("Gestión de usuarios"),
-                        new Tag().name("Clientes").description("Gestión de clientes"),
+                        new Tag().name("Clientes").description(
+                                "CRUD de clientes; creditDays (Net N) alimenta dueDate de CxC al abrir deuda."),
                         new Tag().name("Proveedores").description("Gestión de proveedores"),
                         new Tag().name("Empresas").description("Catálogo de empresas"),
                         new Tag().name("Vendedores").description("Gestión de vendedores"),
@@ -54,13 +55,19 @@ public class OpenApiConfig {
                         new Tag().name("Precios de montaje").description("Catálogo de precios de montaje"),
                         new Tag().name("Tarifas por millar").description("Catálogo de tarifas por millar"),
                         new Tag().name("Órdenes de producción").description(
-                                "Wizard OP: especificaciones, preprensa, corte, impresión, terminados, acabados y cobro"),
+                                "Wizard OP (OP-{n}). Al pasar a IN_PROGRESS* crea customer_orders "
+                                        + "(customerOrderId + odpNumber ODP-{n}). ANULADA reemplaza CANCELLED."),
                         new Tag().name("Estación").description(
                                 "Bitácora de planta: inbox, eventos (inicio/pausa/avance), intervalos y reportes. Roles OPERADOR|ADMINISTRADOR. occurredAt sin zona (sin Z)."),
                         new Tag().name("Pedidos").description(
-                                "Entregas comerciales y abonos sobre OP (ledgers append-only)"),
+                                "Ledgers comerciales sobre OP: entregas (deliveryNumber ODP-{n}) y liquidaciones "
+                                        + "ABN-{n} (abono|anticipo|retencion|reversion); append-only. "
+                                        + "CxC embebida: cxcNumber (id de cuenta), openedAt, lastDeliveryAt, "
+                                        + "lastPaymentNumber (último ABN vigente, no id de cuenta)."),
                         new Tag().name("Cuentas por cobrar").description(
-                                "Dashboard y detalle de saldos por OP (solo lectura)"),
+                                "Dashboard CxC/Abonos (mismo agregado 1:1 por OP, CXC-{n}): openedAt, "
+                                        + "lastPaymentNumber/lastPaymentAt, dueDate, aging, withBalance. "
+                                        + "Solo lectura; anulación implícita. Sin DELETE ni cuenta ABN aparte."),
                         new Tag().name("Conversión de color").description("Conversión RGB→CMYK (ICC / LittleCMS)"),
                         new Tag().name("Estimación de tinta").description("Estimación de consumo de tinta CMYK/spot"),
                         new Tag().name("Archivos estimación tinta").description(

@@ -8,10 +8,13 @@ public final class OrderDelivery {
 
     private String orderDeliveryId;
     private String companyId;
+    private String deliveryNumber;
     private String productionOrderId;
     private String clientId;
     private String sellerId;
+    private DeliveryMovementType movementType;
     private DeliveryType deliveryType;
+    private String reversedDeliveryId;
     private int quantityDelivered;
     private BigDecimal unitPrice;
     private BigDecimal totalValue;
@@ -25,6 +28,7 @@ public final class OrderDelivery {
 
     public OrderDelivery() {
         this.orderDeliveryId = UUID.randomUUID().toString();
+        this.movementType = DeliveryMovementType.ENTREGA;
         this.availableBefore = 0;
         this.unitPrice = BigDecimal.ZERO;
         this.totalValue = BigDecimal.ZERO;
@@ -34,14 +38,20 @@ public final class OrderDelivery {
     public void setOrderDeliveryId(String orderDeliveryId) { this.orderDeliveryId = orderDeliveryId; }
     public String getCompanyId() { return companyId; }
     public void setCompanyId(String companyId) { this.companyId = companyId; }
+    public String getDeliveryNumber() { return deliveryNumber; }
+    public void setDeliveryNumber(String deliveryNumber) { this.deliveryNumber = deliveryNumber; }
     public String getProductionOrderId() { return productionOrderId; }
     public void setProductionOrderId(String productionOrderId) { this.productionOrderId = productionOrderId; }
     public String getClientId() { return clientId; }
     public void setClientId(String clientId) { this.clientId = clientId; }
     public String getSellerId() { return sellerId; }
     public void setSellerId(String sellerId) { this.sellerId = sellerId; }
+    public DeliveryMovementType getMovementType() { return movementType; }
+    public void setMovementType(DeliveryMovementType movementType) { this.movementType = movementType; }
     public DeliveryType getDeliveryType() { return deliveryType; }
     public void setDeliveryType(DeliveryType deliveryType) { this.deliveryType = deliveryType; }
+    public String getReversedDeliveryId() { return reversedDeliveryId; }
+    public void setReversedDeliveryId(String reversedDeliveryId) { this.reversedDeliveryId = reversedDeliveryId; }
     public int getQuantityDelivered() { return quantityDelivered; }
     public void setQuantityDelivered(int quantityDelivered) { this.quantityDelivered = quantityDelivered; }
     public BigDecimal getUnitPrice() { return unitPrice; }

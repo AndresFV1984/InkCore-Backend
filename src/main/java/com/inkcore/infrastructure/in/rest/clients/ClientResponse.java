@@ -36,6 +36,9 @@ public record ClientResponse(
         @Schema(description = "Persona de contacto", example = "Ana Gómez")
         String contactPerson,
 
+        @Schema(description = "Días de crédito Net N; 0=contado", example = "0")
+        int creditDays,
+
         @Schema(description = "true = Activo, false = Inactivo", example = "true")
         boolean state,
 
@@ -53,6 +56,7 @@ public record ClientResponse(
                 c.getPhone(),
                 c.getEmail(),
                 c.getContactPerson(),
+                c.getCreditDays(),
                 c.isState(),
                 c.getCreationDate()
         );

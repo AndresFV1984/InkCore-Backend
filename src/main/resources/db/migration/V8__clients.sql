@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS indicolors.clients (
     phone          VARCHAR(32),
     email          VARCHAR(320),
     contact_person VARCHAR(200),
+    credit_days    INTEGER      NOT NULL DEFAULT 0,
     state          BOOLEAN      NOT NULL DEFAULT TRUE,
     creation_date  DATE         NOT NULL DEFAULT CURRENT_DATE,
     CONSTRAINT clients_pkey PRIMARY KEY (client_id),
@@ -21,7 +22,9 @@ CREATE TABLE IF NOT EXISTS indicolors.clients (
     CONSTRAINT clients_document_type_check
         CHECK (document_type IS NULL OR document_type IN ('CC', 'CE', 'TI', 'PA', 'NIT')),
     CONSTRAINT clients_email_check
-        CHECK (email IS NULL OR email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
+        CHECK (email IS NULL OR email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'),
+    CONSTRAINT clients_credit_days_check
+        CHECK (credit_days >= 0)
 );
 
 CREATE INDEX IF NOT EXISTS idx_clients_company_id ON indicolors.clients (company_id);
@@ -44,5 +47,7 @@ COMMENT ON COLUMN indicolors.clients.address IS 'Dirección del cliente (calle, 
 COMMENT ON COLUMN indicolors.clients.phone IS 'Teléfono de contacto del cliente';
 COMMENT ON COLUMN indicolors.clients.email IS 'Correo electrónico de contacto del cliente';
 COMMENT ON COLUMN indicolors.clients.contact_person IS 'Nombre de la persona de contacto principal del cliente';
+COMMENT ON COLUMN indicolors.clients.credit_days IS
+    'Días de crédito (Net N) para calcular accounts_receivable.due_date al abrir la CxC; 0=contado';
 COMMENT ON COLUMN indicolors.clients.state IS 'True=Activo, False=Inactivo';
 COMMENT ON COLUMN indicolors.clients.creation_date IS 'Fecha de registro del cliente en el sistema';

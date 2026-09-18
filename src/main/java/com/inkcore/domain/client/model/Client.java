@@ -20,6 +20,7 @@ public final class Client {
     private final String phone;
     private final String email;
     private final String contactPerson;
+    private final int creditDays;
     private final boolean state;
     private final LocalDate creationDate;
 
@@ -35,6 +36,7 @@ public final class Client {
             String phone,
             String email,
             String contactPerson,
+            int creditDays,
             boolean state,
             LocalDate creationDate
     ) {
@@ -49,6 +51,7 @@ public final class Client {
         this.phone = phone != null ? phone : "";
         this.email = email;
         this.contactPerson = contactPerson != null ? contactPerson : "";
+        this.creditDays = creditDays;
         this.state = state;
         this.creationDate = creationDate;
     }
@@ -64,6 +67,7 @@ public final class Client {
             String phone,
             String email,
             String contactPerson,
+            Integer creditDays,
             boolean state,
             LocalDate creationDate
     ) {
@@ -71,6 +75,7 @@ public final class Client {
         requireNotBlank(name, "El nombre o razón social es obligatorio");
         requireNotBlank(department, "El departamento es obligatorio");
         requireNotBlank(city, "La ciudad / municipio es obligatorio");
+        int resolvedCreditDays = normalizeCreditDays(creditDays);
 
         String normalizedEmail = blankToNull(email);
         if (normalizedEmail != null) {
@@ -94,6 +99,7 @@ public final class Client {
                 blankToEmpty(phone),
                 normalizedEmail,
                 blankToEmpty(contactPerson),
+                resolvedCreditDays,
                 state,
                 creationDate
         );
@@ -109,11 +115,13 @@ public final class Client {
             String phone,
             String email,
             String contactPerson,
+            Integer creditDays,
             boolean state
     ) {
         requireNotBlank(name, "El nombre o razón social es obligatorio");
         requireNotBlank(department, "El departamento es obligatorio");
         requireNotBlank(city, "La ciudad / municipio es obligatorio");
+        int resolvedCreditDays = normalizeCreditDays(creditDays);
 
         String normalizedEmail = blankToNull(email);
         if (normalizedEmail != null) {
@@ -137,6 +145,7 @@ public final class Client {
                 blankToEmpty(phone),
                 normalizedEmail,
                 blankToEmpty(contactPerson),
+                resolvedCreditDays,
                 state,
                 this.creationDate
         );
@@ -154,6 +163,7 @@ public final class Client {
             String phone,
             String email,
             String contactPerson,
+            int creditDays,
             boolean state,
             LocalDate creationDate
     ) {
@@ -169,9 +179,18 @@ public final class Client {
                 phone,
                 email,
                 contactPerson,
+                creditDays,
                 state,
                 creationDate
         );
+    }
+
+    private static int normalizeCreditDays(Integer creditDays) {
+        int value = creditDays == null ? 0 : creditDays;
+        if (value < 0) {
+            throw new IllegalArgumentException("Los días de crédito no pueden ser negativos");
+        }
+        return value;
     }
 
     private static void requireNotBlank(String value, String message) {
@@ -233,6 +252,10 @@ public final class Client {
 
     public String getContactPerson() {
         return contactPerson;
+    }
+
+    public int getCreditDays() {
+        return creditDays;
     }
 
     public boolean isState() {

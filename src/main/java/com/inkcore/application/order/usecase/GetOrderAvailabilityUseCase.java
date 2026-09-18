@@ -2,7 +2,7 @@ package com.inkcore.application.order.usecase;
 
 import com.inkcore.application.order.OrderSupport;
 import com.inkcore.application.station.StationOrderProgressService;
-import com.inkcore.domain.order.ports.out.ArSummaryRepositoryPort;
+import com.inkcore.domain.order.ports.out.AccountsReceivableRepositoryPort;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,16 +12,16 @@ public class GetOrderAvailabilityUseCase {
 
     private final OrderSupport support;
     private final StationOrderProgressService orderProgressService;
-    private final ArSummaryRepositoryPort arSummaryRepository;
+    private final AccountsReceivableRepositoryPort accountsReceivableRepository;
 
     public GetOrderAvailabilityUseCase(
             OrderSupport support,
             StationOrderProgressService orderProgressService,
-            ArSummaryRepositoryPort arSummaryRepository
+            AccountsReceivableRepositoryPort accountsReceivableRepository
     ) {
         this.support = support;
         this.orderProgressService = orderProgressService;
-        this.arSummaryRepository = arSummaryRepository;
+        this.accountsReceivableRepository = accountsReceivableRepository;
     }
 
     @Transactional(readOnly = true)
@@ -30,7 +30,7 @@ public class GetOrderAvailabilityUseCase {
         support.requireActiveOrder(productionOrderId, companyId);
 
         int processed = orderProgressService.getCantidadDisponible(companyId, productionOrderId);
-        int delivered = arSummaryRepository.findByProductionOrderId(companyId, productionOrderId)
+        int delivered = accountsReceivableRepository.findByProductionOrderId(companyId, productionOrderId)
                 .map(s -> s.getDeliveredUnits())
                 .orElse(0);
         int available = Math.max(0, processed - delivered);

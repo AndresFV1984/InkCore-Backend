@@ -57,6 +57,7 @@ class CreateClientUseCaseTest {
                 "604 123 4567",
                 "correo@empresa.com",
                 "Ana Gómez",
+                null,
                 null
         ));
 
@@ -67,6 +68,7 @@ class CreateClientUseCaseTest {
         assertEquals("Medellín", created.getCity());
         assertEquals("correo@empresa.com", created.getEmail());
         assertEquals("Ana Gómez", created.getContactPerson());
+        assertEquals(0, created.getCreditDays());
         assertTrue(created.isState());
         assertEquals(LocalDate.of(2026, 7, 22), created.getCreationDate());
 
@@ -86,6 +88,7 @@ class CreateClientUseCaseTest {
                 null,
                 "Antioquia",
                 "Medellín",
+                null,
                 null,
                 null,
                 null,
@@ -112,6 +115,7 @@ class CreateClientUseCaseTest {
                         "900123456-1",
                         "Antioquia",
                         "Medellín",
+                        null,
                         null,
                         null,
                         null,

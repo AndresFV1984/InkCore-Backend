@@ -1,3 +1,4 @@
+
 -- Tabla production_orders (módulo production-orders).
 
 CREATE TABLE IF NOT EXISTS indicolors.production_orders (
@@ -38,7 +39,20 @@ CREATE TABLE IF NOT EXISTS indicolors.production_orders (
     CONSTRAINT production_orders_company_fk FOREIGN KEY (company_id) REFERENCES indicolors.companies (company_id),
     CONSTRAINT production_orders_client_fk FOREIGN KEY (client_id) REFERENCES indicolors.clients (client_id),
     CONSTRAINT production_orders_seller_fk FOREIGN KEY (seller_id) REFERENCES indicolors.sellers (seller_id),
-    CONSTRAINT production_orders_requested_quantity_check CHECK (requested_quantity > 0)
+    CONSTRAINT production_orders_requested_quantity_check CHECK (requested_quantity > 0),
+    CONSTRAINT production_orders_status_check CHECK (status IN (
+        'PENDING',
+        'PAUSED',
+        'UNDER_REVIEW',
+        'IN_PROGRESS',
+        'IN_PROGRESS_PREPRESS',
+        'IN_PROGRESS_CUTTING',
+        'IN_PROGRESS_PRINTING',
+        'IN_PROGRESS_FINISHED_PRODUCTS',
+        'IN_PROGRESS_FINISHING',
+        'COMPLETED',
+        'ANULADA'
+    ))
 );
 
 CREATE INDEX IF NOT EXISTS idx_production_orders_company_id ON indicolors.production_orders (company_id);
@@ -67,7 +81,9 @@ COMMENT ON COLUMN indicolors.production_orders.finished_products_completed_at IS
 COMMENT ON COLUMN indicolors.production_orders.finishing_processes_completed_at IS 'Fecha/hora en que se completó el paso de Acabados';
 COMMENT ON COLUMN indicolors.production_orders.client_supplies_paper_default IS 'Valor por defecto del paso Corte de papel: True=el cliente suministra el papel';
 COMMENT ON COLUMN indicolors.production_orders.rounding_margin IS 'Margen de redondeo aplicado en los cálculos del paso de Corte de papel';
-COMMENT ON COLUMN indicolors.production_orders.status IS 'Estado de la OP en planta: PENDING, IN_PROGRESS, etc.';
+COMMENT ON COLUMN indicolors.production_orders.status IS
+    'Estado de planta. ANULADA es el cierre/anulación de la OP (antes CANCELLED). '
+    'Aliases de entrada temporal en API: CANCELLED, CANCELED, CANCELADA, ANULADO → ANULADA.';
 COMMENT ON COLUMN indicolors.production_orders.state IS 'True=Activa, False=Borrador eliminado (baja lógica)';
 COMMENT ON COLUMN indicolors.production_orders.created_at IS 'Fecha y hora de creación del registro';
 COMMENT ON COLUMN indicolors.production_orders.updated_at IS 'Fecha y hora de la última actualización del registro';

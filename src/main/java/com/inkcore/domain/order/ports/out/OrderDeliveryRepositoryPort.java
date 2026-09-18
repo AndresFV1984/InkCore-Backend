@@ -11,5 +11,11 @@ public interface OrderDeliveryRepositoryPort {
 
     Optional<OrderDelivery> findById(String companyId, String orderDeliveryId);
 
+    Optional<OrderDelivery> findByIdForUpdate(String companyId, String orderDeliveryId);
+
     List<OrderDelivery> findByProductionOrderId(String companyId, String productionOrderId);
+
+    boolean existsReversionFor(String companyId, String reversedDeliveryId);
+
+    long allocateNextDeliverySequence(String companyId);
 }

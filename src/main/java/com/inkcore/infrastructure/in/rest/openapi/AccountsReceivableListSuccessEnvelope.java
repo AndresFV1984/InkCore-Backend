@@ -7,13 +7,13 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.Instant;
 
-@Schema(name = "AccountsReceivableListSuccessEnvelope", description = "Listado paginado de cuentas por cobrar")
+@Schema(name = "AccountsReceivableListSuccessEnvelope", description = "Listado paginado CxC con accountsReceivableId y cxcNumber")
 public record AccountsReceivableListSuccessEnvelope(
         @Schema(description = "Metadatos de la respuesta")
         ApiHeaders headers,
         @Schema(description = "Marca de tiempo UTC", example = "2026-09-05T16:15:00Z")
         Instant timestamp,
         @Schema(implementation = PageResponse.class)
-        PageResponse<OrderResponses.ArItemResponse> data
+        PageResponse<OrderResponses.AccountsReceivableItemResponse> data
 ) {
 }

@@ -41,6 +41,7 @@ public class UpdateClientUseCase {
                 command.phone(),
                 command.email(),
                 command.contactPerson(),
+                command.creditDays(),
                 command.state()
         );
         return clientRepository.save(updated);

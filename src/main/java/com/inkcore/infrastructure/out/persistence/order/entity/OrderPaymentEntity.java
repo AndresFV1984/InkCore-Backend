@@ -26,6 +26,9 @@ public class OrderPaymentEntity implements Persistable<String> {
     @Column(name = "company_id", nullable = false, length = 64)
     private String companyId;
 
+    @Column(name = "payment_number", nullable = false, length = 32)
+    private String paymentNumber;
+
     @Column(name = "production_order_id", nullable = false, length = 64)
     private String productionOrderId;
 
@@ -46,6 +49,21 @@ public class OrderPaymentEntity implements Persistable<String> {
 
     @Column(name = "reversed_payment_id", length = 64)
     private String reversedPaymentId;
+
+    @Column(name = "withholding_type", length = 32)
+    private String withholdingType;
+
+    @Column(name = "withholding_base", precision = 14, scale = 2)
+    private BigDecimal withholdingBase;
+
+    @Column(name = "withholding_rate", precision = 8, scale = 4)
+    private BigDecimal withholdingRate;
+
+    @Column(name = "certificate_ref", length = 100)
+    private String certificateRef;
+
+    @Column(name = "invoice_id", length = 64)
+    private String invoiceId;
 
     @Column(name = "paid_at", nullable = false)
     private LocalDateTime paidAt;
@@ -75,6 +93,8 @@ public class OrderPaymentEntity implements Persistable<String> {
     public void setOrderPaymentId(String orderPaymentId) { this.orderPaymentId = orderPaymentId; }
     public String getCompanyId() { return companyId; }
     public void setCompanyId(String companyId) { this.companyId = companyId; }
+    public String getPaymentNumber() { return paymentNumber; }
+    public void setPaymentNumber(String paymentNumber) { this.paymentNumber = paymentNumber; }
     public String getProductionOrderId() { return productionOrderId; }
     public void setProductionOrderId(String productionOrderId) { this.productionOrderId = productionOrderId; }
     public String getClientId() { return clientId; }
@@ -89,6 +109,16 @@ public class OrderPaymentEntity implements Persistable<String> {
     public void setReference(String reference) { this.reference = reference; }
     public String getReversedPaymentId() { return reversedPaymentId; }
     public void setReversedPaymentId(String reversedPaymentId) { this.reversedPaymentId = reversedPaymentId; }
+    public String getWithholdingType() { return withholdingType; }
+    public void setWithholdingType(String withholdingType) { this.withholdingType = withholdingType; }
+    public BigDecimal getWithholdingBase() { return withholdingBase; }
+    public void setWithholdingBase(BigDecimal withholdingBase) { this.withholdingBase = withholdingBase; }
+    public BigDecimal getWithholdingRate() { return withholdingRate; }
+    public void setWithholdingRate(BigDecimal withholdingRate) { this.withholdingRate = withholdingRate; }
+    public String getCertificateRef() { return certificateRef; }
+    public void setCertificateRef(String certificateRef) { this.certificateRef = certificateRef; }
+    public String getInvoiceId() { return invoiceId; }
+    public void setInvoiceId(String invoiceId) { this.invoiceId = invoiceId; }
     public LocalDateTime getPaidAt() { return paidAt; }
     public void setPaidAt(LocalDateTime paidAt) { this.paidAt = paidAt; }
     public String getRegisteredBy() { return registeredBy; }

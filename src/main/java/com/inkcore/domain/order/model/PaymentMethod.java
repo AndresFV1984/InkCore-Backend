@@ -8,7 +8,8 @@ public enum PaymentMethod {
     TRANSFERENCIA("transferencia"),
     CHEQUE("cheque"),
     TARJETA("tarjeta"),
-    OTRO("otro");
+    OTRO("otro"),
+    RETENCION("retencion");
 
     private final String dbValue;
 
@@ -18,6 +19,10 @@ public enum PaymentMethod {
 
     public String getDbValue() {
         return dbValue;
+    }
+
+    public boolean isCashChannel() {
+        return this != RETENCION;
     }
 
     public static PaymentMethod fromValue(String value) {

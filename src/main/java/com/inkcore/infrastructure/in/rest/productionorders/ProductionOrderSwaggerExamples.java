@@ -20,6 +20,8 @@ final class ProductionOrderSwaggerExamples {
                 "productionOrderId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
                 "companyId": "company-seed-001",
                 "orderNumber": "OP-42",
+                "customerOrderId": null,
+                "odpNumber": null,
                 "version": 0,
                 "clientId": "client-seed-001",
                 "workName": "Brochure corporativo",
@@ -54,6 +56,8 @@ final class ProductionOrderSwaggerExamples {
                 "productionOrderId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
                 "companyId": "company-seed-001",
                 "orderNumber": "OP-42",
+                "customerOrderId": "c0a80163-7b2e-4f1a-9c3d-2e5f6a7b8c9d",
+                "odpNumber": "ODP-7",
                 "version": 5,
                 "clientId": "client-seed-001",
                 "workName": "Flyer",
@@ -63,7 +67,7 @@ final class ProductionOrderSwaggerExamples {
                 "printingCompletedAt": "2026-08-15T17:20:00",
                 "finishedProductsCompletedAt": "2026-08-15T17:30:00",
                 "finishingProcessesCompletedAt": "2026-08-15T17:40:00",
-                "status": "PENDING",
+                "status": "IN_PROGRESS",
                 "state": true,
                 "plates": [
                   {
@@ -134,13 +138,15 @@ final class ProductionOrderSwaggerExamples {
                     "productionOrderId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
                     "companyId": "company-seed-001",
                     "orderNumber": "OP-42",
+                    "customerOrderId": "c0a80163-7b2e-4f1a-9c3d-2e5f6a7b8c9d",
+                    "odpNumber": "ODP-7",
                     "version": 1,
                     "clientId": "client-seed-001",
                     "workName": "Brochure corporativo",
                     "orderDate": "2026-08-15",
                     "requestedQuantity": 1000,
                     "cantidadDisponible": 500,
-                    "status": "PENDING",
+                    "status": "IN_PROGRESS",
                     "state": true
                   }
                 ],
@@ -323,8 +329,92 @@ final class ProductionOrderSwaggerExamples {
     static final String STATUS_BODY = """
             {
               "version": 6,
+              "status": "ANULADA",
+              "state": true
+            }
+            """;
+
+    static final String STATUS_BODY_IN_PROGRESS = """
+            {
+              "version": 6,
               "status": "IN_PROGRESS",
               "state": true
+            }
+            """;
+
+    static final String STATUS_BODY_COMPAT_CANCELLED = """
+            {
+              "version": 6,
+              "status": "CANCELLED",
+              "state": true
+            }
+            """;
+
+    /** Respuesta de update-status al pasar a progreso: crea customer_orders. */
+    static final String SUCCESS_STATUS_IN_PROGRESS = """
+            {
+              "headers": {
+                "correlationId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "statusCode": 200,
+                "code": "OK",
+                "description": "Success"
+              },
+              "timestamp": "2026-09-09T22:00:00Z",
+              "data": {
+                "productionOrderId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "companyId": "company-seed-001",
+                "orderNumber": "OP-42",
+                "customerOrderId": "c0a80163-7b2e-4f1a-9c3d-2e5f6a7b8c9d",
+                "odpNumber": "ODP-7",
+                "version": 7,
+                "clientId": "client-seed-001",
+                "workName": "Brochure corporativo",
+                "orderDate": "2026-08-15",
+                "requestedQuantity": 1000,
+                "cantidadDisponible": 0,
+                "status": "IN_PROGRESS",
+                "state": true,
+                "plates": [],
+                "paperRows": [],
+                "prints": [],
+                "postpressRecords": [],
+                "operators": [],
+                "stageDiscounts": []
+              }
+            }
+            """;
+
+    /** Respuesta de update-status cuando la OP queda anulada (siempre status=ANULADA). */
+    static final String SUCCESS_STATUS_ANULADA = """
+            {
+              "headers": {
+                "correlationId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "statusCode": 200,
+                "code": "OK",
+                "description": "Success"
+              },
+              "timestamp": "2026-09-09T22:00:00Z",
+              "data": {
+                "productionOrderId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "companyId": "company-seed-001",
+                "orderNumber": "OP-42",
+                "customerOrderId": null,
+                "odpNumber": null,
+                "version": 7,
+                "clientId": "client-seed-001",
+                "workName": "Brochure corporativo",
+                "orderDate": "2026-08-15",
+                "requestedQuantity": 1000,
+                "cantidadDisponible": 500,
+                "status": "ANULADA",
+                "state": true,
+                "plates": [],
+                "paperRows": [],
+                "prints": [],
+                "postpressRecords": [],
+                "operators": [],
+                "stageDiscounts": []
+              }
             }
             """;
 

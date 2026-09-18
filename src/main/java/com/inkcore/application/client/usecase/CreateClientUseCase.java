@@ -42,6 +42,7 @@ public class CreateClientUseCase {
                 command.phone(),
                 command.email(),
                 command.contactPerson(),
+                command.creditDays(),
                 effectiveState,
                 LocalDate.now(clock)
         );

@@ -1,11 +1,14 @@
 package com.inkcore.domain.order.model;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-public final class ArSummary {
+public final class AccountsReceivable {
 
+    private String accountsReceivableId;
     private String companyId;
+    private String cxcNumber;
     private String productionOrderId;
     private String clientId;
     private int totalUnits;
@@ -14,20 +17,35 @@ public final class ArSummary {
     private BigDecimal totalOwed;
     private BigDecimal totalPaid;
     private BigDecimal totalRemaining;
-    private ArStatus status;
+    private BigDecimal totalCashPaid;
+    private BigDecimal totalWithheld;
+    private BigDecimal totalAdvancePaid;
+    private LocalDateTime openedAt;
+    private LocalDate dueDate;
+    private int paymentTermDays;
+    private AccountsReceivableStatus status;
     private LocalDateTime lastDeliveryAt;
+    private String lastPaymentNumber;
     private LocalDateTime lastPaymentAt;
     private LocalDateTime updatedAt;
 
-    public ArSummary() {
+    public AccountsReceivable() {
         this.totalOwed = BigDecimal.ZERO;
         this.totalPaid = BigDecimal.ZERO;
         this.totalRemaining = BigDecimal.ZERO;
-        this.status = ArStatus.PENDIENTE;
+        this.totalCashPaid = BigDecimal.ZERO;
+        this.totalWithheld = BigDecimal.ZERO;
+        this.totalAdvancePaid = BigDecimal.ZERO;
+        this.paymentTermDays = 0;
+        this.status = AccountsReceivableStatus.PENDIENTE;
     }
 
+    public String getAccountsReceivableId() { return accountsReceivableId; }
+    public void setAccountsReceivableId(String accountsReceivableId) { this.accountsReceivableId = accountsReceivableId; }
     public String getCompanyId() { return companyId; }
     public void setCompanyId(String companyId) { this.companyId = companyId; }
+    public String getCxcNumber() { return cxcNumber; }
+    public void setCxcNumber(String cxcNumber) { this.cxcNumber = cxcNumber; }
     public String getProductionOrderId() { return productionOrderId; }
     public void setProductionOrderId(String productionOrderId) { this.productionOrderId = productionOrderId; }
     public String getClientId() { return clientId; }
@@ -44,10 +62,24 @@ public final class ArSummary {
     public void setTotalPaid(BigDecimal totalPaid) { this.totalPaid = totalPaid; }
     public BigDecimal getTotalRemaining() { return totalRemaining; }
     public void setTotalRemaining(BigDecimal totalRemaining) { this.totalRemaining = totalRemaining; }
-    public ArStatus getStatus() { return status; }
-    public void setStatus(ArStatus status) { this.status = status; }
+    public BigDecimal getTotalCashPaid() { return totalCashPaid; }
+    public void setTotalCashPaid(BigDecimal totalCashPaid) { this.totalCashPaid = totalCashPaid; }
+    public BigDecimal getTotalWithheld() { return totalWithheld; }
+    public void setTotalWithheld(BigDecimal totalWithheld) { this.totalWithheld = totalWithheld; }
+    public BigDecimal getTotalAdvancePaid() { return totalAdvancePaid; }
+    public void setTotalAdvancePaid(BigDecimal totalAdvancePaid) { this.totalAdvancePaid = totalAdvancePaid; }
+    public LocalDateTime getOpenedAt() { return openedAt; }
+    public void setOpenedAt(LocalDateTime openedAt) { this.openedAt = openedAt; }
+    public LocalDate getDueDate() { return dueDate; }
+    public void setDueDate(LocalDate dueDate) { this.dueDate = dueDate; }
+    public int getPaymentTermDays() { return paymentTermDays; }
+    public void setPaymentTermDays(int paymentTermDays) { this.paymentTermDays = paymentTermDays; }
+    public AccountsReceivableStatus getStatus() { return status; }
+    public void setStatus(AccountsReceivableStatus status) { this.status = status; }
     public LocalDateTime getLastDeliveryAt() { return lastDeliveryAt; }
     public void setLastDeliveryAt(LocalDateTime lastDeliveryAt) { this.lastDeliveryAt = lastDeliveryAt; }
+    public String getLastPaymentNumber() { return lastPaymentNumber; }
+    public void setLastPaymentNumber(String lastPaymentNumber) { this.lastPaymentNumber = lastPaymentNumber; }
     public LocalDateTime getLastPaymentAt() { return lastPaymentAt; }
     public void setLastPaymentAt(LocalDateTime lastPaymentAt) { this.lastPaymentAt = lastPaymentAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }

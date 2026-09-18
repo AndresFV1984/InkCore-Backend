@@ -53,9 +53,13 @@ CREATE INDEX IF NOT EXISTS idx_station_operation_intervals_open
     ON indicolors.station_operation_intervals (company_id, user_id, is_open)
     WHERE is_open = TRUE;
 
+CREATE INDEX IF NOT EXISTS idx_station_operation_intervals_started_at_brin
+    ON indicolors.station_operation_intervals USING BRIN (started_at);
+
 COMMENT ON TABLE indicolors.station_operation_intervals IS 'Intervalos de labor/pausa/jornada materializados a partir de station_operation_events, para reportes de tiempo sin recalcular en cada request. Se puebla en la misma transacción del evento (servicio de aplicación) o vía trigger';
 
-COMMENT ON COLUMN indicolors.station_operation_intervals.station_operation_interval_id IS 'Identificador único del intervalo';
+COMMENT ON COLUMN indicolors.station_operation_intervals.station_operation_interval_id IS
+    'Identificador único del intervalo (UUID en texto)';
 COMMENT ON COLUMN indicolors.station_operation_intervals.company_id IS 'Identificador de la empresa dueña del intervalo';
 COMMENT ON COLUMN indicolors.station_operation_intervals.production_order_id IS 'Identificador de la Orden de Producción asociada; NULL en intervalos de jornada (shift)';
 COMMENT ON COLUMN indicolors.station_operation_intervals.client_id IS 'Snapshot del cliente de la OP asociada';
@@ -69,8 +73,10 @@ COMMENT ON COLUMN indicolors.station_operation_intervals.ended_at IS 'Fin del in
 COMMENT ON COLUMN indicolors.station_operation_intervals.duration_ms IS 'Duración en milisegundos, calculada al cerrar el intervalo';
 COMMENT ON COLUMN indicolors.station_operation_intervals.pause_reason IS 'Motivo de la pausa; solo aplica cuando interval_kind = pause';
 COMMENT ON COLUMN indicolors.station_operation_intervals.note IS 'Nota libre asociada al intervalo';
-COMMENT ON COLUMN indicolors.station_operation_intervals.opened_by_event_id IS 'Evento de station_operation_events que abrió el intervalo';
-COMMENT ON COLUMN indicolors.station_operation_intervals.closed_by_event_id IS 'Evento de station_operation_events que cerró el intervalo';
+COMMENT ON COLUMN indicolors.station_operation_intervals.opened_by_event_id IS
+    'Evento de station_operation_events que abrió el intervalo';
+COMMENT ON COLUMN indicolors.station_operation_intervals.closed_by_event_id IS
+    'Evento de station_operation_events que cerró el intervalo';
 COMMENT ON COLUMN indicolors.station_operation_intervals.is_open IS 'True=el intervalo sigue abierto (sin ended_at ni closed_by_event_id)';
 COMMENT ON COLUMN indicolors.station_operation_intervals.created_at IS 'Fecha y hora de creación del registro';
 

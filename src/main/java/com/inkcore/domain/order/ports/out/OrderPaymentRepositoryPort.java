@@ -11,7 +11,11 @@ public interface OrderPaymentRepositoryPort {
 
     Optional<OrderPayment> findById(String companyId, String orderPaymentId);
 
+    Optional<OrderPayment> findByIdForUpdate(String companyId, String orderPaymentId);
+
     List<OrderPayment> findByProductionOrderId(String companyId, String productionOrderId);
 
     boolean existsReversionFor(String companyId, String reversedPaymentId);
+
+    long allocateNextPaymentSequence(String companyId);
 }

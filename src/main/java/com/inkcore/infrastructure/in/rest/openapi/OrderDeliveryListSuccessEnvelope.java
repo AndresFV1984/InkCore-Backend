@@ -7,7 +7,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.util.List;
 
-@Schema(name = "OrderDeliveryListSuccessEnvelope", description = "Listado de entregas de una OP")
+@Schema(name = "OrderDeliveryListSuccessEnvelope", description = "Listado de entregas/reversiones con deliveryNumber ODP-{n}")
 public record OrderDeliveryListSuccessEnvelope(
         @Schema(description = "Metadatos de la respuesta")
         ApiHeaders headers,

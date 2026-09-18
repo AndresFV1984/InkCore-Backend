@@ -3,14 +3,15 @@ package com.inkcore.domain.order.model;
 import java.util.Arrays;
 import java.util.Locale;
 
-public enum ArStatus {
+public enum AccountsReceivableStatus {
     PENDIENTE("pendiente"),
     PARCIAL("parcial"),
-    PAGADO("pagado");
+    PAGADO("pagado"),
+    ANULADO("anulado");
 
     private final String dbValue;
 
-    ArStatus(String dbValue) {
+    AccountsReceivableStatus(String dbValue) {
         this.dbValue = dbValue;
     }
 
@@ -18,7 +19,7 @@ public enum ArStatus {
         return dbValue;
     }
 
-    public static ArStatus fromValue(String value) {
+    public static AccountsReceivableStatus fromValue(String value) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException("status es obligatorio");
         }

@@ -1,7 +1,7 @@
 package com.inkcore.infrastructure.in.rest.accountsreceivable;
 
-import com.inkcore.application.order.usecase.GetArSummaryDetailUseCase;
-import com.inkcore.application.order.usecase.ListArSummaryUseCase;
+import com.inkcore.application.order.usecase.GetAccountsReceivableDetailUseCase;
+import com.inkcore.application.order.usecase.ListAccountsReceivableUseCase;
 import com.inkcore.domain.shared.PageQuery;
 import com.inkcore.infrastructure.in.rest.envelope.ApiResponseFactory;
 import com.inkcore.infrastructure.in.rest.envelope.ApiSuccessEnvelope;
@@ -33,17 +33,23 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/accounts-receivable")
-@Tag(name = "Cuentas por cobrar", description = "Dashboard y detalle de saldos por OP (solo lectura)")
+@Tag(
+        name = "Cuentas por cobrar",
+        description = "Dashboard/detalle CxC y Abonos (mismo agregado 1:1 por OP: CXC-{n} + accountsReceivableId). "
+                + "Incluye openedAt (1ª entrega), lastPaymentNumber (último ABN vigente), dueDate/aging. "
+                + "Solo lectura; anulación implícita "
+                + "(status anulado/sin_movimientos tras reversiones netas a cero). Sin DELETE."
+)
 @SecurityRequirement(name = "bearerAuth")
 public class AccountsReceivableController {
 
-    private final ListArSummaryUseCase listUseCase;
-    private final GetArSummaryDetailUseCase detailUseCase;
+    private final ListAccountsReceivableUseCase listUseCase;
+    private final GetAccountsReceivableDetailUseCase detailUseCase;
     private final ApiResponseFactory responseFactory;
 
     public AccountsReceivableController(
-            ListArSummaryUseCase listUseCase,
-            GetArSummaryDetailUseCase detailUseCase,
+            ListAccountsReceivableUseCase listUseCase,
+            GetAccountsReceivableDetailUseCase detailUseCase,
             ApiResponseFactory responseFactory
     ) {
         this.listUseCase = listUseCase;
@@ -56,12 +62,21 @@ public class AccountsReceivableController {
     @Operation(
             operationId = "listAccountsReceivable",
             summary = "Listado paginado de cuentas por cobrar",
-            description = "SELECT sobre ar_summary (derivada por triggers). "
-                    + "Filtros opcionales: status, clientId, search (orderNumber o clientName)."
+            description = "SELECT sobre accounts_receivable (derivada por triggers). Cada ítem incluye accountsReceivableId, "
+                    + "cxcNumber (CXC-{n}), openedAt (deliveredAt de la 1ª entrega; no cambia con entregas posteriores), "
+                    + "dueDate, collectionStatus/agingBucket para alertas, productionOrderId y orderNumber (OP-{n}). "
+                    + "También lastPaymentNumber (ABN-{n} vigente) y lastPaymentAt para el dashboard de Abonos "
+                    + "(mismo agregado CxC 1:1 por OP; no existe cuenta ABN aparte). "
+                    + "Filtros: status (pendiente|parcial|pagado|anulado), clientId, overdueOnly, dueSoonOnly, "
+                    + "withBalance (totalRemaining > 0), "
+                    + "search (orderNumber, clientName, cxcNumber, lastDeliveryNumber/ODP o lastPaymentNumber/ABN). "
+                    + "lastDeliveryAt es la última entrega; openedAt es la primera. "
+                    + "No hay DELETE ni void explícito: la CxC queda anulado/sin_movimientos cuando "
+                    + "entregas y abonos netos llegan a cero tras reversiones."
     )
     @ApiResponse(
             responseCode = "200",
-            description = "Dashboard CxC",
+            description = "Dashboard CxC / Abonos",
             content = @Content(
                     mediaType = MediaType.APPLICATION_JSON_VALUE,
                     schema = @Schema(implementation = AccountsReceivableListSuccessEnvelope.class),
@@ -70,13 +85,22 @@ public class AccountsReceivableController {
     )
     @ApiErrorResponses
     @ApiSecuredErrorResponses
-    public ResponseEntity<ApiSuccessEnvelope<PageResponse<OrderResponses.ArItemResponse>>> list(
-            @Parameter(description = "pendiente | parcial | pagado", example = "parcial")
+    public ResponseEntity<ApiSuccessEnvelope<PageResponse<OrderResponses.AccountsReceivableItemResponse>>> list(
+            @Parameter(description = "pendiente | parcial | pagado | anulado", example = "parcial")
             @RequestParam(required = false) String status,
             @Parameter(description = "Filtrar por cliente")
             @RequestParam(required = false) String clientId,
-            @Parameter(description = "Búsqueda por orderNumber o clientName", example = "OP-142")
+            @Parameter(
+                    description = "Búsqueda por orderNumber, clientName, cxcNumber, lastDeliveryNumber o lastPaymentNumber",
+                    example = "ABN-4"
+            )
             @RequestParam(required = false) String search,
+            @Parameter(description = "Solo CxC vencidas con saldo > 0", example = "true")
+            @RequestParam(required = false) Boolean overdueOnly,
+            @Parameter(description = "Solo CxC por vencer (≤7 días) con saldo > 0", example = "true")
+            @RequestParam(required = false) Boolean dueSoonOnly,
+            @Parameter(description = "Solo CxC/OP con saldo a liquidar (totalRemaining > 0)", example = "true")
+            @RequestParam(required = false) Boolean withBalance,
             @Parameter(description = "Página 0-based", example = "0")
             @RequestParam(required = false, defaultValue = "0") Integer page,
             @Parameter(description = "Tamaño de página (máx 100)", example = "20")
@@ -84,9 +108,11 @@ public class AccountsReceivableController {
             Authentication authentication,
             HttpServletRequest httpRequest
     ) {
-        PageResponse<OrderResponses.ArItemResponse> data = PageResponse.from(
-                listUseCase.execute(status, clientId, search, PageQuery.of(page, size), authentication),
-                OrderResponses.ArItemResponse::from
+        PageResponse<OrderResponses.AccountsReceivableItemResponse> data = PageResponse.from(
+                listUseCase.execute(
+                        status, clientId, search, overdueOnly, dueSoonOnly, withBalance,
+                        PageQuery.of(page, size), authentication),
+                OrderResponses.AccountsReceivableItemResponse::from
         );
         return responseFactory.okStandard(httpRequest, data);
     }
@@ -96,7 +122,11 @@ public class AccountsReceivableController {
     @Operation(
             operationId = "getAccountsReceivableDetail",
             summary = "Detalle CxC + historial de entregas y abonos",
-            description = "Resumen de ar_summary más ledgers order_deliveries y order_payments de la OP."
+            description = "Resumen de accounts_receivable (accountsReceivableId + cxcNumber + openedAt + lastPaymentNumber) más ledgers "
+                    + "order_deliveries (deliveryNumber ODP-{n}) y order_payments (paymentNumber ABN-{n}) de la OP. "
+                    + "openedAt = deliveredAt de la 1ª entrega (histórico); lastDeliveryAt = última entrega; "
+                    + "lastPaymentNumber = último ABN vigente (referencia de movimiento, no id de cuenta). "
+                    + "Solo lectura; no existe endpoint DELETE/void de CxC."
     )
     @ApiResponse(
             responseCode = "200",
@@ -109,17 +139,17 @@ public class AccountsReceivableController {
     )
     @ApiErrorResponses
     @ApiSecuredErrorResponses
-    public ResponseEntity<ApiSuccessEnvelope<OrderResponses.ArDetailResponse>> detail(
+    public ResponseEntity<ApiSuccessEnvelope<OrderResponses.AccountsReceivableDetailResponse>> detail(
             @Parameter(description = "ID de la OP", required = true, example = OrderSwaggerExamples.ORDER_ID)
             @PathVariable String productionOrderId,
             Authentication authentication,
             HttpServletRequest httpRequest
     ) {
-        GetArSummaryDetailUseCase.ArDetail detail = detailUseCase.execute(productionOrderId, authentication);
+        GetAccountsReceivableDetailUseCase.AccountsReceivableDetail detail = detailUseCase.execute(productionOrderId, authentication);
         return responseFactory.okStandard(
                 httpRequest,
-                new OrderResponses.ArDetailResponse(
-                        OrderResponses.ArItemResponse.from(detail.summary()),
+                new OrderResponses.AccountsReceivableDetailResponse(
+                        OrderResponses.AccountsReceivableItemResponse.from(detail.summary()),
                         detail.deliveries().stream().map(OrderResponses.DeliveryResponse::from).toList(),
                         detail.payments().stream().map(OrderResponses.PaymentResponse::from).toList()
                 )

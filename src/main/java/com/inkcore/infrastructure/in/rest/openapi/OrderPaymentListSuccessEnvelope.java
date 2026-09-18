@@ -7,7 +7,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.util.List;
 
-@Schema(name = "OrderPaymentListSuccessEnvelope", description = "Listado de abonos y reversiones de una OP")
+@Schema(name = "OrderPaymentListSuccessEnvelope", description = "Listado de abonos/reversiones con paymentNumber ABN-{n}")
 public record OrderPaymentListSuccessEnvelope(
         @Schema(description = "Metadatos de la respuesta")
         ApiHeaders headers,

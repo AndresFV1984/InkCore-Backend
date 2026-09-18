@@ -19,6 +19,7 @@ import java.util.UUID;
 public final class ProductionOrder {
 
     public static final String STATUS_PENDING = "PENDING";
+    public static final String STATUS_ANULADA = "ANULADA";
     public static final int DEFAULT_ROUNDING_MARGIN = 2;
 
     private String productionOrderId;
