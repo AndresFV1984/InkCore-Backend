@@ -1,5 +1,6 @@
 package com.inkcore.application.order.usecase;
 
+import com.inkcore.application.order.AbonosBalance;
 import com.inkcore.application.order.OrderSupport;
 import com.inkcore.domain.client.model.Client;
 import com.inkcore.domain.client.ports.out.ClientRepositoryPort;
@@ -58,6 +59,7 @@ public class GetAccountsReceivableDetailUseCase {
         String clientName = clientRepository.findById(summary.getClientId())
                 .map(Client::getName)
                 .orElse(null);
+        String odpNumber = support.resolveOdpNumber(companyId, productionOrderId);
 
         List<OrderDelivery> deliveries = deliveryRepository.findByProductionOrderId(companyId, productionOrderId);
         String lastDeliveryNumber = deliveries.stream()
@@ -67,19 +69,22 @@ public class GetAccountsReceivableDetailUseCase {
                 .findFirst()
                 .orElse(null);
 
+        AbonosBalance.applyTo(summary, order);
         AccountsReceivableAging.AgingSnapshot aging = AccountsReceivableAging.of(summary, LocalDate.now());
         ListAccountsReceivableUseCase.AccountsReceivableRow row = new ListAccountsReceivableUseCase.AccountsReceivableRow(
                 summary.getAccountsReceivableId(),
                 summary.getCxcNumber(),
+                summary.getAbonosNumber(),
                 summary.getProductionOrderId(),
                 order.getOrderNumber(),
+                odpNumber,
                 summary.getClientId(),
                 clientName,
                 summary.getTotalUnits(),
                 summary.getDeliveredUnits(),
                 summary.getPendingUnits(),
                 summary.getTotalOwed(),
-                summary.getTotalPaid(),
+                nullToZero(summary.getTotalPaid()),
                 summary.getTotalRemaining(),
                 nullToZero(summary.getTotalCashPaid()),
                 nullToZero(summary.getTotalWithheld()),

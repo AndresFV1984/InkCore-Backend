@@ -50,6 +50,8 @@ class ProductionOrderResponseContractTest {
         row.setPaperCut(true);
         row.setCutLayoutId("corte-1");
         row.setPiecesPerSheet(4);
+        row.setTotalPaperValue(new BigDecimal("400000.00"));
+        row.setTotalCutValue(new BigDecimal("100000.00"));
         order.setPaperRows(List.of(row));
 
         PrintConfig print = new PrintConfig();
@@ -76,6 +78,7 @@ class ProductionOrderResponseContractTest {
 
         assertEquals("plate-srv-1", data.path("plates").get(0).path("productionOrderPlateId").asText());
         assertTrue(data.path("plates").get(0).path("plateId").isMissingNode());
+        assertEquals(0, new BigDecimal("500000.00").compareTo(data.path("totalToCharge").decimalValue()));
 
         assertEquals("pr-1", data.path("paperRows").get(0).path("productionOrderPaperRowId").asText());
         assertEquals("plate-srv-1", data.path("paperRows").get(0).path("plateId").asText());

@@ -57,7 +57,9 @@ import java.util.List;
 @Tag(
         name = "Pedidos",
         description = "Ledgers comerciales sobre OP: entregas (deliveryNumber ODP-{n}, distinto del odpNumber del pedido) "
-                + "y abonos (ABN-{n}); append-only con reversión."
+                + "y liquidaciones ABN-{n}; append-only con reversión. "
+                + "Agregado CxC/Abonos: cxcNumber (CXC-n) + abonosNumber (ABN-n, inmutable; ≠ paymentNumber del detalle; "
+                + "secuencia ABN compartida)."
 )
 @SecurityRequirement(name = "bearerAuth")
 public class OrderController {
@@ -103,9 +105,10 @@ public class OrderController {
                     + "(secuencia propia de entregas; no es customer_orders.odpNumber del pedido comercial). "
                     + "totalValue = quantityDelivered × unitPrice. La disponibilidad la valida el trigger de BD; "
                     + "422 si no alcanza. Si es la primera entrega, el trigger materializa accounts_receivable con "
-                    + "accountsReceivableId + cxcNumber=CXC-{n} y openedAt=deliveredAt de esa entrega. "
-                    + "Entregas posteriores actualizan lastDeliveryAt pero no reescriben openedAt. "
-                    + "Devuelve accounts_receivable actualizado (sin regenerar CxC)."
+                    + "accountsReceivableId + cxcNumber=CXC-{n} + abonosNumber=ABN-{n} "
+                    + "(id agregado Abonos ≠ paymentNumber ABN) y openedAt=deliveredAt de esa entrega. "
+                    + "Entregas posteriores actualizan lastDeliveryAt pero no reescriben openedAt ni abonosNumber. "
+                    + "Devuelve accounts_receivable actualizado (sin regenerar CxC/Abonos)."
     )
     @ApiResponse(
             responseCode = "201",
@@ -203,6 +206,7 @@ public class OrderController {
             operationId = "reverseOrderDelivery",
             summary = "Anular una entrega (append-only)",
             description = "No borra la entrega: inserta movementType=reversion con nuevo ODP-{n}. "
+                    + "Recalcula unidades/saldos CxC; cxcNumber y abonosNumber (ABN) no cambian. "
                     + "409 si ya fue anulada. 422 si el saldo adeudado quedaría por debajo de lo abonado."
     )
     @ApiResponse(
@@ -307,11 +311,12 @@ public class OrderController {
     @Operation(
             operationId = "getOrderAccountsReceivable",
             summary = "Consultar cartera de una OP",
-            description = "Lee accounts_receivable (accountsReceivableId + cxcNumber + openedAt + lastPaymentNumber). "
-                    + "openedAt es la 1ª entrega que abrió la CxC (ISO local sin Z); null si aún no hay deuda. "
-                    + "lastPaymentNumber es el último ABN-{n} vigente (null sin liquidaciones netas); no sustituye a cxcNumber. "
-                    + "Si no existen entregas ni abonos, devuelve status=sin_movimientos sin persistir fila "
-                    + "(accountsReceivableId/cxcNumber/openedAt/lastPaymentNumber nulos)."
+            description = "Lee accounts_receivable (cxcNumber + abonosNumber ABN-n + odpNumber + openedAt + lastPaymentNumber). "
+                    + "Abonos: totalOwed = totalToCharge de la OP; totalRemaining = totalOwed − totalPaid (puede ser negativo). "
+                    + "Sin movimientos aún, totalOwed ya refleja totalToCharge si la OP tiene costos. "
+                    + "abonosNumber es el id del agregado de Abonos (≠ paymentNumber; misma familia ABN-, secuencia compartida); "
+                    + "se asigna en el primer INSERT del trigger y no se regenera. "
+                    + "Si no hay movimientos, status=sin_movimientos (ids de cuenta nulos; odpNumber puede existir)."
     )
     @ApiResponse(
             responseCode = "200",
@@ -353,10 +358,13 @@ public class OrderController {
             summary = "Registrar liquidación (abono, anticipo o retención)",
             description = "Inserta order_payments (append-only) con paymentNumber=ABN-{n} (consecutivo por empresa). "
                     + "paymentType: abono|anticipo|retencion (default abono). "
+                    + "Los abonos se aplican sobre totalToCharge de la OP (no solo valor entregado): "
+                    + "se puede registrar abono sin entregas / CxC en cero; anticipo válido sin totalToCharge. "
+                    + "totalRemaining puede quedar negativo (saldo a favor). "
                     + "Retención exige withholdingType y paymentMethod=retencion. "
-                    + "Actualiza el agregado CxC existente (sin crear cuenta ABN): totalPaid/buckets, "
-                    + "lastPaymentNumber=ABN del movimiento y lastPaymentAt=paidAt. "
-                    + "Devuelve accounts_receivable completo (cxcNumber + lastPaymentNumber + totales)."
+                    + "Actualiza el agregado CxC/Abonos existente (sin regenerar abonosNumber): "
+                    + "totalPaid/buckets, lastPaymentNumber=ABN del movimiento y lastPaymentAt=paidAt. "
+                    + "Devuelve accounts_receivable con totalOwed=totalToCharge y totalRemaining recalculados."
     )
     @ApiResponse(
             responseCode = "201",
@@ -420,7 +428,7 @@ public class OrderController {
             summary = "Anular un abono (append-only)",
             description = "No borra el abono: inserta paymentType=reversion con el mismo monto y nuevo "
                     + "paymentNumber=ABN-{n}. Recalcula totales CxC y lastPaymentNumber/lastPaymentAt "
-                    + "al último abono vigente (o null). 409 si ya fue anulado."
+                    + "al último abono vigente (o null). abonosNumber (ABN) no cambia. 409 si ya fue anulado."
     )
     @ApiResponse(
             responseCode = "201",
@@ -468,9 +476,10 @@ public class OrderController {
     @Operation(
             operationId = "listOrderPayments",
             summary = "Listar liquidaciones de una OP",
-            description = "Historial de Abonos (movimientos ABN) append-only ordenado por paidAt DESC. "
+            description = "Historial de liquidaciones (movimientos ABN) append-only ordenado por paidAt DESC. "
                     + "Incluye abono|anticipo|retencion|reversion con paymentNumber (ABN-{n}). "
-                    + "El resumen de cuenta (cxcNumber + lastPaymentNumber) está en GET accounts-receivable."
+                    + "El id del agregado de Abonos es abonosNumber (ABN-{n}) en GET accounts-receivable; "
+                    + "no confundir con paymentNumber."
     )
     @ApiResponse(
             responseCode = "200",

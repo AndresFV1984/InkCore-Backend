@@ -1,6 +1,7 @@
 package com.inkcore.application.order;
 
 import com.inkcore.application.shared.AuthenticatedCompanyResolver;
+import com.inkcore.domain.order.model.CustomerOrder;
 import com.inkcore.domain.order.ports.out.OrderDeliveryRepositoryPort;
 import com.inkcore.domain.order.ports.out.OrderPaymentRepositoryPort;
 import com.inkcore.domain.order.ports.out.CustomerOrderRepositoryPort;
@@ -85,5 +86,12 @@ public class OrderSupport {
 
     public CustomerOrderRepositoryPort customerOrderRepository() {
         return customerOrderRepository;
+    }
+
+    /** Nº pedido comercial (customer_orders.odp_number); null si la OP aún no tiene pedido. */
+    public String resolveOdpNumber(String companyId, String productionOrderId) {
+        return customerOrderRepository.findByProductionOrderId(companyId, productionOrderId)
+                .map(CustomerOrder::getOdpNumber)
+                .orElse(null);
     }
 }

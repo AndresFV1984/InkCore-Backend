@@ -33,7 +33,7 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("InkCore API")
                         .description("")
-                        .version("0.0.54")
+                        .version("0.0.63")
                         .contact(new Contact().name("InkCore").email("admin@indicolors.com")))
                 .servers(List.of(
                         new Server().url(basePath).description("Context path local")
@@ -55,19 +55,22 @@ public class OpenApiConfig {
                         new Tag().name("Precios de montaje").description("Catálogo de precios de montaje"),
                         new Tag().name("Tarifas por millar").description("Catálogo de tarifas por millar"),
                         new Tag().name("Órdenes de producción").description(
-                                "Wizard OP (OP-{n}). Al pasar a IN_PROGRESS* crea customer_orders "
-                                        + "(customerOrderId + odpNumber ODP-{n}). ANULADA reemplaza CANCELLED."),
+                                "Wizard OP (OP-{n}). Listado/detalle incluyen totalToCharge (panel Cobro; null sin costos). "
+                                        + "Al pasar a IN_PROGRESS* crea customer_orders (customerOrderId + odpNumber ODP-{n}). "
+                                        + "ANULADA reemplaza CANCELLED."),
                         new Tag().name("Estación").description(
                                 "Bitácora de planta: inbox, eventos (inicio/pausa/avance), intervalos y reportes. Roles OPERADOR|ADMINISTRADOR. occurredAt sin zona (sin Z)."),
                         new Tag().name("Pedidos").description(
                                 "Ledgers comerciales sobre OP: entregas (deliveryNumber ODP-{n}) y liquidaciones "
                                         + "ABN-{n} (abono|anticipo|retencion|reversion); append-only. "
-                                        + "CxC embebida: cxcNumber (id de cuenta), openedAt, lastDeliveryAt, "
-                                        + "lastPaymentNumber (último ABN vigente, no id de cuenta)."),
+                                        + "Abonos sobre totalToCharge de la OP (totalOwed/totalRemaining en lectura; "
+                                        + "saldo puede ser negativo). CxC por entregas: unidades + ledger. "
+                                        + "cxcNumber/abonosNumber solo en el primer INSERT; secuencia ABN compartida."),
                         new Tag().name("Cuentas por cobrar").description(
-                                "Dashboard CxC/Abonos (mismo agregado 1:1 por OP, CXC-{n}): openedAt, "
-                                        + "lastPaymentNumber/lastPaymentAt, dueDate, aging, withBalance. "
-                                        + "Solo lectura; anulación implícita. Sin DELETE ni cuenta ABN aparte."),
+                                "Dashboard CxC/Abonos (1:1 por OP): totalOwed=totalToCharge, "
+                                        + "totalRemaining=totalOwed−totalPaid (puede ser negativo). "
+                                        + "cxcNumber, abonosNumber (ABN-n), odpNumber, aging, withBalance. "
+                                        + "Solo lectura; abonosNumber ≠ paymentNumber del detalle."),
                         new Tag().name("Conversión de color").description("Conversión RGB→CMYK (ICC / LittleCMS)"),
                         new Tag().name("Estimación de tinta").description("Estimación de consumo de tinta CMYK/spot"),
                         new Tag().name("Archivos estimación tinta").description(

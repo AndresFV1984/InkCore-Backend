@@ -9,7 +9,8 @@ import java.time.Instant;
 
 @Schema(
         name = "ProductionOrderListSuccessEnvelope",
-        description = "Listado paginado de OP. status de planta canónico; anulación = ANULADA (nunca CANCELLED)."
+        description = "Listado paginado de OP. Cada ítem incluye totalToCharge (panel Cobro; null sin costos). "
+                + "status de planta canónico; anulación = ANULADA (nunca CANCELLED)."
 )
 public record ProductionOrderListSuccessEnvelope(
         @Schema(description = "Metadatos de la respuesta")

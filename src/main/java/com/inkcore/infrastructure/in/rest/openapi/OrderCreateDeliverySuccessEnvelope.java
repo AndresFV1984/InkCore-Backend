@@ -6,7 +6,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.Instant;
 
-@Schema(name = "OrderCreateDeliverySuccessEnvelope", description = "Entrega/reversión creada con deliveryNumber ODP-{n} y accountsReceivable (CXC)")
+@Schema(name = "OrderCreateDeliverySuccessEnvelope", description = "Entrega/reversión creada con deliveryNumber ODP-{n} "
+        + "y accountsReceivable (cxcNumber + abonosNumber ABN-n)")
 public record OrderCreateDeliverySuccessEnvelope(
         @Schema(description = "Metadatos de la respuesta")
         ApiHeaders headers,

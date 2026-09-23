@@ -6,7 +6,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.Instant;
 
-@Schema(name = "OrderAccountsReceivableSuccessEnvelope", description = "Estado de cartera de una OP (accountsReceivableId + cxcNumber cuando aplica)")
+@Schema(name = "OrderAccountsReceivableSuccessEnvelope", description = "Estado de cartera de una OP "
+        + "(accountsReceivableId + cxcNumber + abonosNumber ABN-n + odpNumber cuando aplica)")
 public record OrderAccountsReceivableSuccessEnvelope(
         @Schema(description = "Metadatos de la respuesta")
         ApiHeaders headers,

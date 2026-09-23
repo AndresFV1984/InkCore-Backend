@@ -1,5 +1,6 @@
 package com.inkcore.application.order.usecase;
 
+import com.inkcore.application.order.AbonosBalance;
 import com.inkcore.application.order.OrderSupport;
 import com.inkcore.domain.client.model.Client;
 import com.inkcore.domain.client.ports.out.ClientRepositoryPort;
@@ -67,23 +68,29 @@ public class GetClientAccountsReceivableUseCase {
     }
 
     private OrderAccountsReceivable toOrderSummary(AccountsReceivable summary) {
-        String orderNumber = support.productionOrderRepository()
-                .findSummaryById(summary.getProductionOrderId())
-                .map(ProductionOrder::getOrderNumber)
+        ProductionOrder order = support.productionOrderRepository()
+                .findById(summary.getProductionOrderId())
                 .orElse(null);
+        String orderNumber = order == null ? null : order.getOrderNumber();
+        AbonosBalance.applyTo(summary, order);
         return new OrderAccountsReceivable(
                 summary.getAccountsReceivableId(),
                 summary.getCxcNumber(),
+                summary.getAbonosNumber(),
                 summary.getProductionOrderId(),
                 orderNumber,
                 summary.getTotalUnits(),
                 summary.getDeliveredUnits(),
                 summary.getPendingUnits(),
                 summary.getTotalOwed(),
-                summary.getTotalPaid(),
+                nullToZero(summary.getTotalPaid()),
                 summary.getTotalRemaining(),
                 summary.getStatus() == null ? null : summary.getStatus().getDbValue()
         );
+    }
+
+    private static BigDecimal nullToZero(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 
     public record ClientAccountsReceivable(
@@ -99,6 +106,7 @@ public class GetClientAccountsReceivableUseCase {
     public record OrderAccountsReceivable(
             String accountsReceivableId,
             String cxcNumber,
+            String abonosNumber,
             String productionOrderId,
             String orderNumber,
             int totalUnits,

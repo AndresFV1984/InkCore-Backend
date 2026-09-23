@@ -37,21 +37,43 @@ public final class OrderResponses {
         }
     }
 
-    @Schema(name = "OrderAccountsReceivableResponse", description = "Snapshot CxC de una OP (también usado por Abonos). "
-            + "Id de cuenta = cxcNumber. lastPaymentNumber = último ABN vigente (nullable), no el id del agregado.")
+    @Schema(name = "OrderAccountsReceivableResponse", description = "Snapshot CxC/Abonos de una OP. "
+            + "cxcNumber = id CxC (CXC-n). abonosNumber = id del agregado de Abonos (ABN-n), distinto de paymentNumber "
+            + "(misma familia ABN-, secuencia compartida). "
+            + "Abonos: totalOwed = totalToCharge de la OP; totalRemaining = totalOwed − totalPaid (puede ser negativo). "
+            + "Cartera CxC por entregas: deliveredUnits/pendingUnits + ledger de entregas. "
+            + "odpNumber = pedido comercial. lastPaymentNumber = último movimiento ABN (no id de cuenta).")
     public record AccountsReceivableResponse(
             @Schema(description = "UUID de la CxC; null si status=sin_movimientos", example = "ar-uuid-001") String accountsReceivableId,
             @Schema(description = "Número visible CXC-{n}; null si aún no hay movimientos", example = "CXC-7") String cxcNumber,
+            @Schema(
+                    description = "Id de negocio del agregado de Abonos (ABN-{n}). Inmutable tras el primer INSERT del trigger. "
+                            + "Misma familia ABN- que paymentNumber; valor distinto (secuencia compartida). ≠ lastPaymentNumber.",
+                    example = "ABN-7"
+            )
+            String abonosNumber,
             @Schema(description = "Orden de producción consultada", example = "ef658d09-bf30-43de-ba7a-edd0f14a61bd")
             String productionOrderId,
+            @Schema(
+                    description = "Nº pedido comercial (customer_orders.odp_number = ODP-{n}). Asociado 1:1; no es el id del agregado de Abonos.",
+                    example = "ODP-12"
+            )
+            String odpNumber,
             @Schema(description = "Cliente de la orden", example = "client-seed-001")
             String clientId,
             @Schema(example = "1000") int totalUnits,
             @Schema(example = "500") int deliveredUnits,
             @Schema(example = "500") int pendingUnits,
-            @Schema(example = "600000.00") BigDecimal totalOwed,
-            @Schema(example = "200000.00") BigDecimal totalPaid,
-            @Schema(example = "400000.00") BigDecimal totalRemaining,
+            @Schema(
+                    description = "Total a cobrar de la OP (totalToCharge / panel Cobro). Base del módulo Abonos; "
+                            + "no es el valor acumulado de entregas.",
+                    example = "1500000.00"
+            ) BigDecimal totalOwed,
+            @Schema(description = "Suma de abonos/anticipos/retenciones vigentes", example = "300000.00") BigDecimal totalPaid,
+            @Schema(
+                    description = "totalOwed − totalPaid. Puede ser negativo (saldo a favor).",
+                    example = "1200000.00"
+            ) BigDecimal totalRemaining,
             @Schema(example = "150000.00") BigDecimal totalCashPaid,
             @Schema(example = "50000.00") BigDecimal totalWithheld,
             @Schema(example = "0.00") BigDecimal totalAdvancePaid,
@@ -76,7 +98,7 @@ public final class OrderResponses {
             String lastDeliveryAt,
             @Schema(
                     description = "Último paymentNumber (ABN-{n}) vigente de la OP. Null si no hay liquidaciones netas. "
-                            + "No es el id del agregado (ese es cxcNumber).",
+                            + "Análogo a lastDeliveryNumber; no es abonosNumber (ABN-{n}) ni cxcNumber.",
                     example = "ABN-4"
             )
             String lastPaymentNumber,
@@ -84,11 +106,17 @@ public final class OrderResponses {
             String lastPaymentAt
     ) {
         public static AccountsReceivableResponse from(AccountsReceivable summary) {
+            return from(summary, null);
+        }
+
+        public static AccountsReceivableResponse from(AccountsReceivable summary, String odpNumber) {
             AccountsReceivableAging.AgingSnapshot aging = AccountsReceivableAging.of(summary, LocalDate.now());
             return new AccountsReceivableResponse(
                     summary.getAccountsReceivableId(),
                     summary.getCxcNumber(),
+                    summary.getAbonosNumber(),
                     summary.getProductionOrderId(),
+                    odpNumber,
                     summary.getClientId(),
                     summary.getTotalUnits(),
                     summary.getDeliveredUnits(),
@@ -119,7 +147,9 @@ public final class OrderResponses {
             return new AccountsReceivableResponse(
                     summary.accountsReceivableId(),
                     summary.cxcNumber(),
+                    summary.abonosNumber(),
                     summary.productionOrderId(),
+                    summary.odpNumber(),
                     summary.clientId(),
                     summary.totalUnits(),
                     summary.deliveredUnits(),
@@ -151,7 +181,8 @@ public final class OrderResponses {
         }
     }
 
-    @Schema(name = "OrderCreateDeliveryResponse", description = "Resultado de registrar una entrega o su reversión")
+    @Schema(name = "OrderCreateDeliveryResponse", description = "Resultado de registrar una entrega o su reversión. "
+            + "accountsReceivable incluye cxcNumber, abonosNumber (ABN-n) y odpNumber cuando aplica.")
     public record CreateDeliveryResponse(
             DeliveryResponse delivery,
             AccountsReceivableResponse accountsReceivable
@@ -159,7 +190,7 @@ public final class OrderResponses {
         public static CreateDeliveryResponse from(CreateOrderDeliveryUseCase.CreateDeliveryResult result) {
             return new CreateDeliveryResponse(
                     DeliveryResponse.from(result.delivery()),
-                    AccountsReceivableResponse.from(result.accountsReceivable())
+                    AccountsReceivableResponse.from(result.accountsReceivable(), result.odpNumber())
             );
         }
     }
@@ -212,7 +243,8 @@ public final class OrderResponses {
     }
 
     @Schema(name = "OrderCreatePaymentResponse", description = "Resultado de registrar un abono o reversión. "
-            + "accountsReceivable trae cxcNumber, lastPaymentNumber/lastPaymentAt y totales recalculados.")
+            + "accountsReceivable trae cxcNumber, abonosNumber (ABN-n), lastPaymentNumber/lastPaymentAt y totales recalculados. "
+            + "payment.paymentNumber (ABN-n) ≠ accountsReceivable.abonosNumber (ABN-n).")
     public record CreatePaymentResponse(
             PaymentResponse payment,
             AccountsReceivableResponse accountsReceivable
@@ -220,15 +252,19 @@ public final class OrderResponses {
         public static CreatePaymentResponse from(CreateOrderPaymentUseCase.CreatePaymentResult result) {
             return new CreatePaymentResponse(
                     PaymentResponse.from(result.payment()),
-                    AccountsReceivableResponse.from(result.accountsReceivable())
+                    AccountsReceivableResponse.from(result.accountsReceivable(), result.odpNumber())
             );
         }
     }
 
-    @Schema(name = "OrderPaymentResponse", description = "Liquidación append-only (abono/anticipo/retencion/reversion) con paymentNumber=ABN-{n}")
+    @Schema(name = "OrderPaymentResponse", description = "Liquidación append-only (abono/anticipo/retencion/reversion) "
+            + "con paymentNumber=ABN-{n}. Distinto de abonosNumber (ABN-{n}) del agregado accounts_receivable.")
     public record PaymentResponse(
             @Schema(example = "pay-uuid-001") String orderPaymentId,
-            @Schema(description = "Número visible asignado por el servidor (ABN-{n})", example = "ABN-15") String paymentNumber,
+            @Schema(
+                    description = "Número visible del movimiento (ABN-{n}). No es abonosNumber (ABN-{n}) del agregado.",
+                    example = "ABN-15"
+            ) String paymentNumber,
             @Schema(example = "ef658d09-bf30-43de-ba7a-edd0f14a61bd") String productionOrderId,
             @Schema(allowableValues = {"abono", "anticipo", "retencion", "reversion"}, example = "abono") String paymentType,
             @Schema(example = "200000.00") BigDecimal amount,
@@ -268,21 +304,34 @@ public final class OrderResponses {
         }
     }
 
-    @Schema(name = "AccountsReceivableItemResponse", description = "Fila del dashboard CxC/Abonos (1 fila = 1 CxC/OP). "
-            + "cxcNumber = id de cuenta; lastPaymentNumber = último ABN vigente (referencia de movimiento).")
+    @Schema(name = "AccountsReceivableItemResponse", description = "Fila del dashboard CxC/Abonos (1 fila = 1 OP). "
+            + "cxcNumber = id CxC; abonosNumber = id agregado Abonos (ABN-n ≠ paymentNumber del detalle); "
+            + "totalOwed = totalToCharge OP; totalRemaining = totalOwed − totalPaid (puede ser negativo). "
+            + "Unidades entregadas = cartera CxC por entregas. odpNumber = pedido; lastPaymentNumber = último movimiento.")
     public record AccountsReceivableItemResponse(
             @Schema(description = "UUID de la CxC", example = "ar-uuid-001") String accountsReceivableId,
-            @Schema(description = "Número visible CXC-{n}; id de negocio del agregado (dashboard CxC y Abonos)", example = "CXC-7") String cxcNumber,
+            @Schema(description = "Número visible CXC-{n}; id de negocio del agregado CxC", example = "CXC-7") String cxcNumber,
+            @Schema(
+                    description = "Id de negocio del agregado de Abonos (ABN-{n}). Inmutable tras el primer INSERT del trigger. "
+                            + "Misma familia ABN- que paymentNumber; valor distinto (secuencia compartida). ≠ lastPaymentNumber.",
+                    example = "ABN-7"
+            )
+            String abonosNumber,
             @Schema(example = "ef658d09-bf30-43de-ba7a-edd0f14a61bd") String productionOrderId,
             @Schema(example = "OP-142") String orderNumber,
+            @Schema(
+                    description = "Nº pedido comercial (customer_orders.odp_number = ODP-{n}). Asociado 1:1; no es abonosNumber.",
+                    example = "ODP-12"
+            )
+            String odpNumber,
             String clientId,
             @Schema(example = "Distribuciones ACME") String clientName,
             @Schema(example = "1000") int totalUnits,
             @Schema(example = "500") int deliveredUnits,
             @Schema(example = "500") int pendingUnits,
-            @Schema(example = "600000.00") BigDecimal totalOwed,
-            @Schema(example = "200000.00") BigDecimal totalPaid,
-            @Schema(example = "400000.00") BigDecimal totalRemaining,
+            @Schema(description = "totalToCharge de la OP (base Abonos)", example = "1500000.00") BigDecimal totalOwed,
+            @Schema(example = "300000.00") BigDecimal totalPaid,
+            @Schema(description = "totalOwed − totalPaid; puede ser negativo", example = "1200000.00") BigDecimal totalRemaining,
             @Schema(example = "150000.00") BigDecimal totalCashPaid,
             @Schema(example = "50000.00") BigDecimal totalWithheld,
             @Schema(example = "0.00") BigDecimal totalAdvancePaid,
@@ -314,7 +363,7 @@ public final class OrderResponses {
             String lastDeliveryAt,
             @Schema(
                     description = "Último paymentNumber (ABN-{n}) vigente de la OP. Null si no hay liquidaciones netas. "
-                            + "No es el id del agregado (ese es cxcNumber).",
+                            + "Análogo a lastDeliveryNumber; no es abonosNumber (ABN-{n}) ni odpNumber ni cxcNumber.",
                     example = "ABN-4"
             )
             String lastPaymentNumber,
@@ -328,8 +377,10 @@ public final class OrderResponses {
             return new AccountsReceivableItemResponse(
                     row.accountsReceivableId(),
                     row.cxcNumber(),
+                    row.abonosNumber(),
                     row.productionOrderId(),
                     row.orderNumber(),
+                    row.odpNumber(),
                     row.clientId(),
                     row.clientName(),
                     row.totalUnits(),
@@ -358,8 +409,10 @@ public final class OrderResponses {
         }
     }
 
-    @Schema(name = "AccountsReceivableDetailResponse", description = "Detalle CxC/Abonos: summary (cxcNumber + lastPaymentNumber) "
-            + "+ historial ODP (entregas) + historial ABN (pagos)")
+    @Schema(name = "AccountsReceivableDetailResponse", description = "Detalle CxC/Abonos: summary (cxcNumber + abonosNumber + odpNumber + lastPaymentNumber) "
+            + "+ historial entregas (deliveryNumber) + historial pagos (paymentNumber ABN). "
+            + "Invariante: abonosNumber != payment.paymentNumber para todo pago del detalle "
+            + "(ambos ABN-; valores distintos por secuencia compartida).")
     public record AccountsReceivableDetailResponse(
             AccountsReceivableItemResponse summary,
             List<DeliveryResponse> deliveries,
@@ -367,18 +420,19 @@ public final class OrderResponses {
     ) {
     }
 
-    @Schema(name = "ClientAccountsReceivableResponse", description = "Cartera consolidada de un cliente")
+    @Schema(name = "ClientAccountsReceivableResponse", description = "Cartera consolidada de un cliente. "
+            + "Cada OP incluye cxcNumber y abonosNumber (ABN-n ≠ paymentNumber del detalle).")
     public record ClientAccountsReceivableResponse(
             @Schema(example = "client-seed-001")
             String clientId,
             @Schema(example = "Distribuciones ACME")
             String clientName,
             List<ClientOrderAccountsReceivableResponse> orders,
-            @Schema(example = "600000.00")
+            @Schema(description = "Suma totalToCharge de las OPs (base Abonos)", example = "1500000.00")
             BigDecimal totalOwed,
-            @Schema(example = "200000.00")
+            @Schema(example = "300000.00")
             BigDecimal totalPaid,
-            @Schema(example = "400000.00")
+            @Schema(description = "Suma de saldos Abonos (puede incluir negativos)", example = "1200000.00")
             BigDecimal totalRemaining
     ) {
         public static ClientAccountsReceivableResponse from(GetClientAccountsReceivableUseCase.ClientAccountsReceivable summary) {
@@ -393,24 +447,30 @@ public final class OrderResponses {
         }
     }
 
-    @Schema(name = "ClientOrderAccountsReceivableResponse", description = "Cartera de una OP del cliente con CxC visible")
+    @Schema(name = "ClientOrderAccountsReceivableResponse", description = "Cartera de una OP del cliente. "
+            + "cxcNumber = CxC (CXC-n); abonosNumber = id agregado Abonos (ABN-n ≠ paymentNumber del detalle).")
     public record ClientOrderAccountsReceivableResponse(
             @Schema(example = "ar-uuid-001") String accountsReceivableId,
             @Schema(example = "CXC-7") String cxcNumber,
+            @Schema(
+                    description = "Id de negocio del agregado de Abonos (ABN-{n}). Inmutable. Distinto de paymentNumber (ABN-{n}).",
+                    example = "ABN-7"
+            ) String abonosNumber,
             @Schema(example = "ef658d09-bf30-43de-ba7a-edd0f14a61bd") String productionOrderId,
             @Schema(example = "OP-142") String orderNumber,
             @Schema(example = "1000") int totalUnits,
             @Schema(example = "500") int deliveredUnits,
             @Schema(example = "500") int pendingUnits,
-            @Schema(example = "600000.00") BigDecimal totalOwed,
-            @Schema(example = "200000.00") BigDecimal totalPaid,
-            @Schema(example = "400000.00") BigDecimal totalRemaining,
+            @Schema(description = "totalToCharge de la OP", example = "1500000.00") BigDecimal totalOwed,
+            @Schema(example = "300000.00") BigDecimal totalPaid,
+            @Schema(description = "totalOwed − totalPaid", example = "1200000.00") BigDecimal totalRemaining,
             @Schema(allowableValues = {"pendiente", "parcial", "pagado", "anulado"}, example = "parcial") String status
     ) {
         private static ClientOrderAccountsReceivableResponse from(GetClientAccountsReceivableUseCase.OrderAccountsReceivable summary) {
             return new ClientOrderAccountsReceivableResponse(
                     summary.accountsReceivableId(),
                     summary.cxcNumber(),
+                    summary.abonosNumber(),
                     summary.productionOrderId(),
                     summary.orderNumber(),
                     summary.totalUnits(),

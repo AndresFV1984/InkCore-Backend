@@ -10,11 +10,12 @@ CREATE TABLE IF NOT EXISTS indicolors.order_payment_number_sequences (
 );
 
 COMMENT ON TABLE indicolors.order_payment_number_sequences IS
-    'Último consecutivo de payment_number emitido por compañía; se incrementa de forma atómica al crear un abono/reversión';
+    'Consecutivo ABN-{n} por compañía: payment_number (movimientos) y abonos_number (id del agregado de Abonos). '
+    'Compartido para que el id del agregado nunca coincida con un payment_number.';
 COMMENT ON COLUMN indicolors.order_payment_number_sequences.company_id IS
     'Identificador de la empresa dueña del contador';
 COMMENT ON COLUMN indicolors.order_payment_number_sequences.last_value IS
-    'Último número asignado (el payment_number expuesto es ABN-{last_value})';
+    'Último ABN asignado (payment_number o abonos_number = ABN-{last_value})';
 
 GRANT ALL PRIVILEGES ON TABLE indicolors.order_payment_number_sequences TO indicolors_owner;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.order_payment_number_sequences TO indicolors_app;

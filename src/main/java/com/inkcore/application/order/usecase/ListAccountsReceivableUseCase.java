@@ -1,10 +1,12 @@
 package com.inkcore.application.order.usecase;
 
+import com.inkcore.application.order.AbonosBalance;
 import com.inkcore.application.order.OrderSupport;
 import com.inkcore.domain.client.model.Client;
 import com.inkcore.domain.client.ports.out.ClientRepositoryPort;
 import com.inkcore.domain.order.model.AccountsReceivable;
 import com.inkcore.domain.order.model.AccountsReceivableAging;
+import com.inkcore.domain.order.model.CustomerOrder;
 import com.inkcore.domain.order.model.DeliveryMovementType;
 import com.inkcore.domain.order.model.OrderDelivery;
 import com.inkcore.domain.order.ports.out.AccountsReceivableRepositoryPort;
@@ -22,6 +24,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class ListAccountsReceivableUseCase {
@@ -66,9 +70,26 @@ public class ListAccountsReceivableUseCase {
                 : query;
 
         PageResult<AccountsReceivable> page = accountsReceivableRepository.findPage(companyId, status, clientId, fetchQuery);
+        List<String> productionOrderIds = page.content().stream()
+                .map(AccountsReceivable::getProductionOrderId)
+                .toList();
+        Map<String, String> odpByProductionOrderId = support.customerOrderRepository()
+                .findByProductionOrderIds(companyId, productionOrderIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        CustomerOrder::getProductionOrderId,
+                        CustomerOrder::getOdpNumber,
+                        (a, b) -> a
+                ));
+
         List<AccountsReceivableRow> rows = new ArrayList<>();
         for (AccountsReceivable summary : page.content()) {
-            rows.add(toRow(companyId, summary, today));
+            rows.add(toRow(
+                    companyId,
+                    summary,
+                    today,
+                    odpByProductionOrderId.get(summary.getProductionOrderId())
+            ));
         }
 
         if (Boolean.TRUE.equals(overdueOnly)) {
@@ -87,8 +108,10 @@ public class ListAccountsReceivableUseCase {
             String needle = search.trim().toLowerCase(Locale.ROOT);
             rows = rows.stream()
                     .filter(row -> contains(row.orderNumber(), needle)
+                            || contains(row.odpNumber(), needle)
                             || contains(row.clientName(), needle)
                             || contains(row.cxcNumber(), needle)
+                            || contains(row.abonosNumber(), needle)
                             || contains(row.lastDeliveryNumber(), needle)
                             || contains(row.lastPaymentNumber(), needle))
                     .toList();
@@ -103,27 +126,35 @@ public class ListAccountsReceivableUseCase {
         return new PageResult<>(rows, page.page(), page.size(), page.totalElements());
     }
 
-    private AccountsReceivableRow toRow(String companyId, AccountsReceivable summary, LocalDate today) {
+    private AccountsReceivableRow toRow(
+            String companyId,
+            AccountsReceivable summary,
+            LocalDate today,
+            String odpNumber
+    ) {
         ProductionOrder order = support.productionOrderRepository()
-                .findSummaryById(summary.getProductionOrderId())
+                .findById(summary.getProductionOrderId())
                 .orElse(null);
         String orderNumber = order == null ? null : order.getOrderNumber();
         String clientName = clientRepository.findById(summary.getClientId())
                 .map(Client::getName)
                 .orElse(null);
+        AbonosBalance.applyTo(summary, order);
         AccountsReceivableAging.AgingSnapshot aging = AccountsReceivableAging.of(summary, today);
         return new AccountsReceivableRow(
                 summary.getAccountsReceivableId(),
                 summary.getCxcNumber(),
+                summary.getAbonosNumber(),
                 summary.getProductionOrderId(),
                 orderNumber,
+                odpNumber,
                 summary.getClientId(),
                 clientName,
                 summary.getTotalUnits(),
                 summary.getDeliveredUnits(),
                 summary.getPendingUnits(),
                 summary.getTotalOwed(),
-                summary.getTotalPaid(),
+                nullToZero(summary.getTotalPaid()),
                 summary.getTotalRemaining(),
                 nullToZero(summary.getTotalCashPaid()),
                 nullToZero(summary.getTotalWithheld()),
@@ -165,8 +196,10 @@ public class ListAccountsReceivableUseCase {
     public record AccountsReceivableRow(
             String accountsReceivableId,
             String cxcNumber,
+            String abonosNumber,
             String productionOrderId,
             String orderNumber,
+            String odpNumber,
             String clientId,
             String clientName,
             int totalUnits,

@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS indicolors.accounts_receivable (
     accounts_receivable_id CHARACTER VARYING(64)       NOT NULL DEFAULT gen_random_uuid()::text,
     company_id             CHARACTER VARYING(64)       NOT NULL,
     cxc_number             CHARACTER VARYING(32)       NOT NULL,
+    abonos_number          CHARACTER VARYING(32)       NOT NULL,
     production_order_id    CHARACTER VARYING(64)       NOT NULL,
     client_id              CHARACTER VARYING(64)       NOT NULL,
 
@@ -34,6 +35,7 @@ CREATE TABLE IF NOT EXISTS indicolors.accounts_receivable (
     CONSTRAINT accounts_receivable_pkey PRIMARY KEY (accounts_receivable_id),
     CONSTRAINT accounts_receivable_production_order_unique UNIQUE (production_order_id),
     CONSTRAINT accounts_receivable_cxc_number_company_unique UNIQUE (company_id, cxc_number),
+    CONSTRAINT accounts_receivable_abonos_number_company_unique UNIQUE (company_id, abonos_number),
     CONSTRAINT accounts_receivable_company_fk
         FOREIGN KEY (company_id) REFERENCES indicolors.companies (company_id),
     CONSTRAINT accounts_receivable_order_fk
@@ -47,12 +49,15 @@ CREATE TABLE IF NOT EXISTS indicolors.accounts_receivable (
     CONSTRAINT accounts_receivable_payment_term_days_check
         CHECK (payment_term_days >= 0),
     CONSTRAINT accounts_receivable_cxc_number_format_check
-        CHECK (cxc_number ~ '^CXC-[0-9]+$')
+        CHECK (cxc_number ~ '^CXC-[0-9]+$'),
+    CONSTRAINT accounts_receivable_abonos_number_format_check
+        CHECK (abonos_number ~ '^ABN-[0-9]+$')
 );
 
 CREATE INDEX IF NOT EXISTS idx_accounts_receivable_company ON indicolors.accounts_receivable (company_id, status);
 CREATE INDEX IF NOT EXISTS idx_accounts_receivable_client ON indicolors.accounts_receivable (company_id, client_id);
 CREATE INDEX IF NOT EXISTS idx_accounts_receivable_cxc_number ON indicolors.accounts_receivable (company_id, cxc_number);
+CREATE INDEX IF NOT EXISTS idx_accounts_receivable_abonos_number ON indicolors.accounts_receivable (company_id, abonos_number);
 CREATE INDEX IF NOT EXISTS idx_accounts_receivable_due_date
     ON indicolors.accounts_receivable (company_id, due_date)
     WHERE total_remaining > 0 AND due_date IS NOT NULL;
@@ -63,14 +68,19 @@ COMMENT ON TABLE indicolors.accounts_receivable IS
 COMMENT ON COLUMN indicolors.accounts_receivable.accounts_receivable_id IS 'Identificador único (UUID) de la Cuenta por cobrar';
 COMMENT ON COLUMN indicolors.accounts_receivable.company_id IS 'Identificador de la empresa dueña del registro';
 COMMENT ON COLUMN indicolors.accounts_receivable.cxc_number IS 'Consecutivo CXC-{n}; lo asigna el trigger en el primer INSERT';
+COMMENT ON COLUMN indicolors.accounts_receivable.abonos_number IS
+    'Id de negocio del agregado de Abonos (ABN-{n}). 1:1 con la OP. Inmutable. '
+    'Misma familia ABN- que payment_number, pero valor distinto (secuencia compartida). ≠ last_payment_number.';
 COMMENT ON COLUMN indicolors.accounts_receivable.production_order_id IS 'OP asociada (1:1)';
 COMMENT ON COLUMN indicolors.accounts_receivable.client_id IS 'Cliente de la OP';
 COMMENT ON COLUMN indicolors.accounts_receivable.total_units IS 'Unidades totales de la OP (snapshot requested_quantity)';
 COMMENT ON COLUMN indicolors.accounts_receivable.delivered_units IS 'Unidades entregadas netas';
 COMMENT ON COLUMN indicolors.accounts_receivable.pending_units IS 'total_units - delivered_units, nunca negativo';
-COMMENT ON COLUMN indicolors.accounts_receivable.total_owed IS 'Valor acumulado de lo entregado';
+COMMENT ON COLUMN indicolors.accounts_receivable.total_owed IS
+    'Valor acumulado de lo entregado (cartera CxC por entregas). API Abonos expone totalToCharge de la OP en totalOwed.';
 COMMENT ON COLUMN indicolors.accounts_receivable.total_paid IS 'Suma neta de liquidaciones (abono+anticipo+retencion - reversiones)';
-COMMENT ON COLUMN indicolors.accounts_receivable.total_remaining IS 'total_owed - total_paid';
+COMMENT ON COLUMN indicolors.accounts_receivable.total_remaining IS
+    'En BD: total_owed(entregas) - total_paid. API Abonos: totalToCharge(OP) - total_paid (puede ser negativo).';
 COMMENT ON COLUMN indicolors.accounts_receivable.total_cash_paid IS 'Suma neta de abonos en caja (abono - reversiones de abono)';
 COMMENT ON COLUMN indicolors.accounts_receivable.total_withheld IS 'Suma neta de retenciones sufridas';
 COMMENT ON COLUMN indicolors.accounts_receivable.total_advance_paid IS 'Suma neta de anticipos aplicados/registrados';
@@ -84,7 +94,8 @@ COMMENT ON COLUMN indicolors.accounts_receivable.status IS
     'pendiente|parcial|pagado|anulado (estado de liquidación; el aging se calcula aparte con due_date)';
 COMMENT ON COLUMN indicolors.accounts_receivable.last_delivery_at IS 'delivered_at de la última entrega';
 COMMENT ON COLUMN indicolors.accounts_receivable.last_payment_number IS
-    'Último payment_number (ABN-{n}) vigente de la OP. Null si no hay liquidaciones netas. No es el id del agregado (ese es cxc_number).';
+    'Último payment_number (ABN-{n}) vigente de la OP. Null si no hay liquidaciones netas. '
+    'No es el id del agregado de Abonos (ese es abonos_number = ABN-{n} distinto).';
 COMMENT ON COLUMN indicolors.accounts_receivable.last_payment_at IS
     'paid_at del último abono/anticipo/retención vigente (no reversión). Null si no hay liquidaciones netas.';
 COMMENT ON COLUMN indicolors.accounts_receivable.updated_at IS 'Última actualización del agregado';

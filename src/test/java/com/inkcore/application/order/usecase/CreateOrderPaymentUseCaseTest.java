@@ -6,6 +6,7 @@ import com.inkcore.domain.order.model.OrderPayment;
 import com.inkcore.domain.order.model.PaymentType;
 import com.inkcore.domain.order.ports.out.AccountsReceivableRepositoryPort;
 import com.inkcore.domain.order.ports.out.OrderPaymentRepositoryPort;
+import com.inkcore.domain.productionorder.model.PrepressDetails;
 import com.inkcore.domain.productionorder.model.ProductionOrder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,14 +41,15 @@ class CreateOrderPaymentUseCaseTest {
     }
 
     @Test
-    void execute_allowsAdvanceAndUsesAuthenticatedUser() {
-        ProductionOrder order = order();
+    void execute_allowsAdvanceWithoutDeliveriesOrTotalToCharge() {
+        ProductionOrder order = bareOrder();
         LocalDateTime now = LocalDateTime.of(2026, 9, 8, 10, 0);
         AccountsReceivable updated = summary(new BigDecimal("-250000.00"));
         updated.setLastPaymentNumber("ABN-1");
         updated.setLastPaymentAt(now);
         updated.setTotalPaid(new BigDecimal("250000.00"));
         updated.setCxcNumber("CXC-1");
+        updated.setDeliveredUnits(0);
 
         when(support.companyId(authentication)).thenReturn("company-1");
         when(support.userId(authentication)).thenReturn("user-authenticated");
@@ -57,6 +59,7 @@ class CreateOrderPaymentUseCaseTest {
         when(paymentRepository.save(any(OrderPayment.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(accountsReceivableRepository.findByProductionOrderId("company-1", "op-1"))
                 .thenReturn(Optional.of(updated));
+        when(support.resolveOdpNumber("company-1", "op-1")).thenReturn("ODP-12");
 
         var result = useCase.execute(
                 new CreateOrderPaymentUseCase.CreateOrderPaymentCommand(
@@ -82,20 +85,24 @@ class CreateOrderPaymentUseCaseTest {
         assertEquals("ABN-1", captor.getValue().getPaymentNumber());
         assertEquals("user-authenticated", captor.getValue().getRegisteredBy());
         assertEquals(0, new BigDecimal("250000.00").compareTo(captor.getValue().getAmount()));
-        assertEquals(updated, result.accountsReceivable());
+        assertEquals("ODP-12", result.odpNumber());
         assertEquals("ABN-1", result.accountsReceivable().getLastPaymentNumber());
         assertEquals(0, new BigDecimal("250000.00").compareTo(result.accountsReceivable().getTotalPaid()));
+        assertEquals(0, BigDecimal.ZERO.setScale(2).compareTo(result.accountsReceivable().getTotalOwed()));
+        assertEquals(0, new BigDecimal("-250000.00").compareTo(result.accountsReceivable().getTotalRemaining()));
     }
 
     @Test
-    void execute_secondPayment_returnsUpdatedLastPaymentNumberAndTotals() {
-        ProductionOrder order = order();
-        AccountsReceivable updated = summary(new BigDecimal("200000.00"));
+    void execute_abonoAgainstOpTotalEvenWithZeroDeliveries() {
+        ProductionOrder order = orderWithCharge(new BigDecimal("1500000.00"));
+        AccountsReceivable updated = summary(new BigDecimal("-300000.00"));
         updated.setCxcNumber("CXC-7");
+        updated.setAbonosNumber("ABN-7");
+        updated.setDeliveredUnits(0);
         updated.setLastPaymentNumber("ABN-2");
         updated.setLastPaymentAt(LocalDateTime.of(2026, 9, 15, 16, 0));
-        updated.setTotalPaid(new BigDecimal("400000.00"));
-        updated.setTotalRemaining(new BigDecimal("200000.00"));
+        updated.setTotalPaid(new BigDecimal("300000.00"));
+        updated.setTotalOwed(BigDecimal.ZERO);
 
         when(support.companyId(authentication)).thenReturn("company-1");
         when(support.userId(authentication)).thenReturn("user-authenticated");
@@ -109,7 +116,7 @@ class CreateOrderPaymentUseCaseTest {
         var result = useCase.execute(
                 new CreateOrderPaymentUseCase.CreateOrderPaymentCommand(
                         "op-1",
-                        new BigDecimal("200000"),
+                        new BigDecimal("300000"),
                         "abono",
                         "transferencia",
                         "REF-2",
@@ -119,20 +126,21 @@ class CreateOrderPaymentUseCaseTest {
                         null,
                         null,
                         null,
-                        "Segundo abono"
+                        "Abono sobre total OP"
                 ),
                 authentication
         );
 
         assertEquals("ABN-2", result.payment().getPaymentNumber());
         assertEquals("ABN-2", result.accountsReceivable().getLastPaymentNumber());
-        assertEquals(0, new BigDecimal("400000.00").compareTo(result.accountsReceivable().getTotalPaid()));
-        assertEquals(0, new BigDecimal("200000.00").compareTo(result.accountsReceivable().getTotalRemaining()));
+        assertEquals(0, new BigDecimal("1500000.00").compareTo(result.accountsReceivable().getTotalOwed()));
+        assertEquals(0, new BigDecimal("300000.00").compareTo(result.accountsReceivable().getTotalPaid()));
+        assertEquals(0, new BigDecimal("1200000.00").compareTo(result.accountsReceivable().getTotalRemaining()));
     }
 
     @Test
     void execute_registersWithholding() {
-        ProductionOrder order = order();
+        ProductionOrder order = bareOrder();
         when(support.companyId(authentication)).thenReturn("company-1");
         when(support.userId(authentication)).thenReturn("user-authenticated");
         when(support.now()).thenReturn(LocalDateTime.of(2026, 9, 8, 10, 0));
@@ -166,12 +174,20 @@ class CreateOrderPaymentUseCaseTest {
         assertEquals("retefuente", captor.getValue().getWithholdingType().getDbValue());
     }
 
-    private static ProductionOrder order() {
+    private static ProductionOrder bareOrder() {
         ProductionOrder order = ProductionOrder.reconstitute();
         order.setProductionOrderId("op-1");
         order.setCompanyId("company-1");
         order.setClientId("client-1");
         order.setState(true);
+        return order;
+    }
+
+    private static ProductionOrder orderWithCharge(BigDecimal totalToCharge) {
+        ProductionOrder order = bareOrder();
+        PrepressDetails prepress = new PrepressDetails();
+        prepress.setTotalPlatesValue(totalToCharge);
+        order.setPrepress(prepress);
         return order;
     }
 

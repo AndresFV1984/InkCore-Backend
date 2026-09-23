@@ -1,5 +1,6 @@
 package com.inkcore.application.order.usecase;
 
+import com.inkcore.application.order.AbonosBalance;
 import com.inkcore.application.order.OrderSupport;
 import com.inkcore.domain.order.model.AccountsReceivable;
 import com.inkcore.domain.order.model.AccountsReceivableAging;
@@ -33,24 +34,33 @@ public class GetOrderAccountsReceivableUseCase {
     public AccountsReceivableView execute(String productionOrderId, Authentication authentication) {
         String companyId = support.companyId(authentication);
         ProductionOrder order = support.requireActiveOrder(productionOrderId, companyId);
+        String odpNumber = support.resolveOdpNumber(companyId, productionOrderId);
 
         return accountsReceivableRepository.findByProductionOrderId(companyId, productionOrderId)
-                .map(summary -> from(summary, true))
-                .orElseGet(() -> withoutMovements(order));
+                .map(summary -> from(summary, order, true, odpNumber))
+                .orElseGet(() -> withoutMovements(order, odpNumber));
     }
 
-    private static AccountsReceivableView from(AccountsReceivable summary, boolean hasMovements) {
+    private static AccountsReceivableView from(
+            AccountsReceivable summary,
+            ProductionOrder order,
+            boolean hasMovements,
+            String odpNumber
+    ) {
+        AbonosBalance.applyTo(summary, order);
         AccountsReceivableAging.AgingSnapshot aging = AccountsReceivableAging.of(summary, LocalDate.now());
         return new AccountsReceivableView(
                 summary.getAccountsReceivableId(),
                 summary.getCxcNumber(),
+                summary.getAbonosNumber(),
                 summary.getProductionOrderId(),
+                odpNumber,
                 summary.getClientId(),
                 summary.getTotalUnits(),
                 summary.getDeliveredUnits(),
                 summary.getPendingUnits(),
                 summary.getTotalOwed(),
-                summary.getTotalPaid(),
+                nullToZero(summary.getTotalPaid()),
                 summary.getTotalRemaining(),
                 nullToZero(summary.getTotalCashPaid()),
                 nullToZero(summary.getTotalWithheld()),
@@ -71,18 +81,22 @@ public class GetOrderAccountsReceivableUseCase {
         );
     }
 
-    private static AccountsReceivableView withoutMovements(ProductionOrder order) {
+    private static AccountsReceivableView withoutMovements(ProductionOrder order, String odpNumber) {
+        AbonosBalance.Snapshot balance = AbonosBalance.of(order, BigDecimal.ZERO);
+        int requested = order.getRequestedQuantity();
         return new AccountsReceivableView(
                 null,
                 null,
+                null,
                 order.getProductionOrderId(),
+                odpNumber,
                 order.getClientId(),
-                order.getRequestedQuantity(),
+                requested,
                 0,
-                order.getRequestedQuantity(),
-                BigDecimal.ZERO,
-                BigDecimal.ZERO,
-                BigDecimal.ZERO,
+                requested,
+                balance.totalOwed(),
+                balance.totalPaid(),
+                balance.totalRemaining(),
                 BigDecimal.ZERO,
                 BigDecimal.ZERO,
                 BigDecimal.ZERO,
@@ -109,7 +123,9 @@ public class GetOrderAccountsReceivableUseCase {
     public record AccountsReceivableView(
             String accountsReceivableId,
             String cxcNumber,
+            String abonosNumber,
             String productionOrderId,
+            String odpNumber,
             String clientId,
             int totalUnits,
             int deliveredUnits,

@@ -7,7 +7,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.Instant;
 
-@Schema(name = "AccountsReceivableListSuccessEnvelope", description = "Listado paginado CxC con accountsReceivableId y cxcNumber")
+@Schema(name = "AccountsReceivableListSuccessEnvelope", description = "Listado paginado CxC/Abonos "
+        + "(accountsReceivableId, cxcNumber, abonosNumber ABN-n, odpNumber)")
 public record AccountsReceivableListSuccessEnvelope(
         @Schema(description = "Metadatos de la respuesta")
         ApiHeaders headers,

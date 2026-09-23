@@ -1,5 +1,6 @@
 package com.inkcore.application.order.usecase;
 
+import com.inkcore.application.order.AbonosBalance;
 import com.inkcore.application.order.OrderSupport;
 import com.inkcore.domain.order.exception.InsufficientAvailabilityException;
 import com.inkcore.domain.order.exception.OrderBusinessRuleException;
@@ -9,13 +10,13 @@ import com.inkcore.domain.order.model.DeliveryMovementType;
 import com.inkcore.domain.order.model.OrderDelivery;
 import com.inkcore.domain.order.ports.out.AccountsReceivableRepositoryPort;
 import com.inkcore.domain.order.ports.out.OrderDeliveryRepositoryPort;
+import com.inkcore.domain.productionorder.model.ProductionOrder;
 import com.inkcore.domain.shared.exception.ResourceNotFoundException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Locale;
 
@@ -47,7 +48,7 @@ public class ReverseOrderDeliveryUseCase {
         String userId = support.userId(authentication);
         LocalDateTime now = support.now();
 
-        support.requireActiveOrder(productionOrderId, companyId);
+        ProductionOrder order = support.requireActiveOrder(productionOrderId, companyId);
         OrderDelivery original = deliveryRepository.findByIdForUpdate(companyId, deliveryId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "ORDER_DELIVERY_NOT_FOUND",
@@ -64,17 +65,8 @@ public class ReverseOrderDeliveryUseCase {
             throw new OrderConflictException("Esta entrega ya fue anulada");
         }
 
-        AccountsReceivable current = accountsReceivableRepository.findByProductionOrderId(companyId, productionOrderId)
-                .orElse(null);
-        if (current != null) {
-            BigDecimal owed = current.getTotalOwed() == null ? BigDecimal.ZERO : current.getTotalOwed();
-            BigDecimal paid = current.getTotalPaid() == null ? BigDecimal.ZERO : current.getTotalPaid();
-            if (owed.subtract(original.getTotalValue()).compareTo(paid) < 0) {
-                throw new OrderBusinessRuleException(
-                        "No se puede anular la entrega: el saldo adeudado quedaría por debajo de lo ya abonado"
-                );
-            }
-        }
+        // Abonos se aplican sobre totalToCharge de la OP (no sobre el valor entregado):
+        // anular una entrega no se bloquea por totalPaid vs valor CxC de entregas.
 
         OrderDelivery reversion = new OrderDelivery();
         reversion.setCompanyId(companyId);
@@ -107,7 +99,9 @@ public class ReverseOrderDeliveryUseCase {
         AccountsReceivable summary = accountsReceivableRepository
                 .findByProductionOrderId(companyId, productionOrderId)
                 .orElseGet(AccountsReceivable::new);
-        return new CreateOrderDeliveryUseCase.CreateDeliveryResult(saved, summary);
+        AbonosBalance.applyTo(summary, order);
+        String odpNumber = support.resolveOdpNumber(companyId, productionOrderId);
+        return new CreateOrderDeliveryUseCase.CreateDeliveryResult(saved, summary, odpNumber);
     }
 
     private static RuntimeException translateReversalConflict(DataIntegrityViolationException ex) {

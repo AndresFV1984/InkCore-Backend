@@ -134,6 +134,7 @@ public final class OrderPersistenceMapper {
         summary.setAccountsReceivableId(entity.getAccountsReceivableId());
         summary.setCompanyId(entity.getCompanyId());
         summary.setCxcNumber(entity.getCxcNumber());
+        summary.setAbonosNumber(entity.getAbonosNumber());
         summary.setProductionOrderId(entity.getProductionOrderId());
         summary.setClientId(entity.getClientId());
         summary.setTotalUnits(entity.getTotalUnits());

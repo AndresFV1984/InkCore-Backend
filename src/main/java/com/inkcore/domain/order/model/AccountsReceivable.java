@@ -9,6 +9,7 @@ public final class AccountsReceivable {
     private String accountsReceivableId;
     private String companyId;
     private String cxcNumber;
+    private String abonosNumber;
     private String productionOrderId;
     private String clientId;
     private int totalUnits;
@@ -46,6 +47,8 @@ public final class AccountsReceivable {
     public void setCompanyId(String companyId) { this.companyId = companyId; }
     public String getCxcNumber() { return cxcNumber; }
     public void setCxcNumber(String cxcNumber) { this.cxcNumber = cxcNumber; }
+    public String getAbonosNumber() { return abonosNumber; }
+    public void setAbonosNumber(String abonosNumber) { this.abonosNumber = abonosNumber; }
     public String getProductionOrderId() { return productionOrderId; }
     public void setProductionOrderId(String productionOrderId) { this.productionOrderId = productionOrderId; }
     public String getClientId() { return clientId; }

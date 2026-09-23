@@ -1,5 +1,6 @@
 package com.inkcore.application.order.usecase;
 
+import com.inkcore.application.order.AbonosBalance;
 import com.inkcore.application.order.OrderSupport;
 import com.inkcore.domain.order.exception.OrderBusinessRuleException;
 import com.inkcore.domain.order.model.AccountsReceivable;
@@ -80,7 +81,9 @@ public class CreateOrderPaymentUseCase {
         AccountsReceivable summary = accountsReceivableRepository
                 .findByProductionOrderId(companyId, order.getProductionOrderId())
                 .orElseGet(AccountsReceivable::new);
-        return new CreatePaymentResult(saved, summary);
+        AbonosBalance.applyTo(summary, order);
+        String odpNumber = support.resolveOdpNumber(companyId, order.getProductionOrderId());
+        return new CreatePaymentResult(saved, summary, odpNumber);
     }
 
     private static PaymentType resolvePaymentType(String raw) {
@@ -150,6 +153,10 @@ public class CreateOrderPaymentUseCase {
     ) {
     }
 
-    public record CreatePaymentResult(OrderPayment payment, AccountsReceivable accountsReceivable) {
+    public record CreatePaymentResult(
+            OrderPayment payment,
+            AccountsReceivable accountsReceivable,
+            String odpNumber
+    ) {
     }
 }

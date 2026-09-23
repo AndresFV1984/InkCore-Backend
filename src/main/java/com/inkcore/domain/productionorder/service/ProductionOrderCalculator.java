@@ -1,7 +1,14 @@
 package com.inkcore.domain.productionorder.service;
 
+import com.inkcore.domain.productionorder.model.DiscountType;
 import com.inkcore.domain.productionorder.model.FlipType;
+import com.inkcore.domain.productionorder.model.PaperRow;
 import com.inkcore.domain.productionorder.model.Plate;
+import com.inkcore.domain.productionorder.model.PostpressLine;
+import com.inkcore.domain.productionorder.model.PostpressRecord;
+import com.inkcore.domain.productionorder.model.PrintConfig;
+import com.inkcore.domain.productionorder.model.PrintEntry;
+import com.inkcore.domain.productionorder.model.ProductionOrder;
 import com.inkcore.domain.thousandrate.model.ThousandRate;
 
 import java.math.BigDecimal;
@@ -195,5 +202,81 @@ public final class ProductionOrderCalculator {
                 : discountValue;
         BigDecimal result = amount.subtract(discount);
         return money(result.signum() < 0 ? BigDecimal.ZERO : result);
+    }
+
+    /**
+     * Total a cobrar de la OP (panel Cobro): suma de etapas menos descuentos de
+     * preprensa/impresión/cobro. Mismo criterio que el PDF de cobro.
+     * {@code null} si aún no hay datos de costo cargados.
+     */
+    public static BigDecimal calculateTotalToCharge(ProductionOrder order) {
+        if (order == null) {
+            return null;
+        }
+        boolean hasCostData = order.getPrepress() != null
+                || (order.getPaperRows() != null && !order.getPaperRows().isEmpty())
+                || (order.getPrints() != null && !order.getPrints().isEmpty())
+                || (order.getPostpressRecords() != null && !order.getPostpressRecords().isEmpty())
+                || order.getBilling() != null;
+        if (!hasCostData) {
+            return null;
+        }
+
+        BigDecimal total = BigDecimal.ZERO;
+        if (order.getPrepress() != null && order.getPrepress().getTotalPlatesValue() != null) {
+            total = total.add(order.getPrepress().getTotalPlatesValue());
+            if (order.getPrepress().getDesignCost() != null) {
+                total = total.add(order.getPrepress().getDesignCost());
+            }
+            if (order.getPrepress().getAssemblyPriceCost() != null) {
+                total = total.add(order.getPrepress().getAssemblyPriceCost());
+            }
+            total = applyDiscount(
+                    total,
+                    DiscountType.toValue(order.getPrepress().getPrepressDiscountType()),
+                    order.getPrepress().getPrepressDiscountValue()
+            );
+        }
+        if (order.getPaperRows() != null) {
+            for (PaperRow row : order.getPaperRows()) {
+                total = total.add(nullSafe(row.getTotalPaperValue()));
+                total = total.add(nullSafe(row.getTotalCutValue()));
+            }
+        }
+        if (order.getPrints() != null) {
+            for (PrintConfig print : order.getPrints()) {
+                if (print.getEntries() != null) {
+                    for (PrintEntry entry : print.getEntries()) {
+                        total = total.add(nullSafe(entry.getBasicPrintingPrice()));
+                        total = total.add(nullSafe(entry.getPantonePrintingPrice()));
+                        total = total.add(nullSafe(entry.getPantoneInkChargePrice()));
+                    }
+                }
+                total = total.add(nullSafe(print.getSherpaTestPrice()));
+                total = applyDiscount(
+                        total,
+                        DiscountType.toValue(print.getPrintingDiscountType()),
+                        print.getPrintingDiscountValue()
+                );
+            }
+        }
+        if (order.getPostpressRecords() != null) {
+            for (PostpressRecord record : order.getPostpressRecords()) {
+                if (record.getLines() == null) {
+                    continue;
+                }
+                for (PostpressLine line : record.getLines()) {
+                    total = total.add(nullSafe(line.getChargedPrice()));
+                }
+            }
+        }
+        if (order.getBilling() != null) {
+            total = applyDiscount(
+                    total,
+                    DiscountType.toValue(order.getBilling().getBillingDiscountType()),
+                    order.getBilling().getBillingDiscountValue()
+            );
+        }
+        return money(total);
     }
 }

@@ -30,9 +30,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/clients")
 @Tag(
         name = "Cuentas por cobrar",
-        description = "Dashboard/detalle CxC (CXC-{n} + accountsReceivableId). Incluye openedAt (1ª entrega), "
-                + "dueDate/aging. Solo lectura; anulación implícita "
-                + "(status anulado/sin_movimientos tras reversiones netas a cero). Sin DELETE."
+        description = "Dashboard/detalle CxC/Abonos (CXC-{n} + abonosNumber ABN-{n} + accountsReceivableId). "
+                + "Incluye openedAt (1ª entrega), dueDate/aging. Solo lectura; anulación implícita "
+                + "(status anulado/sin_movimientos tras reversiones netas a cero). Sin DELETE. "
+                + "abonosNumber ≠ paymentNumber del detalle (secuencia ABN compartida)."
 )
 @SecurityRequirement(name = "bearerAuth")
 public class ClientAccountsReceivableController {
@@ -53,8 +54,10 @@ public class ClientAccountsReceivableController {
     @Operation(
             operationId = "getClientAccountsReceivable",
             summary = "Consultar cartera consolidada de un cliente",
-            description = "Retorna las OP con movimientos en accounts_receivable (cada una con accountsReceivableId + cxcNumber) "
-                    + "y los totales agregados del cliente autenticado."
+            description = "Retorna las OP con movimientos en accounts_receivable "
+                    + "(cada una con accountsReceivableId + cxcNumber + abonosNumber ABN-n) "
+                    + "y los totales agregados del cliente autenticado. "
+                    + "abonosNumber es el id del agregado de Abonos (≠ paymentNumber ABN)."
     )
     @ApiResponse(
             responseCode = "200",

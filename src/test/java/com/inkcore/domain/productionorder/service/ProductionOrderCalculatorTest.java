@@ -1,14 +1,21 @@
 package com.inkcore.domain.productionorder.service;
 
+import com.inkcore.domain.productionorder.model.BillingDetails;
+import com.inkcore.domain.productionorder.model.DiscountType;
 import com.inkcore.domain.productionorder.model.FlipType;
+import com.inkcore.domain.productionorder.model.PaperRow;
+import com.inkcore.domain.productionorder.model.PrepressDetails;
+import com.inkcore.domain.productionorder.model.ProductionOrder;
 import com.inkcore.domain.thousandrate.model.ThousandRate;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProductionOrderCalculatorTest {
@@ -54,5 +61,32 @@ class ProductionOrderCalculatorTest {
                 new BigDecimal("130")
         );
         assertEquals(new BigDecimal("100"), price);
+    }
+
+    @Test
+    void calculateTotalToCharge_returnsNullWhenNoCostData() {
+        ProductionOrder order = ProductionOrder.reconstitute();
+        assertNull(ProductionOrderCalculator.calculateTotalToCharge(order));
+    }
+
+    @Test
+    void calculateTotalToCharge_sumsStagesAndAppliesBillingDiscount() {
+        ProductionOrder order = ProductionOrder.reconstitute();
+
+        PrepressDetails prepress = new PrepressDetails();
+        prepress.setTotalPlatesValue(new BigDecimal("1000000.00"));
+        order.setPrepress(prepress);
+
+        PaperRow row = new PaperRow();
+        row.setTotalPaperValue(new BigDecimal("400000.00"));
+        row.setTotalCutValue(new BigDecimal("100000.00"));
+        order.setPaperRows(List.of(row));
+
+        BillingDetails billing = new BillingDetails();
+        billing.setBillingDiscountType(DiscountType.PERCENT);
+        billing.setBillingDiscountValue(new BigDecimal("10"));
+        order.setBilling(billing);
+
+        assertEquals(new BigDecimal("1350000.00"), ProductionOrderCalculator.calculateTotalToCharge(order));
     }
 }

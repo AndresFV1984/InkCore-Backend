@@ -1,5 +1,6 @@
 package com.inkcore.application.order.usecase;
 
+import com.inkcore.application.order.AbonosBalance;
 import com.inkcore.application.order.OrderSupport;
 import com.inkcore.domain.client.model.Client;
 import com.inkcore.domain.client.ports.out.ClientRepositoryPort;
@@ -105,8 +106,10 @@ public class CreateOrderDeliveryUseCase {
         AccountsReceivable summary = accountsReceivableRepository
                 .findByProductionOrderId(companyId, order.getProductionOrderId())
                 .orElseGet(AccountsReceivable::new);
+        AbonosBalance.applyTo(summary, order);
 
-        return new CreateDeliveryResult(saved, summary);
+        String odpNumber = support.resolveOdpNumber(companyId, order.getProductionOrderId());
+        return new CreateDeliveryResult(saved, summary, odpNumber);
     }
 
     private static InsufficientAvailabilityException translateAvailabilityConflict(DataIntegrityViolationException ex) {
@@ -147,6 +150,10 @@ public class CreateOrderDeliveryUseCase {
     ) {
     }
 
-    public record CreateDeliveryResult(OrderDelivery delivery, AccountsReceivable accountsReceivable) {
+    public record CreateDeliveryResult(
+            OrderDelivery delivery,
+            AccountsReceivable accountsReceivable,
+            String odpNumber
+    ) {
     }
 }

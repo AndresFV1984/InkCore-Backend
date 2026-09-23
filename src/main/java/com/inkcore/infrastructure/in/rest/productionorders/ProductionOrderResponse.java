@@ -16,6 +16,7 @@ import com.inkcore.domain.productionorder.model.PrintEntry;
 import com.inkcore.domain.productionorder.model.ProductionOrder;
 import com.inkcore.domain.productionorder.model.ProductionOrderStatus;
 import com.inkcore.domain.productionorder.model.StageDiscount;
+import com.inkcore.domain.productionorder.service.ProductionOrderCalculator;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
@@ -27,6 +28,7 @@ import java.util.Map;
 @Schema(
         name = "ProductionOrderResponse",
         description = "Agregado completo de Orden de Producción (planta). "
+                + "Incluye totalToCharge (total a cobrar del panel Cobro; null si aún no hay costos). "
                 + "customerOrderId/odpNumber son del pedido comercial (customer_orders), no de la OP; "
                 + "null mientras la OP no haya entrado a un estado IN_PROGRESS*."
 )
@@ -67,6 +69,13 @@ public record ProductionOrderResponse(
         String sellerId,
         LocalDate orderDate,
         Integer requestedQuantity,
+        @Schema(
+                description = "Total a cobrar de la OP (panel Cobro): suma de etapas menos descuentos de cobro. "
+                        + "Mismo criterio que el PDF de cobro. null si aún no hay costos calculados.",
+                example = "1500000.00",
+                nullable = true
+        )
+        BigDecimal totalToCharge,
         @Schema(
                 description = "Unidades liberadas por planta (station_order_progress.cantidad_disponible); "
                         + "base para disponibilidad comercial. 0 si no hay fila de progreso.",
@@ -134,6 +143,7 @@ public record ProductionOrderResponse(
                 order.getSellerId(),
                 order.getOrderDate(),
                 order.getRequestedQuantity(),
+                ProductionOrderCalculator.calculateTotalToCharge(order),
                 cantidadDisponible,
                 order.getProposalQuantity1(),
                 order.getProposalQuantity2(),

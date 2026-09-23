@@ -1,9 +1,13 @@
 -- Triggers del módulo Pedidos / CxC / Abonos (sin CREATE TABLE).
--- Estrategia CXC: el trigger asigna accounts_receivable_id (DEFAULT) + cxc_number vía fn_next_cxc_number
+-- Estrategia CXC/Abonos: el trigger asigna accounts_receivable_id (DEFAULT) + cxc_number vía fn_next_cxc_number
+-- y abonos_number vía fn_next_abonos_number (ABN-{n}; misma secuencia que payment_number → ≠ movimiento)
 -- solo en el primer INSERT; los UPDATE posteriores nunca regeneran esos campos.
 -- due_date / payment_term_days se fijan al abrir deuda (1ª entrega) desde clients.credit_days.
+-- API Abonos: totalOwed/totalRemaining se calculan en lectura como totalToCharge(OP) − totalPaid
+-- (DB total_owed sigue siendo valor acumulado de entregas para cartera CxC por entregas).
 -- Depende de: order_deliveries, order_payments, accounts_receivable, station_order_progress,
--- clients, accounts_receivable_number_sequences / fn_next_cxc_number.
+-- clients, accounts_receivable_number_sequences / fn_next_cxc_number,
+-- order_payment_number_sequences / fn_next_abonos_number (V52).
 
 CREATE OR REPLACE FUNCTION indicolors.fn_validate_delivery()
 RETURNS TRIGGER AS $$
@@ -12,8 +16,6 @@ DECLARE
     v_delivered     INTEGER;
     v_available     INTEGER;
     v_orig          indicolors.order_deliveries%ROWTYPE;
-    v_total_owed    NUMERIC(14,2);
-    v_total_paid    NUMERIC(14,2);
 BEGIN
     IF NEW.movement_type = 'entrega' THEN
         SELECT cantidad_disponible INTO v_processed
@@ -64,15 +66,8 @@ BEGIN
                 v_orig.quantity_delivered, v_orig.total_value;
         END IF;
 
-        SELECT total_owed, total_paid INTO v_total_owed, v_total_paid
-        FROM indicolors.accounts_receivable
-        WHERE production_order_id = NEW.production_order_id;
-
-        IF (COALESCE(v_total_owed, 0) - NEW.total_value) < COALESCE(v_total_paid, 0) THEN
-            RAISE EXCEPTION
-                'No se puede anular la entrega %: el saldo adeudado quedaría (%) por debajo de lo ya abonado (%)',
-                NEW.reversed_delivery_id, (COALESCE(v_total_owed, 0) - NEW.total_value), v_total_paid;
-        END IF;
+        -- Abonos se aplican sobre totalToCharge de la OP (API), no sobre valor entregado:
+        -- no se valida total_paid vs total_owed de entregas al anular.
 
         SELECT cantidad_disponible INTO v_processed
         FROM indicolors.station_order_progress
@@ -96,7 +91,7 @@ CREATE TRIGGER trg_deliveries_validate
     EXECUTE FUNCTION indicolors.fn_validate_delivery();
 
 COMMENT ON FUNCTION indicolors.fn_validate_delivery() IS
-    'entrega: calcula available_before y rechaza si quantity_delivered supera lo disponible. reversion: valida entrega original y saldo vs abonos';
+    'entrega: calcula available_before y rechaza si quantity_delivered supera lo disponible. reversion: valida entrega original (Abonos usa totalToCharge OP, no bloquea por total_paid vs valor entregado)';
 
 CREATE OR REPLACE FUNCTION indicolors.fn_sync_accounts_receivable_delivery()
 RETURNS TRIGGER AS $$
@@ -122,7 +117,7 @@ BEGIN
         WHERE client_id = NEW.client_id;
 
         INSERT INTO indicolors.accounts_receivable (
-            cxc_number, company_id, production_order_id, client_id,
+            cxc_number, abonos_number, company_id, production_order_id, client_id,
             total_units, delivered_units, pending_units,
             total_owed, total_paid, total_remaining,
             total_cash_paid, total_withheld, total_advance_paid,
@@ -131,6 +126,7 @@ BEGIN
         )
         VALUES (
             indicolors.fn_next_cxc_number(NEW.company_id),
+            indicolors.fn_next_abonos_number(NEW.company_id),
             NEW.company_id, NEW.production_order_id, NEW.client_id,
             COALESCE(v_total_units, NEW.quantity_delivered),
             NEW.quantity_delivered,
@@ -243,7 +239,7 @@ BEGIN
         WHERE client_id = NEW.client_id;
 
         INSERT INTO indicolors.accounts_receivable (
-            cxc_number, company_id, production_order_id, client_id,
+            cxc_number, abonos_number, company_id, production_order_id, client_id,
             total_units, delivered_units, pending_units,
             total_owed, total_paid, total_remaining,
             total_cash_paid, total_withheld, total_advance_paid,
@@ -252,6 +248,7 @@ BEGIN
         )
         VALUES (
             indicolors.fn_next_cxc_number(NEW.company_id),
+            indicolors.fn_next_abonos_number(NEW.company_id),
             NEW.company_id, NEW.production_order_id, NEW.client_id,
             0, 0, 0, 0, v_signed_amount, -v_signed_amount,
             v_cash_delta, v_withheld_delta, v_advance_delta,
@@ -349,3 +346,21 @@ WHERE NOT EXISTS (
             AND r.payment_type = 'reversion'
       )
 );
+
+-- Backfill abonos_number (ABN-{n}) para filas históricas sin cuenta de Abonos.
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN
+        SELECT accounts_receivable_id, company_id
+        FROM indicolors.accounts_receivable
+        WHERE abonos_number IS NULL
+           OR abonos_number = ''
+        ORDER BY company_id, opened_at NULLS LAST, accounts_receivable_id
+    LOOP
+        UPDATE indicolors.accounts_receivable
+        SET abonos_number = indicolors.fn_next_abonos_number(r.company_id)
+        WHERE accounts_receivable_id = r.accounts_receivable_id;
+    END LOOP;
+END $$;

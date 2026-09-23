@@ -23,6 +23,9 @@ public class AccountsReceivableEntity {
     @Column(name = "cxc_number", nullable = false, length = 32)
     private String cxcNumber;
 
+    @Column(name = "abonos_number", nullable = false, length = 32)
+    private String abonosNumber;
+
     @Column(name = "production_order_id", nullable = false, length = 64, unique = true)
     private String productionOrderId;
 
@@ -86,6 +89,8 @@ public class AccountsReceivableEntity {
     public void setCompanyId(String companyId) { this.companyId = companyId; }
     public String getCxcNumber() { return cxcNumber; }
     public void setCxcNumber(String cxcNumber) { this.cxcNumber = cxcNumber; }
+    public String getAbonosNumber() { return abonosNumber; }
+    public void setAbonosNumber(String abonosNumber) { this.abonosNumber = abonosNumber; }
     public String getProductionOrderId() { return productionOrderId; }
     public void setProductionOrderId(String productionOrderId) { this.productionOrderId = productionOrderId; }
     public String getClientId() { return clientId; }

@@ -35,10 +35,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/accounts-receivable")
 @Tag(
         name = "Cuentas por cobrar",
-        description = "Dashboard/detalle CxC y Abonos (mismo agregado 1:1 por OP: CXC-{n} + accountsReceivableId). "
-                + "Incluye openedAt (1ª entrega), lastPaymentNumber (último ABN vigente), dueDate/aging. "
-                + "Solo lectura; anulación implícita "
-                + "(status anulado/sin_movimientos tras reversiones netas a cero). Sin DELETE."
+        description = "Dashboard/detalle CxC y Abonos (1:1 por OP). "
+                + "cxcNumber (CXC-n), abonosNumber (ABN-n, id agregado inmutable ≠ paymentNumber; secuencia ABN compartida), "
+                + "odpNumber (pedido), lastPaymentNumber (último movimiento). Solo lectura; anulación implícita. Sin DELETE."
 )
 @SecurityRequirement(name = "bearerAuth")
 public class AccountsReceivableController {
@@ -65,11 +64,10 @@ public class AccountsReceivableController {
             description = "SELECT sobre accounts_receivable (derivada por triggers). Cada ítem incluye accountsReceivableId, "
                     + "cxcNumber (CXC-{n}), openedAt (deliveredAt de la 1ª entrega; no cambia con entregas posteriores), "
                     + "dueDate, collectionStatus/agingBucket para alertas, productionOrderId y orderNumber (OP-{n}). "
-                    + "También lastPaymentNumber (ABN-{n} vigente) y lastPaymentAt para el dashboard de Abonos "
-                    + "(mismo agregado CxC 1:1 por OP; no existe cuenta ABN aparte). "
-                    + "Filtros: status (pendiente|parcial|pagado|anulado), clientId, overdueOnly, dueSoonOnly, "
-                    + "withBalance (totalRemaining > 0), "
-                    + "search (orderNumber, clientName, cxcNumber, lastDeliveryNumber/ODP o lastPaymentNumber/ABN). "
+                    + "También abonosNumber (ABN-{n}, id del agregado de Abonos; distinto de paymentNumber ABN-{n}), "
+                    + "odpNumber (pedido), lastPaymentNumber/lastPaymentAt. "
+                    + "Filtros: status, clientId, overdueOnly, dueSoonOnly, withBalance, "
+                    + "search (orderNumber, odpNumber, clientName, cxcNumber, abonosNumber, lastDeliveryNumber, lastPaymentNumber). "
                     + "lastDeliveryAt es la última entrega; openedAt es la primera. "
                     + "No hay DELETE ni void explícito: la CxC queda anulado/sin_movimientos cuando "
                     + "entregas y abonos netos llegan a cero tras reversiones."
@@ -91,8 +89,8 @@ public class AccountsReceivableController {
             @Parameter(description = "Filtrar por cliente")
             @RequestParam(required = false) String clientId,
             @Parameter(
-                    description = "Búsqueda por orderNumber, clientName, cxcNumber, lastDeliveryNumber o lastPaymentNumber",
-                    example = "ABN-4"
+                    description = "Búsqueda por orderNumber, odpNumber, clientName, cxcNumber, abonosNumber, lastDeliveryNumber o lastPaymentNumber",
+                    example = "ABN-7"
             )
             @RequestParam(required = false) String search,
             @Parameter(description = "Solo CxC vencidas con saldo > 0", example = "true")
@@ -122,10 +120,9 @@ public class AccountsReceivableController {
     @Operation(
             operationId = "getAccountsReceivableDetail",
             summary = "Detalle CxC + historial de entregas y abonos",
-            description = "Resumen de accounts_receivable (accountsReceivableId + cxcNumber + openedAt + lastPaymentNumber) más ledgers "
-                    + "order_deliveries (deliveryNumber ODP-{n}) y order_payments (paymentNumber ABN-{n}) de la OP. "
-                    + "openedAt = deliveredAt de la 1ª entrega (histórico); lastDeliveryAt = última entrega; "
-                    + "lastPaymentNumber = último ABN vigente (referencia de movimiento, no id de cuenta). "
+            description = "Resumen (cxcNumber + abonosNumber ABN-n + odpNumber + lastPaymentNumber) más ledgers "
+                    + "order_deliveries y order_payments (paymentNumber ABN-n). "
+                    + "Invariante: abonosNumber != cualquier paymentNumber del detalle. "
                     + "Solo lectura; no existe endpoint DELETE/void de CxC."
     )
     @ApiResponse(

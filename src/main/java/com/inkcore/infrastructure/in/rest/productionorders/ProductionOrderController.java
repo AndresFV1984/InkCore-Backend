@@ -87,7 +87,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/production-orders")
 @Tag(
         name = "Órdenes de producción",
-        description = "Wizard OP (OP-{n}). Al pasar a IN_PROGRESS* crea customer_orders "
+        description = "Wizard OP (OP-{n}). Listado y detalle exponen totalToCharge (total a cobrar del panel Cobro; "
+                + "null si aún no hay costos). Al pasar a IN_PROGRESS* crea customer_orders "
                 + "(customerOrderId + odpNumber ODP-{n}). ANULADA reemplaza CANCELLED."
 )
 @SecurityRequirement(name = "bearerAuth")
@@ -193,7 +194,8 @@ public class ProductionOrderController {
             description = "Devuelve el agregado completo para rehidratar el wizard: prepress, plates "
                     + "(productionOrderPlateId), paperRows, prints, postpressRecords "
                     + "(FINISHED_PRODUCT / FINISHING_PROCESS), billing, operators, stageDiscounts, "
-                    + "timestamps de progreso, version, cantidadDisponible y, si ya existe, "
+                    + "timestamps de progreso, version, cantidadDisponible, totalToCharge "
+                    + "(total a cobrar del panel Cobro; mismo criterio que el PDF; null sin costos) y, si ya existe, "
                     + "customerOrderId + odpNumber del pedido comercial (customer_orders). "
                     + "Solo de la empresa del usuario autenticado."
     )
@@ -231,7 +233,8 @@ public class ProductionOrderController {
             summary = "Lista paginada de OPs de la empresa del usuario.",
             description = "Filtros opcionales: orderNumber (búsqueda parcial, ej. OP-42 o 42), status "
                     + "(ANULADA; CANCELLED se normaliza a ANULADA), clientId, fromDate/toDate (orderDate), state. "
-                    + "Cada ítem incluye customerOrderId/odpNumber cuando la OP ya tiene pedido comercial. "
+                    + "Cada ítem incluye customerOrderId/odpNumber cuando la OP ya tiene pedido comercial, "
+                    + "y totalToCharge (total a cobrar del panel Cobro; null si aún no hay costos). "
                     + "Siempre acotado al companyId del JWT. Las respuestas nunca devuelven CANCELLED."
     )
     @ApiResponse(

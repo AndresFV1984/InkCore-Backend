@@ -178,8 +178,7 @@ public class ProductionOrderPersistenceAdapter implements ProductionOrderReposit
     @Transactional(readOnly = true)
     public PageResult<ProductionOrder> findPage(ProductionOrderFilter filter, PageQuery pageQuery) {
         Page<ProductionOrderEntity> page = orderRepository.findAll(toSpecification(filter), pageable(pageQuery));
-        List<ProductionOrder> orders = page.getContent().stream().map(mapper::toDomain).toList();
-        attachOperators(orders);
+        List<ProductionOrder> orders = page.getContent().stream().map(this::loadAggregate).toList();
         return new PageResult<>(
                 orders,
                 pageQuery.page(),
@@ -242,31 +241,9 @@ public class ProductionOrderPersistenceAdapter implements ProductionOrderReposit
     }
 
     /**
-     * El listado paginado no carga el agregado completo; sí necesita operadores
-     * para que el front filtre órdenes asignadas (Estación operario).
+     * El listado paginado carga el agregado completo para poder calcular
+     * {@code totalToCharge} (panel Cobro) sin un round-trip adicional.
      */
-    private void attachOperators(List<ProductionOrder> orders) {
-        if (orders.isEmpty()) {
-            return;
-        }
-        List<String> orderIds = orders.stream()
-                .map(ProductionOrder::getProductionOrderId)
-                .filter(id -> id != null && !id.isBlank())
-                .toList();
-        if (orderIds.isEmpty()) {
-            return;
-        }
-        Map<String, List<com.inkcore.domain.productionorder.model.OperatorAssignment>> byOrder =
-                new LinkedHashMap<>();
-        for (var entity : operatorRepository.findAllByProductionOrderIdIn(orderIds)) {
-            byOrder.computeIfAbsent(entity.getProductionOrderId(), key -> new ArrayList<>())
-                    .add(mapper.toDomain(entity));
-        }
-        for (ProductionOrder order : orders) {
-            order.setOperators(byOrder.getOrDefault(order.getProductionOrderId(), List.of()));
-        }
-    }
-
     private ProductionOrder loadAggregate(ProductionOrderEntity rootEntity) {
         String orderId = rootEntity.getProductionOrderId();
         ProductionOrder order = mapper.toDomain(rootEntity);

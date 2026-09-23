@@ -28,6 +28,7 @@ final class ProductionOrderSwaggerExamples {
                 "sellerId": null,
                 "orderDate": "2026-08-15",
                 "requestedQuantity": 1000,
+                "totalToCharge": null,
                 "proposalQuantity1": null,
                 "proposalQuantity2": null,
                 "specificationsCompletedAt": "2026-08-15T17:00:00",
@@ -62,6 +63,7 @@ final class ProductionOrderSwaggerExamples {
                 "clientId": "client-seed-001",
                 "workName": "Flyer",
                 "requestedQuantity": 1000,
+                "totalToCharge": 1500000.00,
                 "cantidadDisponible": 500,
                 "cuttingCompletedAt": "2026-08-15T17:10:00",
                 "printingCompletedAt": "2026-08-15T17:20:00",
@@ -145,6 +147,7 @@ final class ProductionOrderSwaggerExamples {
                     "workName": "Brochure corporativo",
                     "orderDate": "2026-08-15",
                     "requestedQuantity": 1000,
+                    "totalToCharge": 1500000.00,
                     "cantidadDisponible": 500,
                     "status": "IN_PROGRESS",
                     "state": true

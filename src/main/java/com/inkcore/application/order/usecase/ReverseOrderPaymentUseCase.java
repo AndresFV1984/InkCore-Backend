@@ -1,5 +1,6 @@
 package com.inkcore.application.order.usecase;
 
+import com.inkcore.application.order.AbonosBalance;
 import com.inkcore.application.order.OrderSupport;
 import com.inkcore.domain.order.exception.OrderBusinessRuleException;
 import com.inkcore.domain.order.exception.OrderConflictException;
@@ -8,6 +9,7 @@ import com.inkcore.domain.order.model.OrderPayment;
 import com.inkcore.domain.order.model.PaymentType;
 import com.inkcore.domain.order.ports.out.AccountsReceivableRepositoryPort;
 import com.inkcore.domain.order.ports.out.OrderPaymentRepositoryPort;
+import com.inkcore.domain.productionorder.model.ProductionOrder;
 import com.inkcore.domain.shared.exception.ResourceNotFoundException;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -43,7 +45,7 @@ public class ReverseOrderPaymentUseCase {
         String userId = support.userId(authentication);
         LocalDateTime now = support.now();
 
-        support.requireActiveOrder(productionOrderId, companyId);
+        ProductionOrder order = support.requireActiveOrder(productionOrderId, companyId);
         OrderPayment original = paymentRepository.findByIdForUpdate(companyId, paymentId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "ORDER_PAYMENT_NOT_FOUND",
@@ -86,6 +88,8 @@ public class ReverseOrderPaymentUseCase {
         AccountsReceivable summary = accountsReceivableRepository
                 .findByProductionOrderId(companyId, productionOrderId)
                 .orElseGet(AccountsReceivable::new);
-        return new CreateOrderPaymentUseCase.CreatePaymentResult(saved, summary);
+        AbonosBalance.applyTo(summary, order);
+        String odpNumber = support.resolveOdpNumber(companyId, productionOrderId);
+        return new CreateOrderPaymentUseCase.CreatePaymentResult(saved, summary, odpNumber);
     }
 }
