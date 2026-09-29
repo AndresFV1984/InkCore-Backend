@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS indicolors.production_order_paper_rows (
     company_id                    CHARACTER VARYING(64)       NOT NULL,
     production_order_id           CHARACTER VARYING(64)       NOT NULL,
     plate_id                      CHARACTER VARYING(64)       NOT NULL,
-    parent_row_id                 CHARACTER VARYING(64),  -- self-FK (fila de faltante)
+    parent_row_id                 CHARACTER VARYING(64),
 
     cut_row_key                   CHARACTER VARYING(50)       NOT NULL,
     is_missing_supply             BOOLEAN                     NOT NULL DEFAULT FALSE,
@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS indicolors.production_order_paper_rows (
     calculated_sheets_count       INTEGER,
     total_paper_value             NUMERIC(12,2),
     total_cut_value               NUMERIC(12,2),
+    planned_waste_percentage      NUMERIC(5,2)                NOT NULL DEFAULT 0,
 
     created_at                    TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
     updated_at                    TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
@@ -47,7 +48,9 @@ CREATE TABLE IF NOT EXISTS indicolors.production_order_paper_rows (
     CONSTRAINT production_order_paper_rows_parent_row_fk FOREIGN KEY (parent_row_id) REFERENCES indicolors.production_order_paper_rows (production_order_paper_row_id),
     CONSTRAINT production_order_paper_rows_paper_type_fk FOREIGN KEY (paper_type_id) REFERENCES indicolors.paper_types (paper_type_id),
     CONSTRAINT production_order_paper_rows_supplier_fk FOREIGN KEY (supplier_id) REFERENCES indicolors.suppliers (supplier_id) ON DELETE SET NULL,
-    CONSTRAINT production_order_paper_rows_cut_layout_fk FOREIGN KEY (cut_layout_id) REFERENCES indicolors.cut_layouts (cut_layout_id)
+    CONSTRAINT production_order_paper_rows_cut_layout_fk FOREIGN KEY (cut_layout_id) REFERENCES indicolors.cut_layouts (cut_layout_id),
+    CONSTRAINT production_order_paper_rows_planned_waste_percentage_check
+        CHECK (planned_waste_percentage >= 0 AND planned_waste_percentage <= 100)
 );
 
 CREATE INDEX IF NOT EXISTS idx_production_order_paper_rows_company_id ON indicolors.production_order_paper_rows (company_id);
@@ -89,6 +92,7 @@ COMMENT ON COLUMN indicolors.production_order_paper_rows.manual_surplus IS 'Exce
 COMMENT ON COLUMN indicolors.production_order_paper_rows.calculated_sheets_count IS 'Cantidad de pliegos calculada en servidor';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.total_paper_value IS 'Valor total de papel, calculado en servidor';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.total_cut_value IS 'Valor total de corte, calculado en servidor';
+COMMENT ON COLUMN indicolors.production_order_paper_rows.planned_waste_percentage IS 'Porcentaje de merma esperada (arranque, refine, calibración) para esta fila, aplicado ANTES de cotizar para calcular pliegos a comprar; no reemplaza a manual_surplus (que sigue siendo el excedente real capturado manualmente)';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.created_at IS 'Fecha y hora de creación del registro';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.updated_at IS 'Fecha y hora de la última actualización del registro';
 

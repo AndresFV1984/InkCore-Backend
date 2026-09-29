@@ -407,7 +407,14 @@ public class StationEventController {
     @Operation(
             operationId = "registerStationPhaseEnd",
             summary = "Finalizar fase/proceso",
-            description = "Cierra el intervalo laboral abierto del processKey. " + EVENT_CONTRACT
+            description = "Cierra el intervalo laboral abierto del processKey. "
+                    + "Opcional: actualQuantity, actualSetupMinutes, actualRunMinutes, machineId y wasteReason. "
+                    + "Si se envía actualQuantity, wasteReason es obligatorio. "
+                    + "Lo que cabe en la merma planificada queda como cantidad real; el exceso reemplaza el desperdicio "
+                    + "de la fase con origen exceso y guarda la etiqueta del motivo en note. El retrabajo de la fase se conserva. "
+                    + "Catálogo: papel_mala_calidad, mal_cortado, ajuste_registro_color, cambio_medio_tiro, defecto_impresion, otro. "
+                    + "wasteReason se devuelve como código. "
+                    + EVENT_CONTRACT
     )
     @ApiResponse(
             responseCode = "201",
@@ -415,7 +422,7 @@ public class StationEventController {
             content = @Content(
                     mediaType = MediaType.APPLICATION_JSON_VALUE,
                     schema = @Schema(implementation = StationEventSuccessEnvelope.class),
-                    examples = @ExampleObject(name = "EventoCreado", value = StationSwaggerExamples.EVENT_CREATED)
+                    examples = @ExampleObject(name = "FinFase", value = StationSwaggerExamples.PHASE_END_CREATED)
             )
     )
     @RequestBody(
@@ -453,13 +460,18 @@ public class StationEventController {
                 payload.pauseReason(),
                 payload.occurredAt(),
                 payload.shiftEvent(),
-                payload.eventType()
+                payload.eventType(),
+                payload.actualQuantity(),
+                payload.actualSetupMinutes(),
+                payload.actualRunMinutes(),
+                payload.machineId(),
+                payload.wasteReason()
         ), authentication);
         return responseFactory.created(
                 httpRequest,
                 "CREATED",
                 "Station event created",
-                StationResponses.EventResponse.from(saved)
+                StationResponses.EventResponse.from(saved, payload.wasteReason())
         );
     }
 }

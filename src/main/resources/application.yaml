@@ -80,3 +80,8 @@ inkcore:
     size-tolerance-max-ratio: ${INK_SIZE_TOL_MAX:2.5}
     analysis-icc-profile: ${INK_ANALYSIS_ICC:FOGRA39.icc}
     max-concurrent-object-downloads: ${INK_MAX_CONCURRENT_OBJECT_DOWNLOADS:8}
+
+  machines:
+    rate-recalculation-enabled: ${MACHINE_RATE_RECALC_ENABLED:true}
+    # 03:00 del día 1 de enero, abril, julio y octubre
+    rate-recalculation-cron: ${MACHINE_RATE_RECALC_CRON:0 0 3 1 1,4,7,10 *}

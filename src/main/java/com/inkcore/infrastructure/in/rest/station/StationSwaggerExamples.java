@@ -25,7 +25,12 @@ final class StationSwaggerExamples {
               "processKey": "preprensa",
               "userId": "operator-seed-003",
               "productionStatus": "En Proceso",
-              "occurredAt": "2026-09-02T18:00:00"
+              "occurredAt": "2026-09-02T18:00:00",
+              "actualQuantity": 12.50,
+              "actualSetupMinutes": 20,
+              "actualRunMinutes": 90,
+              "machineId": "814ad646-c4fe-42fa-9f13-4a44823e6bee",
+              "wasteReason": "defecto_impresion"
             }
             """;
 
@@ -102,6 +107,38 @@ final class StationSwaggerExamples {
               "processKey": "jornada",
               "isShiftEvent": true,
               "occurredAt": "2026-09-02T07:00:00"
+            }
+            """;
+
+    static final String PHASE_END_CREATED = """
+            {
+              "headers": {
+                "correlationId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "statusCode": 201,
+                "code": "CREATED",
+                "description": "Station event created"
+              },
+              "timestamp": "2026-09-02T18:00:00Z",
+              "data": {
+                "id": "d0a4d094-0f70-48f7-bafc-47f91f7c1eaa",
+                "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
+                "orderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
+                "workName": "cuaderno",
+                "phase": "preprensa",
+                "processKey": "preprensa",
+                "catalogItemId": null,
+                "catalogItemLabel": null,
+                "userId": "operator-seed-003",
+                "type": "fin_fase",
+                "at": "2026-09-02T18:00:00",
+                "unidades": null,
+                "actorUserId": "operator-seed-003",
+                "actorName": "Operario Preprensa Litografía",
+                "productionStatus": "En Proceso",
+                "pauseReason": null,
+                "note": null,
+                "wasteReason": "defecto_impresion"
+              }
             }
             """;
 

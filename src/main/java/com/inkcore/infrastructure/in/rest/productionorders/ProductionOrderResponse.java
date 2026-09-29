@@ -1,10 +1,12 @@
 package com.inkcore.infrastructure.in.rest.productionorders;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.inkcore.domain.productionorder.model.BillingDetails;
 import com.inkcore.domain.productionorder.model.ClientCostingMode;
 import com.inkcore.domain.productionorder.model.ClientPlateType;
 import com.inkcore.domain.productionorder.model.DiscountType;
 import com.inkcore.domain.productionorder.model.FlipType;
+import com.inkcore.domain.productionorder.model.MachineUsage;
 import com.inkcore.domain.productionorder.model.OperatorAssignment;
 import com.inkcore.domain.productionorder.model.PaperRow;
 import com.inkcore.domain.productionorder.model.Plate;
@@ -16,6 +18,7 @@ import com.inkcore.domain.productionorder.model.PrintEntry;
 import com.inkcore.domain.productionorder.model.ProductionOrder;
 import com.inkcore.domain.productionorder.model.ProductionOrderStatus;
 import com.inkcore.domain.productionorder.model.StageDiscount;
+import com.inkcore.domain.productionorder.model.WasteRecord;
 import com.inkcore.domain.productionorder.service.ProductionOrderCalculator;
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -115,7 +118,23 @@ public record ProductionOrderResponse(
         List<PlateResponse> plates,
         List<PaperRowResponse> paperRows,
         List<PrintResponse> prints,
-        List<PostpressRecordResponse> postpressRecords
+        List<PostpressRecordResponse> postpressRecords,
+        @Schema(description = "Porcentaje de merma operativa aplicado en impresión. null si aún no se cotizó.")
+        BigDecimal plannedOperationalWastePercentage,
+        @Schema(description = "Pliegos fijos de arranque usados en Corte de papel. 0 si no se cotizó arranque.")
+        BigDecimal plannedCutMakereadyQuantity,
+        @Schema(description = "Pliegos fijos de arranque usados en Impresión. 0 si no se cotizó arranque.")
+        BigDecimal plannedOperationalMakereadyQuantity,
+        @Schema(description = "Uso de máquina por fase, con snapshot de costo/hora")
+        List<MachineUsageResponse> machineUsages,
+        @Schema(description = "Mermas planificadas y desperdicio real valorizado")
+        List<WasteRecordResponse> wasteRecords,
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        @Schema(description = "Suma de estimated_machine_cost de la fase recién guardada (preprensa, terminados o acabados). Ausente en GET, corte e impresión.")
+        BigDecimal estimatedMachineCost,
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        @Schema(description = "Suma de planned_cost de la merma de la fase recién guardada (preprensa, terminados o acabados). Ausente en GET, corte e impresión.")
+        BigDecimal estimatedWasteCost
 ) {
     public static ProductionOrderResponse from(ProductionOrder order) {
         return from(order, 0, null, null);
@@ -167,7 +186,14 @@ public record ProductionOrderResponse(
                 order.getPlates().stream().map(PlateResponse::from).toList(),
                 order.getPaperRows().stream().map(PaperRowResponse::from).toList(),
                 order.getPrints().stream().map(PrintResponse::from).toList(),
-                order.getPostpressRecords().stream().map(PostpressRecordResponse::from).toList()
+                order.getPostpressRecords().stream().map(PostpressRecordResponse::from).toList(),
+                order.getPlannedOperationalWastePercentage(),
+                order.getPlannedCutMakereadyQuantity(),
+                order.getPlannedOperationalMakereadyQuantity(),
+                order.getMachineUsages().stream().map(MachineUsageResponse::from).toList(),
+                order.getWasteRecords().stream().map(WasteRecordResponse::from).toList(),
+                order.getPhaseEstimatedMachineCost(),
+                order.getPhaseEstimatedWasteCost()
         );
     }
 
@@ -347,7 +373,9 @@ public record ProductionOrderResponse(
             Integer manualSurplus,
             Integer calculatedSheetsCount,
             BigDecimal totalPaperValue,
-            BigDecimal totalCutValue
+            BigDecimal totalCutValue,
+            @Schema(description = "Porcentaje de merma de corte aplicado a la fila", example = "2.00")
+            BigDecimal plannedWastePercentage
     ) {
         static PaperRowResponse from(PaperRow r) {
             return new PaperRowResponse(
@@ -376,7 +404,8 @@ public record ProductionOrderResponse(
                     r.getManualSurplus(),
                     r.getCalculatedSheetsCount(),
                     r.getTotalPaperValue(),
-                    r.getTotalCutValue()
+                    r.getTotalCutValue(),
+                    r.getPlannedWastePercentage()
             );
         }
     }
@@ -514,6 +543,118 @@ public record ProductionOrderResponse(
                     l.isAppliedMinCost(),
                     l.getPositive(),
                     l.getCliche()
+            );
+        }
+    }
+
+    public record MachineUsageResponse(
+            String productionOrderMachineUsageId,
+            @Schema(allowableValues = {"preprensa", "corte-papel", "impresion", "terminados", "acabados"})
+            String phase,
+            String machineId,
+            @Schema(description = "Nombre de la máquina al guardar. No cambia si luego se renombra el catálogo.")
+            String machineNameSnapshot,
+            @Schema(description = "Costo/hora al guardar. No se recalcula si cambia la tarifa de la máquina.")
+            BigDecimal costPerHourSnapshot,
+            Integer estimatedSetupMinutes,
+            Integer estimatedRunMinutes,
+            @Schema(description = "Calculado en la base: (setup + run) / 60 * costPerHourSnapshot")
+            BigDecimal estimatedMachineCost,
+            @Schema(description = "Minutos reales de arranque, capturados al cerrar la fase. null hasta entonces.")
+            Integer actualSetupMinutes,
+            @Schema(description = "Minutos reales de producción, capturados al cerrar la fase. null hasta entonces.")
+            Integer actualRunMinutes,
+            @Schema(description = "Calculado en la base con los minutos reales. null hasta capturarlos.")
+            BigDecimal actualMachineCost
+    ) {
+        static MachineUsageResponse from(MachineUsage usage) {
+            return new MachineUsageResponse(
+                    usage.getMachineUsageId(),
+                    usage.getPhase(),
+                    usage.getMachineId(),
+                    usage.getMachineNameSnapshot(),
+                    usage.getCostPerHourSnapshot(),
+                    usage.getEstimatedSetupMinutes(),
+                    usage.getEstimatedRunMinutes(),
+                    usage.getEstimatedMachineCost(),
+                    usage.getActualSetupMinutes(),
+                    usage.getActualRunMinutes(),
+                    usage.getActualMachineCost()
+            );
+        }
+    }
+
+    public record WasteRecordResponse(
+            String productionOrderWasteRecordId,
+            @Schema(allowableValues = {"preprensa", "corte-papel", "impresion", "terminados", "acabados"})
+            String phase,
+            @Schema(allowableValues = {"merma_corte", "merma_operativa", "merma_administrativa", "desperdicio"})
+            String wasteCategory,
+            @Schema(allowableValues = {"exceso", "retrabajo"})
+            String wasteOrigin,
+            @Schema(allowableValues = {"papel", "tinta", "plancha", "acabado", "otro"})
+            String materialType,
+            String paperRowId,
+            BigDecimal plannedQuantity,
+            @Schema(description = "Parte de la cantidad observada que cabe en la merma planificada. null hasta el cierre de fase.")
+            BigDecimal actualQuantity,
+            BigDecimal unitCostSnapshot,
+            @Schema(description = "plannedQuantity * unitCostSnapshot, calculado en la base")
+            BigDecimal plannedCost,
+            @Schema(description = "actualQuantity * unitCostSnapshot, calculado en la base. null hasta capturar actualQuantity.")
+            BigDecimal actualCost,
+            @Schema(description = "En desperdicio, etiqueta del motivo. En la merma de corte e impresión el GET no devuelve el marcador de arranque: los pliegos fijos salen en plannedCutMakereadyQuantity y plannedOperationalMakereadyQuantity.")
+            String note
+    ) {
+        static WasteRecordResponse from(WasteRecord record) {
+            return new WasteRecordResponse(
+                    record.getWasteRecordId(),
+                    record.getPhase(),
+                    record.getWasteCategory(),
+                    record.getWasteOrigin(),
+                    record.getMaterialType(),
+                    record.getPaperRowId(),
+                    record.getPlannedQuantity(),
+                    record.getActualQuantity(),
+                    record.getUnitCostSnapshot(),
+                    record.getPlannedCost(),
+                    record.getActualCost(),
+                    record.getNote()
+            );
+        }
+    }
+
+    @Schema(name = "ReprintWasteResponse")
+    public record ReprintWasteResponse(
+            String id,
+            @Schema(allowableValues = {"preprensa", "corte-papel", "impresion", "terminados", "acabados"})
+            String phase,
+            @Schema(allowableValues = {"desperdicio"})
+            String wasteCategory,
+            @Schema(allowableValues = {"retrabajo"})
+            String wasteOrigin,
+            @Schema(allowableValues = {"papel", "tinta", "plancha", "acabado", "otro"})
+            String materialType,
+            BigDecimal plannedQuantity,
+            BigDecimal actualQuantity,
+            BigDecimal unitCostSnapshot,
+            BigDecimal plannedCost,
+            BigDecimal actualCost,
+            String note
+    ) {
+        public static ReprintWasteResponse from(WasteRecord record) {
+            return new ReprintWasteResponse(
+                    record.getWasteRecordId(),
+                    record.getPhase(),
+                    record.getWasteCategory(),
+                    record.getWasteOrigin(),
+                    record.getMaterialType(),
+                    record.getPlannedQuantity(),
+                    record.getActualQuantity(),
+                    record.getUnitCostSnapshot(),
+                    record.getPlannedCost(),
+                    record.getActualCost(),
+                    record.getNote()
             );
         }
     }

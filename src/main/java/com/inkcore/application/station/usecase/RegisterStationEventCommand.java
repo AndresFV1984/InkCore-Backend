@@ -2,6 +2,7 @@ package com.inkcore.application.station.usecase;
 
 import com.inkcore.domain.station.model.StationEventType;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public record RegisterStationEventCommand(
@@ -16,6 +17,11 @@ public record RegisterStationEventCommand(
         String pauseReason,
         LocalDateTime occurredAt,
         Boolean shiftEvent,
-        StationEventType eventType
+        StationEventType eventType,
+        BigDecimal actualQuantity,
+        Integer actualSetupMinutes,
+        Integer actualRunMinutes,
+        String machineId,
+        String wasteReason
 ) {
 }

@@ -107,6 +107,9 @@ public class ProductionOrderPaperRowEntity implements Persistable<String> {
     @Column(name = "total_cut_value", precision = 12, scale = 2)
     private BigDecimal totalCutValue;
 
+    @Column(name = "planned_waste_percentage", nullable = false, precision = 5, scale = 2)
+    private BigDecimal plannedWastePercentage;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -354,6 +357,14 @@ public class ProductionOrderPaperRowEntity implements Persistable<String> {
 
     public void setTotalCutValue(BigDecimal totalCutValue) {
         this.totalCutValue = totalCutValue;
+    }
+
+    public BigDecimal getPlannedWastePercentage() {
+        return plannedWastePercentage;
+    }
+
+    public void setPlannedWastePercentage(BigDecimal plannedWastePercentage) {
+        this.plannedWastePercentage = plannedWastePercentage;
     }
 
     public LocalDateTime getCreatedAt() {

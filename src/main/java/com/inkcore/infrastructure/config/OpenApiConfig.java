@@ -54,12 +54,15 @@ public class OpenApiConfig {
                         new Tag().name("Tipos de plancha").description("Catálogo de tipos de plancha"),
                         new Tag().name("Precios de montaje").description("Catálogo de precios de montaje"),
                         new Tag().name("Tarifas por millar").description("Catálogo de tarifas por millar"),
+                        new Tag().name("Máquinas").description("Catálogo de máquinas y costo por hora"),
+                        new Tag().name("Mermas").description("Rangos sugeridos de merma por compañía"),
                         new Tag().name("Órdenes de producción").description(
                                 "Wizard OP (OP-{n}). Listado/detalle incluyen totalToCharge (panel Cobro; null sin costos). "
                                         + "Al pasar a IN_PROGRESS* crea customer_orders (customerOrderId + odpNumber ODP-{n}). "
                                         + "ANULADA reemplaza CANCELLED."),
                         new Tag().name("Estación").description(
                                 "Bitácora de planta: inbox, eventos (inicio/pausa/avance), intervalos y reportes. Roles OPERADOR|ADMINISTRADOR. occurredAt sin zona (sin Z)."),
+                        new Tag().name("Reportes").description("Rentabilidad real de órdenes de producción"),
                         new Tag().name("Pedidos").description(
                                 "Ledgers comerciales sobre OP: entregas (deliveryNumber ODP-{n}) y liquidaciones "
                                         + "ABN-{n} (abono|anticipo|retencion|reversion); append-only. "

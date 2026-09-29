@@ -1,5 +1,6 @@
 package com.inkcore.application.station.usecase;
 
+import com.inkcore.application.productionorder.usecase.ProductionOrderCostingCoordinator;
 import com.inkcore.application.station.StationIntervalService;
 import com.inkcore.application.station.StationOrderProgressService;
 import com.inkcore.application.station.StationProgressService;
@@ -30,6 +31,7 @@ public class RegisterStationEventUseCase {
     private final StationOrderProgressService orderProgressService;
     private final StationValidationService validationService;
     private final UserRepositoryPort userRepository;
+    private final ProductionOrderCostingCoordinator costing;
 
     public RegisterStationEventUseCase(
             StationSupport support,
@@ -37,7 +39,8 @@ public class RegisterStationEventUseCase {
             StationIntervalService intervalService,
             StationProgressService progressService,
             StationOrderProgressService orderProgressService,
-            UserRepositoryPort userRepository
+            UserRepositoryPort userRepository,
+            ProductionOrderCostingCoordinator costing
     ) {
         this.support = support;
         this.eventRepository = eventRepository;
@@ -46,6 +49,7 @@ public class RegisterStationEventUseCase {
         this.orderProgressService = orderProgressService;
         this.validationService = new StationValidationService();
         this.userRepository = userRepository;
+        this.costing = costing;
     }
 
     @Transactional
@@ -137,6 +141,17 @@ public class RegisterStationEventUseCase {
             progressService.updateFromEvent(saved, resolved, updatedEvents, now);
             if (command.eventType() == StationEventType.AVANCE_UNIDADES) {
                 orderProgressService.recalculate(order, updatedEvents, now);
+            }
+            if (command.eventType() == StationEventType.FIN_FASE) {
+                costing.capturePhaseClose(
+                        order,
+                        saved.getPhase(),
+                        command.actualQuantity(),
+                        command.actualSetupMinutes(),
+                        command.actualRunMinutes(),
+                        command.machineId(),
+                        command.wasteReason()
+                );
             }
         }
 

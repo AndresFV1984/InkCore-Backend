@@ -10,6 +10,7 @@ import com.inkcore.domain.papertype.exception.PaperTypeAlreadyExistsException;
 import com.inkcore.domain.assemblyprice.exception.AssemblyPriceAlreadyExistsException;
 import com.inkcore.domain.thousandrate.exception.ThousandRateAlreadyExistsException;
 import com.inkcore.domain.platetype.exception.PlateTypeAlreadyExistsException;
+import com.inkcore.domain.machine.exception.MachineAlreadyExistsException;
 import com.inkcore.domain.colorconversion.exception.ColorConversionFailedException;
 import com.inkcore.domain.colorconversion.exception.ConversionIntegrityException;
 import com.inkcore.domain.colorconversion.exception.GhostscriptNotAvailableException;
@@ -226,6 +227,19 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(PlateTypeAlreadyExistsException.class)
     public ResponseEntity<ApiErrorEnvelope> handlePlateTypeExists(
             PlateTypeAlreadyExistsException ex,
+            HttpServletRequest request
+    ) {
+        return responseFactory.error(
+                request,
+                HttpStatus.CONFLICT,
+                ex.getMessage(),
+                List.of(ex.getCode())
+        );
+    }
+
+    @ExceptionHandler(MachineAlreadyExistsException.class)
+    public ResponseEntity<ApiErrorEnvelope> handleMachineExists(
+            MachineAlreadyExistsException ex,
             HttpServletRequest request
     ) {
         return responseFactory.error(

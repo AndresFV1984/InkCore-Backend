@@ -9,7 +9,10 @@ public record UpdateProductionOrderPrintingCommand(
         Boolean completed,
         List<OperatorAssignmentCommand> operators,
         String operatorUserId,
-        List<PrintInput> prints
+        BigDecimal plannedOperationalWastePercentage,
+        List<MachineUsageInput> machineUsages,
+        List<PrintInput> prints,
+        BigDecimal plannedMakereadyQuantity
 ) {
     public record PrintInput(
             String printId,

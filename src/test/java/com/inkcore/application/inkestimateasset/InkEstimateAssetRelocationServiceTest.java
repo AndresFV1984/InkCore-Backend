@@ -161,7 +161,7 @@ class InkEstimateAssetRelocationServiceTest {
                 .when(storage).copyObject(eq(stagingPreview), eq(destPreview));
 
         InkEstimateAssetRelocationService relocator = new InkEstimateAssetRelocationService(storage);
-        assertThrows(ObjectStorageUnavailableException.class, () -> relocator.finalizeForPrint(
+        Map<String, Object> result = relocator.finalizeForPrint(
                 "c1",
                 "u1",
                 "po-1",
@@ -170,8 +170,12 @@ class InkEstimateAssetRelocationServiceTest {
                         "objectKey", stagingOriginal,
                         "previewObjectKey", stagingPreview
                 )))
-        ));
+        );
 
+        @SuppressWarnings("unchecked")
+        Map<String, Object> entry = ((List<Map<String, Object>>) result.get("entries")).get(0);
+        assertEquals(stagingOriginal, entry.get("objectKey"));
+        assertEquals(stagingPreview, entry.get("previewObjectKey"));
         verify(storage).copyObject(stagingOriginal, destOriginal);
         verify(storage).copyObject(stagingPreview, destPreview);
         verify(storage).deleteObject(destOriginal);

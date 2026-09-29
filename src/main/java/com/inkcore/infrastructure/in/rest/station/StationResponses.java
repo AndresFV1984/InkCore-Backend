@@ -1,5 +1,6 @@
 package com.inkcore.infrastructure.in.rest.station;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.inkcore.application.station.usecase.GetStationActiveSessionUseCase;
 import com.inkcore.application.station.usecase.GetStationBitacoraUseCase;
 import com.inkcore.application.station.usecase.GetStationOrderDetailUseCase;
@@ -47,9 +48,23 @@ public final class StationResponses {
             @Schema(description = "Motivo de pausa (paro / marca_horario)", example = "cambio_trabajo")
             String pauseReason,
             @Schema(description = "Nota libre del operario", example = "texto de la nota")
-            String note
+            String note,
+            @JsonInclude(JsonInclude.Include.NON_NULL)
+            @Schema(
+                    description = "Código del motivo de merma en fin de fase. En la merma queda el texto legible, no este código.",
+                    allowableValues = {
+                            "papel_mala_calidad", "mal_cortado", "ajuste_registro_color",
+                            "cambio_medio_tiro", "defecto_impresion", "otro"
+                    },
+                    example = "defecto_impresion"
+            )
+            String wasteReason
     ) {
         public static EventResponse from(StationOperationEvent event) {
+            return from(event, null);
+        }
+
+        public static EventResponse from(StationOperationEvent event, String wasteReason) {
             return new EventResponse(
                     event.getEventId(),
                     event.getProductionOrderId(),
@@ -67,7 +82,8 @@ public final class StationResponses {
                     event.getActorName(),
                     event.getProductionStatusSnapshot(),
                     event.getPauseReason(),
-                    event.getNote()
+                    event.getNote(),
+                    wasteReason
             );
         }
     }

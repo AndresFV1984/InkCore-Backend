@@ -4,8 +4,11 @@ import com.inkcore.application.productionorder.usecase.CreateProductionOrderComm
 import com.inkcore.application.productionorder.usecase.CreateProductionOrderUseCase;
 import com.inkcore.application.productionorder.usecase.DeleteProductionOrderUseCase;
 import com.inkcore.application.productionorder.usecase.GenerateProductionOrderBillingPdfUseCase;
+import com.inkcore.application.productionorder.usecase.GetProductionOrderCostSummaryUseCase;
+import com.inkcore.application.productionorder.usecase.RegisterReprintWasteUseCase;
 import com.inkcore.application.productionorder.usecase.GetProductionOrderUseCase;
 import com.inkcore.application.productionorder.usecase.ListProductionOrdersUseCase;
+import com.inkcore.application.productionorder.usecase.MachineUsageInput;
 import com.inkcore.application.productionorder.usecase.OperatorAssignmentCommand;
 import com.inkcore.application.productionorder.usecase.UpdateProductionOrderBillingCommand;
 import com.inkcore.application.productionorder.usecase.UpdateProductionOrderBillingUseCase;
@@ -32,8 +35,11 @@ import com.inkcore.infrastructure.in.rest.envelope.ApiResponseFactory;
 import com.inkcore.infrastructure.in.rest.envelope.ApiSuccessEnvelope;
 import com.inkcore.infrastructure.in.rest.openapi.ApiErrorResponses;
 import com.inkcore.infrastructure.in.rest.openapi.ApiSecuredErrorResponses;
+import com.inkcore.infrastructure.in.rest.openapi.ProductionOrderCostSummarySuccessEnvelope;
+import com.inkcore.infrastructure.in.rest.openapi.ReprintWasteSuccessEnvelope;
 import com.inkcore.infrastructure.in.rest.openapi.ProductionOrderListSuccessEnvelope;
 import com.inkcore.infrastructure.in.rest.openapi.ProductionOrderSuccessEnvelope;
+import com.inkcore.infrastructure.in.rest.productionorders.ProductionOrderRequests.MachineUsageRequest;
 import com.inkcore.infrastructure.in.rest.productionorders.ProductionOrderRequests.OperatorRequest;
 import com.inkcore.infrastructure.in.rest.productionorders.ProductionOrderRequests.PaperRowRequest;
 import com.inkcore.infrastructure.in.rest.productionorders.ProductionOrderRequests.PlateRequest;
@@ -106,6 +112,8 @@ public class ProductionOrderController {
     private final UpdateProductionOrderStatusUseCase updateStatusUseCase;
     private final DeleteProductionOrderUseCase deleteUseCase;
     private final GenerateProductionOrderBillingPdfUseCase generatePdfUseCase;
+    private final GetProductionOrderCostSummaryUseCase costSummaryUseCase;
+    private final RegisterReprintWasteUseCase reprintWasteUseCase;
     private final StationOrderProgressService orderProgressService;
     private final CustomerOrderRepositoryPort customerOrderRepository;
     private final AuthenticatedCompanyResolver companyResolver;
@@ -124,6 +132,8 @@ public class ProductionOrderController {
             UpdateProductionOrderStatusUseCase updateStatusUseCase,
             DeleteProductionOrderUseCase deleteUseCase,
             GenerateProductionOrderBillingPdfUseCase generatePdfUseCase,
+            GetProductionOrderCostSummaryUseCase costSummaryUseCase,
+            RegisterReprintWasteUseCase reprintWasteUseCase,
             StationOrderProgressService orderProgressService,
             CustomerOrderRepositoryPort customerOrderRepository,
             AuthenticatedCompanyResolver companyResolver,
@@ -141,6 +151,8 @@ public class ProductionOrderController {
         this.updateStatusUseCase = updateStatusUseCase;
         this.deleteUseCase = deleteUseCase;
         this.generatePdfUseCase = generatePdfUseCase;
+        this.costSummaryUseCase = costSummaryUseCase;
+        this.reprintWasteUseCase = reprintWasteUseCase;
         this.orderProgressService = orderProgressService;
         this.customerOrderRepository = customerOrderRepository;
         this.companyResolver = companyResolver;
@@ -346,14 +358,19 @@ public class ProductionOrderController {
             description = "Upsert de prepress_details + reemplazo de plates. "
                     + "isNewDesign=false exige existingDesignOrderId y clientPlateType. "
                     + "plateReplacement=true exige replacementQuantity. Snapshots de plate_types/assembly_prices. "
-                    + "Al reemplazar planchas se limpian corte/impresión/postprensa."
+                    + "machineUsages guarda snapshot de costPerHour de máquinas type=preprensa; "
+                    + "la respuesta incluye estimatedMachineCost y estimatedWasteCost de esa fase. "
+                    + "plannedWastePercentage genera merma_operativa sobre las planchas (material plancha). "
+                    + "null en machineUsages no toca las máquinas; [] las quita. "
+                    + "Al reemplazar planchas se limpian corte, impresión, postprensa, máquinas de otras fases y mermas."
     )
     @ApiResponse(
             responseCode = "200",
             description = "Preprensa actualizada",
             content = @Content(
                     mediaType = MediaType.APPLICATION_JSON_VALUE,
-                    schema = @Schema(implementation = ProductionOrderSuccessEnvelope.class)
+                    schema = @Schema(implementation = ProductionOrderSuccessEnvelope.class),
+                    examples = @ExampleObject(name = "PreprensaOk", value = ProductionOrderSwaggerExamples.PREPRESS_OK)
             )
     )
     @ApiErrorResponses
@@ -384,6 +401,10 @@ public class ProductionOrderController {
             operationId = "updateProductionOrderPaperCutting",
             summary = "Actualiza Corte de papel.",
             description = "Reemplaza paper_rows. Totales (sheets/paper/cut) calculados en servidor. "
+                    + "plannedWastePercentage genera merma_corte; si se omite se usa el default de la compañía. "
+                    + "plannedMakereadyQuantity suma pliegos fijos de arranque a esa merma; si se omite se usan los de la compañía (inicial 0). "
+                    + "machineUsages guarda snapshot de máquinas type=corte-papel. "
+                    + "null no toca las máquinas de la fase; [] las quita. "
                     + "Filas de faltante: isMissingSupply + parentRowId."
     )
     @ApiResponse(
@@ -423,7 +444,10 @@ public class ProductionOrderController {
             summary = "Actualiza Impresión.",
             description = "1 print por plancha + entries 0..N. inkEstimation.entries[] solo metadatos + "
                     + "objectKey/previewObjectKey (sin Base64); keys tmp/ se promueven al guardar. "
-                    + "Tiro+retiro debe igualar colors de la plancha."
+                    + "Tiro+retiro debe igualar colors de la plancha. "
+                    + "plannedOperationalWastePercentage genera merma_operativa; si se omite se usa el default de la compañía. "
+                    + "plannedMakereadyQuantity suma pliegos fijos de arranque; si se omite se usan los de la compañía (inicial 0). "
+                    + "machineUsages guarda snapshot de máquinas type=impresion. null no toca las máquinas de la fase; [] las quita."
     )
     @ApiResponse(
             responseCode = "200",
@@ -461,14 +485,18 @@ public class ProductionOrderController {
             operationId = "updateProductionOrderFinishedProducts",
             summary = "Actualiza Terminados.",
             description = "type=FINISHED_PRODUCT. catalogItemId debe existir en finished_products. "
-                    + "calculatedPrice/chargedPrice/appliedMinCost se calculan en servidor. Vinculación por plateId."
+                    + "calculatedPrice/chargedPrice/appliedMinCost se calculan en servidor. Vinculación por plateId. "
+                    + "machineUsages guarda snapshot de máquinas type=terminados. null no toca las máquinas de la fase; [] las quita. "
+                    + "plannedWastePercentage genera merma_operativa sobre las piezas (material acabado). "
+                    + "La respuesta incluye estimatedMachineCost y estimatedWasteCost de la fase."
     )
     @ApiResponse(
             responseCode = "200",
             description = "Terminados actualizados",
             content = @Content(
                     mediaType = MediaType.APPLICATION_JSON_VALUE,
-                    schema = @Schema(implementation = ProductionOrderSuccessEnvelope.class)
+                    schema = @Schema(implementation = ProductionOrderSuccessEnvelope.class),
+                    examples = @ExampleObject(name = "TerminadosOk", value = ProductionOrderSwaggerExamples.POSTPRESS_OK)
             )
     )
     @ApiErrorResponses
@@ -499,14 +527,18 @@ public class ProductionOrderController {
             operationId = "updateProductionOrderFinishingProcesses",
             summary = "Actualiza Acabados.",
             description = "type=FINISHING_PROCESS. catalogItemId debe existir en finishing_processes. "
-                    + "positive/cliche no aplican. Vinculación por plateId."
+                    + "positive/cliche no aplican. Vinculación por plateId. "
+                    + "machineUsages guarda snapshot de máquinas type=acabados. null no toca las máquinas de la fase; [] las quita. "
+                    + "plannedWastePercentage genera merma_operativa sobre las piezas (material acabado). "
+                    + "La respuesta incluye estimatedMachineCost y estimatedWasteCost de la fase."
     )
     @ApiResponse(
             responseCode = "200",
             description = "Acabados actualizados",
             content = @Content(
                     mediaType = MediaType.APPLICATION_JSON_VALUE,
-                    schema = @Schema(implementation = ProductionOrderSuccessEnvelope.class)
+                    schema = @Schema(implementation = ProductionOrderSuccessEnvelope.class),
+                    examples = @ExampleObject(name = "AcabadosOk", value = ProductionOrderSwaggerExamples.FINISHING_OK)
             )
     )
     @ApiErrorResponses
@@ -537,7 +569,8 @@ public class ProductionOrderController {
             operationId = "updateProductionOrderBilling",
             summary = "Actualiza Cobro.",
             description = "Upsert de billing_details 1:1. clientCostingMode=exact|volume. "
-                    + "Totales de cobro se calculan en servidor (no se persisten)."
+                    + "Totales de cobro se calculan en servidor (no se persisten). "
+                    + "quoted_price del resumen de costo se actualiza con totalToCharge."
     )
     @ApiResponse(
             responseCode = "200",
@@ -704,6 +737,94 @@ public class ProductionOrderController {
                 .body(pdf);
     }
 
+    @PostMapping("/{productionOrderId}/waste/reprint")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
+    @Operation(
+            operationId = "registerProductionOrderReprintWaste",
+            summary = "Registra un retrabajo como desperdicio.",
+            description = "Agrega un registro desperdicio con waste_origin = retrabajo. "
+                    + "phase: preprensa, corte-papel, impresion, terminados o acabados. quantity mayor que cero. "
+                    + "wasteReason usa el mismo catálogo del cierre de fase y se guarda la etiqueta en note. "
+                    + "machineId es opcional y solo valida que la máquina esté cotizada en la fase. "
+                    + "Cada llamada agrega un registro: no reemplaza excesos ni retrabajos anteriores "
+                    + "y no modifica quoted_price ni el total a cobrar. "
+                    + "El trigger de waste_records recalcula el resumen de costo."
+    )
+    @ApiResponse(
+            responseCode = "201",
+            description = "Retrabajo registrado",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    schema = @Schema(implementation = ReprintWasteSuccessEnvelope.class),
+                    examples = @ExampleObject(name = "RetrabajoCreado", value = ProductionOrderSwaggerExamples.REPRINT_CREATED)
+            )
+    )
+    @ApiErrorResponses
+    @ApiSecuredErrorResponses
+    public ResponseEntity<ApiSuccessEnvelope<ProductionOrderResponse.ReprintWasteResponse>> reprint(
+            @Parameter(description = "ID de la orden", example = ProductionOrderSwaggerExamples.ORDER_ID)
+            @PathVariable String productionOrderId,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ProductionOrderRequests.ReprintWasteRequest.class),
+                            examples = @ExampleObject(name = "Retrabajo", value = ProductionOrderSwaggerExamples.REPRINT_BODY)
+                    )
+            )
+            @Valid @RequestBody ProductionOrderRequests.ReprintWasteRequest request,
+            Authentication authentication,
+            HttpServletRequest httpRequest
+    ) {
+        var saved = reprintWasteUseCase.execute(
+                productionOrderId,
+                request.phase(),
+                request.quantity(),
+                request.wasteReason(),
+                request.machineId(),
+                authentication
+        );
+        return responseFactory.created(
+                httpRequest,
+                "CREATED",
+                "Retrabajo registrado",
+                ProductionOrderResponse.ReprintWasteResponse.from(saved)
+        );
+    }
+
+    @GetMapping("/{productionOrderId}/cost-summary")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
+    @Operation(
+            operationId = "getProductionOrderCostSummary",
+            summary = "Resumen de costo de la orden",
+            description = "Lee production_order_cost_summary (material, máquina, merma, desperdicio, estimado vs real, margen). "
+                    + "Las columnas de costo las mantiene el trigger de la base. quoted_price sale de totalToCharge "
+                    + "y no cambia al registrar desperdicio. Incluye los registros con waste_category = desperdicio."
+    )
+    @ApiResponse(
+            responseCode = "200",
+            description = "Resumen de costo",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    schema = @Schema(implementation = ProductionOrderCostSummarySuccessEnvelope.class),
+                    examples = @ExampleObject(name = "ResumenCosto", value = ProductionOrderSwaggerExamples.COST_SUMMARY)
+            )
+    )
+    @ApiErrorResponses
+    @ApiSecuredErrorResponses
+    public ResponseEntity<ApiSuccessEnvelope<CostSummaryResponse>> costSummary(
+            @Parameter(description = "ID de la orden", example = ProductionOrderSwaggerExamples.ORDER_ID)
+            @PathVariable String productionOrderId,
+            Authentication authentication,
+            HttpServletRequest httpRequest
+    ) {
+        return responseFactory.success(
+                httpRequest,
+                HttpStatus.OK,
+                CostSummaryResponse.from(costSummaryUseCase.execute(productionOrderId, authentication))
+        );
+    }
+
     private static CreateProductionOrderCommand toCreateCommand(RegisterRequest request) {
         return new CreateProductionOrderCommand(
                 request.clientId(), request.workName(), request.sellerId(), request.orderDate(),
@@ -722,7 +843,8 @@ public class ProductionOrderController {
                 request.clientPlateType(), request.newPlateCost(), request.assemblyPriceId(),
                 request.dieCutLine(), request.uvReserve(), request.stamping(), request.embossing(),
                 request.prepressDiscountType(), request.prepressDiscountValue(), request.completed(),
-                toOperatorCommands(request.operators()), request.operatorUserId(), plates
+                toOperatorCommands(request.operators()), request.operatorUserId(), plates,
+                toMachineUsages(request.machineUsages()), request.plannedWastePercentage()
         );
     }
 
@@ -741,7 +863,8 @@ public class ProductionOrderController {
         return new UpdateProductionOrderPaperCuttingCommand(
                 request.version(), request.clientSuppliesPaperDefault(), request.roundingMargin(),
                 request.completed(), toOperatorCommands(request.operators()), request.operatorUserId(),
-                request.discountType(), request.discountValue(), rows
+                request.discountType(), request.discountValue(), rows,
+                toMachineUsages(request.machineUsages()), request.plannedMakereadyQuantity()
         );
     }
 
@@ -749,7 +872,8 @@ public class ProductionOrderController {
         return new UpdateProductionOrderPaperCuttingCommand.PaperRowInput(
                 r.paperRowId(), r.plateId(), r.parentRowId(), r.cutRowKey(), r.isMissingSupply(),
                 r.missingSheetsQuantity(), r.clientSuppliesPaper(), r.paperTypeId(), r.supplierId(), r.cutLayoutId(),
-                r.isPaperCut(), r.deliveredSheetsByClient(), r.manualGoodSizes(), r.manualSurplus()
+                r.isPaperCut(), r.deliveredSheetsByClient(), r.manualGoodSizes(), r.manualSurplus(),
+                r.plannedWastePercentage()
         );
     }
 
@@ -759,7 +883,11 @@ public class ProductionOrderController {
                 : request.prints().stream().map(ProductionOrderController::toPrintInput).toList();
         return new UpdateProductionOrderPrintingCommand(
                 request.version(), request.completed(),
-                toOperatorCommands(request.operators()), request.operatorUserId(), prints
+                toOperatorCommands(request.operators()), request.operatorUserId(),
+                request.plannedOperationalWastePercentage(),
+                toMachineUsages(request.machineUsages()),
+                prints,
+                request.plannedMakereadyQuantity()
         );
     }
 
@@ -789,7 +917,8 @@ public class ProductionOrderController {
         return new UpdateProductionOrderPostpressCommand(
                 request.version(), request.completed(),
                 toOperatorCommands(request.operators()), request.operatorUserId(),
-                request.discountType(), request.discountValue(), records
+                request.discountType(), request.discountValue(), records,
+                toMachineUsages(request.machineUsages()), request.plannedWastePercentage()
         );
     }
 
@@ -836,6 +965,19 @@ public class ProductionOrderController {
         }
         return operators.stream()
                 .map(o -> new OperatorAssignmentCommand(o.stage(), o.userId(), o.roleCode()))
+                .toList();
+    }
+
+    private static List<MachineUsageInput> toMachineUsages(List<MachineUsageRequest> machines) {
+        if (machines == null) {
+            return null;
+        }
+        return machines.stream()
+                .map(machine -> new MachineUsageInput(
+                        machine.machineId(),
+                        machine.estimatedSetupMinutes(),
+                        machine.estimatedRunMinutes()
+                ))
                 .toList();
     }
 }

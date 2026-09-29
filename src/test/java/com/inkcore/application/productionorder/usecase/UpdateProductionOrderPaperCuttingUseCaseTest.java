@@ -43,6 +43,7 @@ class UpdateProductionOrderPaperCuttingUseCaseTest {
     @Mock PaperTypeRepositoryPort paperTypeRepository;
     @Mock CutLayoutRepositoryPort cutLayoutRepository;
     @Mock UserRepositoryPort userRepository;
+    @Mock ProductionOrderCostingCoordinator costing;
 
     private UpdateProductionOrderPaperCuttingUseCase useCase;
 
@@ -57,7 +58,8 @@ class UpdateProductionOrderPaperCuttingUseCaseTest {
                 support,
                 new ProductionOrderOperatorsApplier(userRepository),
                 paperTypeRepository,
-                cutLayoutRepository
+                cutLayoutRepository,
+                costing
         );
     }
 
@@ -122,8 +124,11 @@ class UpdateProductionOrderPaperCuttingUseCaseTest {
                                 true,
                                 100,
                                 null,
+                                null,
                                 null
-                        ))
+                        )),
+                        null,
+                        null
                 ),
                 auth
         );
@@ -202,8 +207,11 @@ class UpdateProductionOrderPaperCuttingUseCaseTest {
                                 null,
                                 null,
                                 null,
+                                null,
                                 null
-                        ))
+                        )),
+                        null,
+                        null
                 ),
                 auth
         );

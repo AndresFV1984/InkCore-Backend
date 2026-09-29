@@ -1,10 +1,12 @@
 package com.inkcore.infrastructure.in.rest.station;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.inkcore.domain.station.model.StationEventType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public final class StationRequests {
@@ -53,7 +55,7 @@ public final class StationRequests {
             @Positive Integer units,
             @Schema(description = "Snapshot del estado de producción en planta", example = "En Proceso")
             String productionStatus,
-            @Schema(description = "Nota libre del operario")
+            @Schema(description = "Nota libre del operario. No incluye el motivo de merma; ese va en wasteReason.")
             String note,
             @Schema(
                     description = "Motivo de pausa (obligatorio en pause y shift-mark). Valores: problema_maquina, calidad, insumos_pendientes, espera_material, cambio_trabajo, apoyo_otra_orden, instruccion_supervisor, capacitacion, descanso_almuerzo, descanso_desayuno, descanso_general, otro, inicio_horario, fin_horario, inicio_operacion, fin_operacion.",
@@ -73,7 +75,28 @@ public final class StationRequests {
                     description = "Alias de pauseReason para marca de jornada (inicio_horario | fin_horario)",
                     example = "inicio_horario"
             )
-            String reason
+            String reason,
+            @Schema(description = "Cantidad real de merma observada al cerrar la fase. Opcional.", example = "12.50")
+            @JsonAlias("actualWasteQuantity")
+            BigDecimal actualQuantity,
+            @Schema(description = "Minutos reales de arranque al cerrar la fase. Opcional.", example = "20")
+            Integer actualSetupMinutes,
+            @Schema(description = "Minutos reales de producción al cerrar la fase. Opcional.", example = "90")
+            Integer actualRunMinutes,
+            @Schema(description = "Máquina de la fase cuando hay más de una. Opcional si la fase tiene una sola máquina.")
+            String machineId,
+            @Schema(
+                    description = "Motivo obligatorio si se envía actualQuantity. La etiqueta "
+                            + "(Papel de mala calidad, Mal cortado, Ajuste de registro/color, "
+                            + "Cambio a medio tiro, Defecto de impresión, Otro) se guarda en note del desperdicio por exceso. "
+                            + "La respuesta devuelve este código.",
+                    allowableValues = {
+                            "papel_mala_calidad", "mal_cortado", "ajuste_registro_color",
+                            "cambio_medio_tiro", "defecto_impresion", "otro"
+                    },
+                    example = "defecto_impresion"
+            )
+            String wasteReason
     ) {
     }
 
@@ -209,7 +232,12 @@ public final class StationRequests {
                 null,
                 request.occurredAt(),
                 false,
-                StationEventType.FIN_FASE
+                StationEventType.FIN_FASE,
+                request.actualQuantity(),
+                request.actualSetupMinutes(),
+                request.actualRunMinutes(),
+                request.machineId(),
+                request.wasteReason()
         );
     }
 
@@ -225,7 +253,29 @@ public final class StationRequests {
             String pauseReason,
             LocalDateTime occurredAt,
             boolean shiftEvent,
-            StationEventType eventType
+            StationEventType eventType,
+            BigDecimal actualQuantity,
+            Integer actualSetupMinutes,
+            Integer actualRunMinutes,
+            String machineId,
+            String wasteReason
     ) {
+        public RegisterStationEventPayload(
+                String productionOrderId,
+                String workName,
+                String phase,
+                String processKey,
+                String userId,
+                Integer units,
+                String productionStatus,
+                String note,
+                String pauseReason,
+                LocalDateTime occurredAt,
+                boolean shiftEvent,
+                StationEventType eventType
+        ) {
+            this(productionOrderId, workName, phase, processKey, userId, units, productionStatus, note,
+                    pauseReason, occurredAt, shiftEvent, eventType, null, null, null, null, null);
+        }
     }
 }

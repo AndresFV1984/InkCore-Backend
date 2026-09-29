@@ -10,7 +10,9 @@ public record UpdateProductionOrderPostpressCommand(
         String operatorUserId,
         String discountType,
         BigDecimal discountValue,
-        List<PostpressRecordInput> records
+        List<PostpressRecordInput> records,
+        List<MachineUsageInput> machineUsages,
+        BigDecimal plannedWastePercentage
 ) {
     public record PostpressRecordInput(
             String recordId,

@@ -142,7 +142,22 @@ public final class ProductionOrderRequests {
             Boolean completed,
             @Valid List<OperatorRequest> operators,
             String operatorUserId,
-            List<PlateRequest> plates
+            List<PlateRequest> plates,
+            @Schema(description = "Máquinas de preprensa. null no modifica; [] quita las máquinas de la fase.")
+            List<MachineUsageRequest> machineUsages,
+            @Schema(description = "Porcentaje de merma operativa sobre las planchas. Si se omite, se usa el default de la compañía (sugerencia inicial 3%).", example = "3.00")
+            BigDecimal plannedWastePercentage
+    ) {
+    }
+
+    @Schema(name = "ProductionOrderMachineUsageRequest")
+    public record MachineUsageRequest(
+            @Schema(description = "Máquina activa de la fase", example = "814ad646-c4fe-42fa-9f13-4a44823e6bee")
+            String machineId,
+            @Schema(description = "Minutos estimados de arranque", example = "15")
+            Integer estimatedSetupMinutes,
+            @Schema(description = "Minutos estimados de producción", example = "120")
+            Integer estimatedRunMinutes
     ) {
     }
 
@@ -183,7 +198,11 @@ public final class ProductionOrderRequests {
             @Schema(allowableValues = {"%", "$"})
             String discountType,
             BigDecimal discountValue,
-            List<PaperRowRequest> paperRows
+            List<PaperRowRequest> paperRows,
+            @Schema(description = "Máquinas de corte de papel. null no modifica; [] quita las máquinas de la fase.")
+            List<MachineUsageRequest> machineUsages,
+            @Schema(description = "Pliegos fijos de arranque. Si se omite, se usan los de la compañía (inicial 0). Se suman al porcentaje, no lo reemplazan.", example = "0.00")
+            BigDecimal plannedMakereadyQuantity
     ) {
     }
 
@@ -207,7 +226,9 @@ public final class ProductionOrderRequests {
             Boolean isPaperCut,
             Integer deliveredSheetsByClient,
             Integer manualGoodSizes,
-            Integer manualSurplus
+            Integer manualSurplus,
+            @Schema(description = "Porcentaje de merma de corte. Si se omite, se usa el default de la compañía (sugerencia inicial 2%).", example = "2.00")
+            BigDecimal plannedWastePercentage
     ) {
     }
 
@@ -217,7 +238,13 @@ public final class ProductionOrderRequests {
             Boolean completed,
             @Valid List<OperatorRequest> operators,
             String operatorUserId,
-            List<PrintRequest> prints
+            @Schema(description = "Porcentaje de merma operativa. Si se omite, se usa el default de la compañía (sugerencia inicial 3%).", example = "3.00")
+            BigDecimal plannedOperationalWastePercentage,
+            @Schema(description = "Máquinas de impresión. null no modifica; [] quita las máquinas de la fase.")
+            List<MachineUsageRequest> machineUsages,
+            List<PrintRequest> prints,
+            @Schema(description = "Pliegos fijos de arranque. Si se omite, se usan los de la compañía (inicial 0). Se suman al porcentaje, no lo reemplazan.", example = "0.00")
+            BigDecimal plannedMakereadyQuantity
     ) {
     }
 
@@ -268,7 +295,11 @@ public final class ProductionOrderRequests {
             String discountType,
             BigDecimal discountValue,
             @JsonAlias("postpressRecords")
-            List<PostpressRecordRequest> records
+            List<PostpressRecordRequest> records,
+            @Schema(description = "Máquinas de la fase (terminados o acabados). null no modifica; [] quita las máquinas de la fase.")
+            List<MachineUsageRequest> machineUsages,
+            @Schema(description = "Porcentaje de merma operativa sobre las piezas. Si se omite, se usa el default de la compañía (sugerencia inicial 3%).", example = "3.00")
+            BigDecimal plannedWastePercentage
     ) {
     }
 
@@ -320,6 +351,34 @@ public final class ProductionOrderRequests {
             Boolean completed,
             @Valid List<OperatorRequest> operators,
             String operatorUserId
+    ) {
+    }
+
+    @Schema(name = "ReprintWasteRequest")
+    public record ReprintWasteRequest(
+            @NotBlank
+            @Schema(
+                    description = "Fase en la que se paga el retrabajo",
+                    allowableValues = {"preprensa", "corte-papel", "impresion", "terminados", "acabados"},
+                    example = "impresion"
+            )
+            String phase,
+            @NotNull
+            @Positive
+            @Schema(description = "Cantidad rehecha, mayor que cero", example = "50.00")
+            BigDecimal quantity,
+            @NotBlank
+            @Schema(
+                    description = "Motivo del retrabajo. Se guarda la etiqueta en note.",
+                    allowableValues = {
+                            "papel_mala_calidad", "mal_cortado", "ajuste_registro_color",
+                            "cambio_medio_tiro", "defecto_impresion", "otro"
+                    },
+                    example = "defecto_impresion"
+            )
+            String wasteReason,
+            @Schema(description = "Máquina de la fase, si se quiere validar que está cotizada. Opcional.")
+            String machineId
     ) {
     }
 }

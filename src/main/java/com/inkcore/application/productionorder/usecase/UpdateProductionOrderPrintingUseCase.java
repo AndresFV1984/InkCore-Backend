@@ -34,17 +34,20 @@ public class UpdateProductionOrderPrintingUseCase {
     private final ProductionOrderOperatorsApplier operatorsApplier;
     private final ThousandRateRepositoryPort thousandRateRepository;
     private final InkEstimateAssetRelocationService inkEstimateAssetRelocation;
+    private final ProductionOrderCostingCoordinator costing;
 
     public UpdateProductionOrderPrintingUseCase(
             ProductionOrderSupport support,
             ProductionOrderOperatorsApplier operatorsApplier,
             ThousandRateRepositoryPort thousandRateRepository,
-            InkEstimateAssetRelocationService inkEstimateAssetRelocation
+            InkEstimateAssetRelocationService inkEstimateAssetRelocation,
+            ProductionOrderCostingCoordinator costing
     ) {
         this.support = support;
         this.operatorsApplier = operatorsApplier;
         this.thousandRateRepository = thousandRateRepository;
         this.inkEstimateAssetRelocation = inkEstimateAssetRelocation;
+        this.costing = costing;
     }
 
     @Transactional
@@ -72,7 +75,13 @@ public class UpdateProductionOrderPrintingUseCase {
         }
         order.setUpdatedAt(support.now());
         order.setUpdatedBy(userId);
-        return support.repository().save(order);
+        ProductionOrder saved = support.repository().save(order);
+        return costing.afterPrinting(
+                saved,
+                command.machineUsages(),
+                command.plannedOperationalWastePercentage(),
+                command.plannedMakereadyQuantity()
+        );
     }
 
     private List<PrintConfig> buildPrints(

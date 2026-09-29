@@ -43,6 +43,7 @@ public final class PaperRow {
     private Integer calculatedSheetsCount;
     private BigDecimal totalPaperValue;
     private BigDecimal totalCutValue;
+    private BigDecimal plannedWastePercentage;
 
     public PaperRow() {
         this.paperRowId = UUID.randomUUID().toString();
@@ -270,6 +271,14 @@ public final class PaperRow {
 
     public void setTotalCutValue(BigDecimal totalCutValue) {
         this.totalCutValue = totalCutValue;
+    }
+
+    public BigDecimal getPlannedWastePercentage() {
+        return plannedWastePercentage;
+    }
+
+    public void setPlannedWastePercentage(BigDecimal plannedWastePercentage) {
+        this.plannedWastePercentage = plannedWastePercentage;
     }
 
     @Override

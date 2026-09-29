@@ -6,10 +6,14 @@ import com.inkcore.domain.productionorder.model.PostpressRecord;
 import com.inkcore.domain.productionorder.model.PrintConfig;
 import com.inkcore.domain.productionorder.model.PrintEntry;
 import com.inkcore.domain.productionorder.model.ProductionOrder;
+import com.inkcore.domain.productionorder.model.WasteRecord;
+import com.inkcore.domain.productionorder.service.WasteMakeready;
+import com.inkcore.domain.productionorder.ports.out.MachineUsageRepositoryPort;
 import com.inkcore.domain.productionorder.ports.out.ProductionOrderFilter;
 import com.inkcore.domain.productionorder.ports.out.ProductionOrderRepositoryPort;
 import com.inkcore.domain.shared.PageQuery;
 import com.inkcore.domain.shared.PageResult;
+import com.inkcore.domain.productionorder.ports.out.WasteRecordRepositoryPort;
 import com.inkcore.infrastructure.out.persistence.productionorder.entity.ProductionOrderBillingDetailsEntity;
 import com.inkcore.infrastructure.out.persistence.productionorder.entity.ProductionOrderEntity;
 import com.inkcore.infrastructure.out.persistence.productionorder.entity.ProductionOrderPostpressLineEntity;
@@ -69,6 +73,8 @@ public class ProductionOrderPersistenceAdapter implements ProductionOrderReposit
     private final JpaProductionOrderPrintEntryRepository printEntryRepository;
     private final JpaProductionOrderPostpressRecordRepository postpressRecordRepository;
     private final JpaProductionOrderPostpressLineRepository postpressLineRepository;
+    private final MachineUsageRepositoryPort machineUsageRepository;
+    private final WasteRecordRepositoryPort wasteRecordRepository;
     private final ProductionOrderPersistenceMapper mapper;
     private final Clock clock;
 
@@ -87,6 +93,8 @@ public class ProductionOrderPersistenceAdapter implements ProductionOrderReposit
             JpaProductionOrderPrintEntryRepository printEntryRepository,
             JpaProductionOrderPostpressRecordRepository postpressRecordRepository,
             JpaProductionOrderPostpressLineRepository postpressLineRepository,
+            MachineUsageRepositoryPort machineUsageRepository,
+            WasteRecordRepositoryPort wasteRecordRepository,
             ProductionOrderPersistenceMapper mapper,
             Clock clock
     ) {
@@ -101,6 +109,8 @@ public class ProductionOrderPersistenceAdapter implements ProductionOrderReposit
         this.printEntryRepository = printEntryRepository;
         this.postpressRecordRepository = postpressRecordRepository;
         this.postpressLineRepository = postpressLineRepository;
+        this.machineUsageRepository = machineUsageRepository;
+        this.wasteRecordRepository = wasteRecordRepository;
         this.mapper = mapper;
         this.clock = clock;
     }
@@ -266,6 +276,9 @@ public class ProductionOrderPersistenceAdapter implements ProductionOrderReposit
 
         order.setPrints(loadPrints(orderId));
         order.setPostpressRecords(loadPostpressRecords(orderId));
+        order.setMachineUsages(machineUsageRepository.findByProductionOrderId(rootEntity.getCompanyId(), orderId));
+        order.setWasteRecords(wasteRecordRepository.findByProductionOrderId(rootEntity.getCompanyId(), orderId));
+        WasteMakeready.restore(order);
         return order;
     }
 

@@ -23,15 +23,18 @@ public class UpdateProductionOrderBillingUseCase {
     private final ProductionOrderSupport support;
     private final ProductionOrderOperatorsApplier operatorsApplier;
     private final BankAccountRepositoryPort bankAccountRepository;
+    private final ProductionOrderCostingCoordinator costing;
 
     public UpdateProductionOrderBillingUseCase(
             ProductionOrderSupport support,
             ProductionOrderOperatorsApplier operatorsApplier,
-            BankAccountRepositoryPort bankAccountRepository
+            BankAccountRepositoryPort bankAccountRepository,
+            ProductionOrderCostingCoordinator costing
     ) {
         this.support = support;
         this.operatorsApplier = operatorsApplier;
         this.bankAccountRepository = bankAccountRepository;
+        this.costing = costing;
     }
 
     @Transactional
@@ -77,7 +80,9 @@ public class UpdateProductionOrderBillingUseCase {
         );
         order.setUpdatedAt(support.now());
         order.setUpdatedBy(userId);
-        return support.repository().save(order);
+        ProductionOrder saved = support.repository().save(order);
+        costing.syncQuotedPrice(saved);
+        return saved;
     }
 
     private void validate(UpdateProductionOrderBillingCommand command, String companyId) {

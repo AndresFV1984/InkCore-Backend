@@ -211,6 +211,14 @@ final class ProductionOrderSwaggerExamples {
               "prepressDiscountValue": 0,
               "completed": true,
               "operatorUserId": null,
+              "machineUsages": [
+                {
+                  "machineId": "814ad646-c4fe-42fa-9f13-4a44823e6bee",
+                  "estimatedSetupMinutes": 20,
+                  "estimatedRunMinutes": 40
+                }
+              ],
+              "plannedWastePercentage": 3.00,
               "plates": [
                 {
                   "colors": "4 COLORES",
@@ -229,10 +237,18 @@ final class ProductionOrderSwaggerExamples {
               "version": 2,
               "clientSuppliesPaperDefault": false,
               "roundingMargin": 2,
+              "plannedMakereadyQuantity": 400.00,
               "completed": true,
               "discountType": "%",
               "discountValue": 0,
               "operatorUserId": null,
+              "machineUsages": [
+                {
+                  "machineId": "814ad646-c4fe-42fa-9f13-4a44823e6bee",
+                  "estimatedSetupMinutes": 10,
+                  "estimatedRunMinutes": 30
+                }
+              ],
               "paperRows": [
                 {
                   "plateId": "plate-of-order-001",
@@ -240,7 +256,8 @@ final class ProductionOrderSwaggerExamples {
                   "isMissingSupply": false,
                   "clientSuppliesPaper": false,
                   "paperTypeId": "paper-type-seed-001",
-                  "cutLayoutId": "cut-layout-seed-001"
+                  "cutLayoutId": "cut-layout-seed-001",
+                  "plannedWastePercentage": 2.00
                 }
               ]
             }
@@ -251,6 +268,15 @@ final class ProductionOrderSwaggerExamples {
               "version": 3,
               "completed": true,
               "operatorUserId": null,
+              "plannedOperationalWastePercentage": 3.00,
+              "plannedMakereadyQuantity": 400.00,
+              "machineUsages": [
+                {
+                  "machineId": "814ad646-c4fe-42fa-9f13-4a44823e6bee",
+                  "estimatedSetupMinutes": 15,
+                  "estimatedRunMinutes": 120
+                }
+              ],
               "prints": [
                 {
                   "plateId": "plate-of-order-001",
@@ -292,6 +318,14 @@ final class ProductionOrderSwaggerExamples {
               "discountType": "$",
               "discountValue": 0,
               "operatorUserId": null,
+              "machineUsages": [
+                {
+                  "machineId": "814ad646-c4fe-42fa-9f13-4a44823e6bee",
+                  "estimatedSetupMinutes": 5,
+                  "estimatedRunMinutes": 25
+                }
+              ],
+              "plannedWastePercentage": 3.00,
               "records": [
                 {
                   "plateId": "plate-of-order-001",
@@ -306,6 +340,156 @@ final class ProductionOrderSwaggerExamples {
                   ]
                 }
               ]
+            }
+            """;
+
+    static final String PREPRESS_OK = """
+            {
+              "headers": {
+                "correlationId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "statusCode": 200,
+                "code": "OK",
+                "description": "Success"
+              },
+              "timestamp": "2026-09-24T12:00:00Z",
+              "data": {
+                "productionOrderId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "companyId": "company-seed-001",
+                "version": 2,
+                "workName": "Brochure corporativo",
+                "status": "PENDING",
+                "state": true,
+                "machineUsages": [
+                  {
+                    "phase": "preprensa",
+                    "machineId": "814ad646-c4fe-42fa-9f13-4a44823e6bee",
+                    "machineNameSnapshot": "CTP",
+                    "costPerHourSnapshot": 60000.00,
+                    "estimatedSetupMinutes": 20,
+                    "estimatedRunMinutes": 40,
+                    "estimatedMachineCost": 60000.00,
+                    "actualSetupMinutes": null,
+                    "actualRunMinutes": null,
+                    "actualMachineCost": null
+                  }
+                ],
+                "wasteRecords": [
+                  {
+                    "phase": "preprensa",
+                    "wasteCategory": "merma_operativa",
+                    "wasteOrigin": "exceso",
+                    "materialType": "plancha",
+                    "plannedQuantity": 0.12,
+                    "actualQuantity": null,
+                    "unitCostSnapshot": 15000.00,
+                    "plannedCost": 1800.00,
+                    "actualCost": null,
+                    "note": null
+                  }
+                ],
+                "estimatedMachineCost": 60000.00,
+                "estimatedWasteCost": 1800.00
+              }
+            }
+            """;
+
+    static final String POSTPRESS_OK = """
+            {
+              "headers": {
+                "correlationId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "statusCode": 200,
+                "code": "OK",
+                "description": "Success"
+              },
+              "timestamp": "2026-09-24T12:00:00Z",
+              "data": {
+                "productionOrderId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "companyId": "company-seed-001",
+                "version": 5,
+                "workName": "Brochure corporativo",
+                "status": "PENDING",
+                "state": true,
+                "machineUsages": [
+                  {
+                    "phase": "terminados",
+                    "machineId": "814ad646-c4fe-42fa-9f13-4a44823e6bee",
+                    "machineNameSnapshot": "Guillotina",
+                    "costPerHourSnapshot": 45000.00,
+                    "estimatedSetupMinutes": 5,
+                    "estimatedRunMinutes": 25,
+                    "estimatedMachineCost": 22500.00,
+                    "actualSetupMinutes": null,
+                    "actualRunMinutes": null,
+                    "actualMachineCost": null
+                  }
+                ],
+                "wasteRecords": [
+                  {
+                    "phase": "terminados",
+                    "wasteCategory": "merma_operativa",
+                    "wasteOrigin": "exceso",
+                    "materialType": "acabado",
+                    "plannedQuantity": 7.50,
+                    "actualQuantity": null,
+                    "unitCostSnapshot": 400.00,
+                    "plannedCost": 3000.00,
+                    "actualCost": null,
+                    "note": null
+                  }
+                ],
+                "estimatedMachineCost": 22500.00,
+                "estimatedWasteCost": 3000.00
+              }
+            }
+            """;
+
+    static final String FINISHING_OK = """
+            {
+              "headers": {
+                "correlationId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "statusCode": 200,
+                "code": "OK",
+                "description": "Success"
+              },
+              "timestamp": "2026-09-24T12:00:00Z",
+              "data": {
+                "productionOrderId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "companyId": "company-seed-001",
+                "version": 6,
+                "workName": "Brochure corporativo",
+                "status": "PENDING",
+                "state": true,
+                "machineUsages": [
+                  {
+                    "phase": "acabados",
+                    "machineId": "814ad646-c4fe-42fa-9f13-4a44823e6bee",
+                    "machineNameSnapshot": "Barnizadora",
+                    "costPerHourSnapshot": 45000.00,
+                    "estimatedSetupMinutes": 5,
+                    "estimatedRunMinutes": 25,
+                    "estimatedMachineCost": 22500.00,
+                    "actualSetupMinutes": null,
+                    "actualRunMinutes": null,
+                    "actualMachineCost": null
+                  }
+                ],
+                "wasteRecords": [
+                  {
+                    "phase": "acabados",
+                    "wasteCategory": "merma_operativa",
+                    "wasteOrigin": "exceso",
+                    "materialType": "acabado",
+                    "plannedQuantity": 7.50,
+                    "actualQuantity": null,
+                    "unitCostSnapshot": 400.00,
+                    "plannedCost": 3000.00,
+                    "actualCost": null,
+                    "note": null
+                  }
+                ],
+                "estimatedMachineCost": 22500.00,
+                "estimatedWasteCost": 3000.00
+              }
             }
             """;
 
@@ -326,6 +510,47 @@ final class ProductionOrderSwaggerExamples {
               "deliveryEndDate": "2026-08-25",
               "completed": true,
               "operatorUserId": null
+            }
+            """;
+
+    static final String COST_SUMMARY = """
+            {
+              "headers": {
+                "correlationId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "statusCode": 200,
+                "code": "OK",
+                "description": "OK"
+              },
+              "timestamp": "2026-09-24T12:00:00Z",
+              "data": {
+                "productionOrderId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "companyId": "company-seed-001",
+                "estimatedMaterialCost": 1200000.00,
+                "estimatedMachineCost": 350000.00,
+                "estimatedWasteCost": 48000.00,
+                "estimatedMermaCost": 48000.00,
+                "estimatedTotalCost": 1598000.00,
+                "actualMaterialCost": 1200000.00,
+                "actualMachineCost": 410000.00,
+                "actualWasteCost": 96000.00,
+                "actualMermaCost": 52000.00,
+                "actualDesperdicioCost": 44000.00,
+                "actualTotalCost": 1706000.00,
+                "quotedPrice": 1650000.00,
+                "estimatedMargin": 52000.00,
+                "actualMargin": -56000.00,
+                "actualMarginPct": -3.39,
+                "updatedAt": "2026-09-24T12:00:00",
+                "desperdicios": [
+                  {
+                    "phase": "impresion",
+                    "wasteOrigin": "exceso",
+                    "actualQuantity": 12.00,
+                    "actualCost": 44000.00,
+                    "note": "Defecto de impresión"
+                  }
+                ]
+              }
             }
             """;
 
@@ -417,6 +642,40 @@ final class ProductionOrderSwaggerExamples {
                 "postpressRecords": [],
                 "operators": [],
                 "stageDiscounts": []
+              }
+            }
+            """;
+
+    static final String REPRINT_BODY = """
+            {
+              "phase": "impresion",
+              "quantity": 50.00,
+              "wasteReason": "defecto_impresion",
+              "machineId": "814ad646-c4fe-42fa-9f13-4a44823e6bee"
+            }
+            """;
+
+    static final String REPRINT_CREATED = """
+            {
+              "headers": {
+                "correlationId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "statusCode": 201,
+                "code": "CREATED",
+                "description": "Retrabajo registrado"
+              },
+              "timestamp": "2026-09-25T17:00:00Z",
+              "data": {
+                "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+                "phase": "impresion",
+                "wasteCategory": "desperdicio",
+                "wasteOrigin": "retrabajo",
+                "materialType": "papel",
+                "plannedQuantity": 0.00,
+                "actualQuantity": 50.00,
+                "unitCostSnapshot": 3666.67,
+                "plannedCost": 0.00,
+                "actualCost": 183333.50,
+                "note": "Defecto de impresión"
               }
             }
             """;

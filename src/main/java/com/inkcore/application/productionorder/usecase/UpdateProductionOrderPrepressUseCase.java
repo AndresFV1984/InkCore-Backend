@@ -29,17 +29,20 @@ public class UpdateProductionOrderPrepressUseCase {
     private final ProductionOrderOperatorsApplier operatorsApplier;
     private final PlateTypeRepositoryPort plateTypeRepository;
     private final AssemblyPriceRepositoryPort assemblyPriceRepository;
+    private final ProductionOrderCostingCoordinator costing;
 
     public UpdateProductionOrderPrepressUseCase(
             ProductionOrderSupport support,
             ProductionOrderOperatorsApplier operatorsApplier,
             PlateTypeRepositoryPort plateTypeRepository,
-            AssemblyPriceRepositoryPort assemblyPriceRepository
+            AssemblyPriceRepositoryPort assemblyPriceRepository,
+            ProductionOrderCostingCoordinator costing
     ) {
         this.support = support;
         this.operatorsApplier = operatorsApplier;
         this.plateTypeRepository = plateTypeRepository;
         this.assemblyPriceRepository = assemblyPriceRepository;
+        this.costing = costing;
     }
 
     @Transactional
@@ -116,7 +119,8 @@ public class UpdateProductionOrderPrepressUseCase {
         );
         order.setUpdatedAt(support.now());
         order.setUpdatedBy(userId);
-        return support.repository().save(order);
+        ProductionOrder saved = support.repository().save(order);
+        return costing.afterPrepress(saved, command.machineUsages(), command.plannedWastePercentage());
     }
 
     private void validateRules(UpdateProductionOrderPrepressCommand command, String companyId) {

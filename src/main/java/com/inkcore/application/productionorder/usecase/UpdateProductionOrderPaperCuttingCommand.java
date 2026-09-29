@@ -12,7 +12,9 @@ public record UpdateProductionOrderPaperCuttingCommand(
         String operatorUserId,
         String discountType,
         BigDecimal discountValue,
-        List<PaperRowInput> paperRows
+        List<PaperRowInput> paperRows,
+        List<MachineUsageInput> machineUsages,
+        BigDecimal plannedMakereadyQuantity
 ) {
     public record PaperRowInput(
             String paperRowId,
@@ -28,7 +30,8 @@ public record UpdateProductionOrderPaperCuttingCommand(
             Boolean isPaperCut,
             Integer deliveredSheetsByClient,
             Integer manualGoodSizes,
-            Integer manualSurplus
+            Integer manualSurplus,
+            BigDecimal plannedWastePercentage
     ) {
     }
 }

@@ -30,17 +30,20 @@ public class UpdateProductionOrderPaperCuttingUseCase {
     private final ProductionOrderOperatorsApplier operatorsApplier;
     private final PaperTypeRepositoryPort paperTypeRepository;
     private final CutLayoutRepositoryPort cutLayoutRepository;
+    private final ProductionOrderCostingCoordinator costing;
 
     public UpdateProductionOrderPaperCuttingUseCase(
             ProductionOrderSupport support,
             ProductionOrderOperatorsApplier operatorsApplier,
             PaperTypeRepositoryPort paperTypeRepository,
-            CutLayoutRepositoryPort cutLayoutRepository
+            CutLayoutRepositoryPort cutLayoutRepository,
+            ProductionOrderCostingCoordinator costing
     ) {
         this.support = support;
         this.operatorsApplier = operatorsApplier;
         this.paperTypeRepository = paperTypeRepository;
         this.cutLayoutRepository = cutLayoutRepository;
+        this.costing = costing;
     }
 
     @Transactional
@@ -82,7 +85,8 @@ public class UpdateProductionOrderPaperCuttingUseCase {
         }
         order.setUpdatedAt(support.now());
         order.setUpdatedBy(userId);
-        return support.repository().save(order);
+        ProductionOrder saved = support.repository().save(order);
+        return costing.afterCutting(saved, command.machineUsages(), command.plannedMakereadyQuantity());
     }
 
     private void validate(UpdateProductionOrderPaperCuttingCommand command, ProductionOrder order) {
@@ -140,6 +144,9 @@ public class UpdateProductionOrderPaperCuttingUseCase {
             row.setManualSurplus(input.manualSurplus());
 
             applyCatalogAndTotals(order, companyId, row, input);
+            boolean companyCuts = !Boolean.TRUE.equals(row.getPaperCut());
+            row.setPlannedWastePercentage(costing.resolveCutPercentage(
+                    companyId, input.plannedWastePercentage(), companyCuts));
             rows.add(row);
         }
         return rows;

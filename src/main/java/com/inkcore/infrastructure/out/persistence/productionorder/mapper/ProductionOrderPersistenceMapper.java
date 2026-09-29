@@ -18,6 +18,7 @@ import com.inkcore.domain.productionorder.model.ProductionOrder;
 import com.inkcore.domain.productionorder.model.ProductionOrderStage;
 import com.inkcore.domain.productionorder.model.StageDiscount;
 import com.inkcore.infrastructure.out.persistence.productionorder.entity.ProductionOrderBillingDetailsEntity;
+import java.math.BigDecimal;
 import com.inkcore.infrastructure.out.persistence.productionorder.entity.ProductionOrderEntity;
 import com.inkcore.infrastructure.out.persistence.productionorder.entity.ProductionOrderOperatorEntity;
 import com.inkcore.infrastructure.out.persistence.productionorder.entity.ProductionOrderPaperRowEntity;
@@ -350,6 +351,7 @@ public class ProductionOrderPersistenceMapper {
         row.setCalculatedSheetsCount(entity.getCalculatedSheetsCount());
         row.setTotalPaperValue(entity.getTotalPaperValue());
         row.setTotalCutValue(entity.getTotalCutValue());
+        row.setPlannedWastePercentage(entity.getPlannedWastePercentage());
         return row;
     }
 
@@ -383,6 +385,9 @@ public class ProductionOrderPersistenceMapper {
         entity.setCalculatedSheetsCount(row.getCalculatedSheetsCount());
         entity.setTotalPaperValue(row.getTotalPaperValue());
         entity.setTotalCutValue(row.getTotalCutValue());
+        entity.setPlannedWastePercentage(row.getPlannedWastePercentage() == null
+                ? BigDecimal.ZERO
+                : row.getPlannedWastePercentage());
         entity.setCreatedAt(now);
         entity.setUpdatedAt(now);
         return entity;

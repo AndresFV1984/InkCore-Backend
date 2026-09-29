@@ -59,6 +59,13 @@ public final class ProductionOrder {
     private List<PaperRow> paperRows = new ArrayList<>();
     private List<PrintConfig> prints = new ArrayList<>();
     private List<PostpressRecord> postpressRecords = new ArrayList<>();
+    private List<MachineUsage> machineUsages = new ArrayList<>();
+    private List<WasteRecord> wasteRecords = new ArrayList<>();
+    private BigDecimal plannedOperationalWastePercentage;
+    private BigDecimal plannedCutMakereadyQuantity;
+    private BigDecimal plannedOperationalMakereadyQuantity;
+    private BigDecimal phaseEstimatedMachineCost;
+    private BigDecimal phaseEstimatedWasteCost;
 
     private ProductionOrder() {
     }
@@ -477,6 +484,62 @@ public final class ProductionOrder {
 
     public void setPostpressRecords(List<PostpressRecord> postpressRecords) {
         this.postpressRecords = postpressRecords == null ? new ArrayList<>() : new ArrayList<>(postpressRecords);
+    }
+
+    public List<MachineUsage> getMachineUsages() {
+        return machineUsages;
+    }
+
+    public void setMachineUsages(List<MachineUsage> machineUsages) {
+        this.machineUsages = machineUsages == null ? new ArrayList<>() : new ArrayList<>(machineUsages);
+    }
+
+    public List<WasteRecord> getWasteRecords() {
+        return wasteRecords;
+    }
+
+    public void setWasteRecords(List<WasteRecord> wasteRecords) {
+        this.wasteRecords = wasteRecords == null ? new ArrayList<>() : new ArrayList<>(wasteRecords);
+    }
+
+    public BigDecimal getPlannedOperationalWastePercentage() {
+        return plannedOperationalWastePercentage;
+    }
+
+    public void setPlannedOperationalWastePercentage(BigDecimal plannedOperationalWastePercentage) {
+        this.plannedOperationalWastePercentage = plannedOperationalWastePercentage;
+    }
+
+    public BigDecimal getPlannedCutMakereadyQuantity() {
+        return plannedCutMakereadyQuantity;
+    }
+
+    public void setPlannedCutMakereadyQuantity(BigDecimal plannedCutMakereadyQuantity) {
+        this.plannedCutMakereadyQuantity = plannedCutMakereadyQuantity;
+    }
+
+    public BigDecimal getPlannedOperationalMakereadyQuantity() {
+        return plannedOperationalMakereadyQuantity;
+    }
+
+    public void setPlannedOperationalMakereadyQuantity(BigDecimal plannedOperationalMakereadyQuantity) {
+        this.plannedOperationalMakereadyQuantity = plannedOperationalMakereadyQuantity;
+    }
+
+    public BigDecimal getPhaseEstimatedMachineCost() {
+        return phaseEstimatedMachineCost;
+    }
+
+    public void setPhaseEstimatedMachineCost(BigDecimal phaseEstimatedMachineCost) {
+        this.phaseEstimatedMachineCost = phaseEstimatedMachineCost;
+    }
+
+    public BigDecimal getPhaseEstimatedWasteCost() {
+        return phaseEstimatedWasteCost;
+    }
+
+    public void setPhaseEstimatedWasteCost(BigDecimal phaseEstimatedWasteCost) {
+        this.phaseEstimatedWasteCost = phaseEstimatedWasteCost;
     }
 
     @Override

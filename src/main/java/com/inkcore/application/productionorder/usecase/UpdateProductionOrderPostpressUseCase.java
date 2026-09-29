@@ -33,17 +33,20 @@ public class UpdateProductionOrderPostpressUseCase {
     private final ProductionOrderOperatorsApplier operatorsApplier;
     private final FinishRepositoryPort finishRepository;
     private final FinishingProcessRepositoryPort finishingProcessRepository;
+    private final ProductionOrderCostingCoordinator costing;
 
     public UpdateProductionOrderPostpressUseCase(
             ProductionOrderSupport support,
             ProductionOrderOperatorsApplier operatorsApplier,
             FinishRepositoryPort finishRepository,
-            FinishingProcessRepositoryPort finishingProcessRepository
+            FinishingProcessRepositoryPort finishingProcessRepository,
+            ProductionOrderCostingCoordinator costing
     ) {
         this.support = support;
         this.operatorsApplier = operatorsApplier;
         this.finishRepository = finishRepository;
         this.finishingProcessRepository = finishingProcessRepository;
+        this.costing = costing;
     }
 
     @Transactional
@@ -86,7 +89,11 @@ public class UpdateProductionOrderPostpressUseCase {
         }
         order.setUpdatedAt(support.now());
         order.setUpdatedBy(userId);
-        return support.repository().save(order);
+        ProductionOrder saved = support.repository().save(order);
+        String phase = type == PostpressType.FINISHED_PRODUCT
+                ? ProductionOrderCostingCoordinator.PHASE_FINISHED
+                : ProductionOrderCostingCoordinator.PHASE_FINISHING;
+        return costing.afterPhase(saved, phase, command.machineUsages(), command.plannedWastePercentage());
     }
 
     private List<PostpressRecord> buildRecords(

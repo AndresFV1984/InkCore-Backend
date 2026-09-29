@@ -1,5 +1,6 @@
 package com.inkcore.application.inkestimateasset;
 
+import com.inkcore.domain.objectstorage.exception.ObjectStorageUnavailableException;
 import com.inkcore.domain.objectstorage.ports.out.ObjectStoragePort;
 import com.inkcore.domain.productionorder.service.InkEstimateAssetKeyPolicy;
 import com.inkcore.domain.productionorder.service.InkEstimationEntriesSupport;
@@ -97,10 +98,30 @@ public class InkEstimateAssetRelocationService {
                 deleteStagingBestEffortAfterCommit(stagingKey);
             }
             return sanitized;
+        } catch (ObjectStorageUnavailableException ex) {
+            log.warn(
+                    "Almacenamiento no disponible; la orden se guarda sin promover artes de Estimar tintas: {}",
+                    ex.getMessage()
+            );
+            rollbackCopiedDestinations(copiedDestinations);
+            return estimationWithoutPromotion(inkEstimation, persistedInkEstimation);
         } catch (RuntimeException ex) {
             rollbackCopiedDestinations(copiedDestinations);
             throw ex;
         }
+    }
+
+    /** Misma estimación sanitizada, con las claves de staging intactas. */
+    private static Map<String, Object> estimationWithoutPromotion(
+            Map<String, Object> inkEstimation,
+            Map<String, Object> persistedInkEstimation
+    ) {
+        Map<String, Object> fallback = InkEstimationSanitizer.sanitize(inkEstimation);
+        if (fallback == null) {
+            return null;
+        }
+        InkEstimationEntriesSupport.mergePersistedAssetKeys(fallback, persistedInkEstimation);
+        return fallback;
     }
 
     private void promoteEntryKeys(

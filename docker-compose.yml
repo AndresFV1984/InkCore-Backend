@@ -1,5 +1,7 @@
-# Stack InkCore: solo imágenes de Docker Hub. El cliente no necesita el repo ni scripts/.
-# Oficiales: postgres base va embebida en inkcore-postgres; minio, redis, sonar.
+# Stack InkCore. El cliente no necesita el repo ni scripts/.
+# Oficiales: postgres base va embebida en inkcore-postgres; redis y sonar en Docker Hub.
+# MinIO Community ya no se publica en Docker Hub ni en Quay.
+# El servicio minio se construye desde el tag oficial RELEASE.2025-10-15.
 # Propias: bayronindicore/inkcore-backend, inkcore-minio-init, inkcore-postgres.
 services:
   db:
@@ -54,7 +56,9 @@ services:
     restart: unless-stopped
 
   minio:
-    image: minio/minio:latest
+    build:
+      context: ./docker/minio
+    image: inkcore-minio:RELEASE.2025-10-15T17-29-55Z
     container_name: inkcore-minio
     command: server /data --console-address ":9001"
     environment:
@@ -70,7 +74,7 @@ services:
     volumes:
       - inkcore_minio_data:/data
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
       interval: 5s
       timeout: 5s
       retries: 10

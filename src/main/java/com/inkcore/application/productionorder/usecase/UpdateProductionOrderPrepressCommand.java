@@ -23,7 +23,9 @@ public record UpdateProductionOrderPrepressCommand(
         Boolean completed,
         List<OperatorAssignmentCommand> operators,
         String operatorUserId,
-        List<PlateInput> plates
+        List<PlateInput> plates,
+        List<MachineUsageInput> machineUsages,
+        BigDecimal plannedWastePercentage
 ) {
     public record PlateInput(
             String plateId,
