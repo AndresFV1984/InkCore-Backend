@@ -2,9 +2,7 @@
 # Uso: docker compose -f docker-compose.minio.yml up -d
 services:
   minio:
-    build:
-      context: ../docker/minio
-    image: inkcore-minio:RELEASE.2025-10-15T17-29-55Z
+    image: pgsty/silo:RELEASE.2026-09-16T00-00-00Z
     container_name: inkcore-minio
     command: server /data --console-address ":9001"
     environment:

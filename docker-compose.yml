@@ -1,7 +1,7 @@
 # Stack InkCore. El cliente no necesita el repo ni scripts/.
 # Oficiales: postgres base va embebida en inkcore-postgres; redis y sonar en Docker Hub.
-# MinIO Community ya no se publica en Docker Hub ni en Quay.
-# El servicio minio se construye desde el tag oficial RELEASE.2025-10-15.
+# MinIO borró minio/minio y minio/mc de Docker Hub (sept. 2026).
+# Object storage: pgsty/silo, fork comunitario de MinIO (mismo API S3, MINIO_* y formato de datos).
 # Propias: bayronindicore/inkcore-backend, inkcore-minio-init, inkcore-postgres.
 services:
   db:
@@ -56,9 +56,7 @@ services:
     restart: unless-stopped
 
   minio:
-    build:
-      context: ./docker/minio
-    image: inkcore-minio:RELEASE.2025-10-15T17-29-55Z
+    image: pgsty/silo:RELEASE.2026-09-16T00-00-00Z
     container_name: inkcore-minio
     command: server /data --console-address ":9001"
     environment:

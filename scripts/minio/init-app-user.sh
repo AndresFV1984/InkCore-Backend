@@ -1,7 +1,7 @@
 #!/bin/sh
 # Root: bucket + CORS + ILM. Luego usuario de app solo con CRUD de objetos.
 # Idempotente. Rotación: cambiar OBJECT_STORAGE_SECRET_KEY, borrar el usuario y re-ejecutar.
-# minio/mc no incluye sed: plantillas con cat + reemplazo POSIX.
+# Sin depender de sed en la imagen mc: plantillas con cat + reemplazo POSIX.
 set -eu
 
 MINIO_ENDPOINT="${MINIO_ENDPOINT:-http://minio:9000}"

@@ -1,5 +1,5 @@
 # Cliente MinIO (mc) + script InkCore. Publicar: bayronindicore/inkcore-minio-init
-FROM minio/mc:latest
+FROM pgsty/mc:RELEASE.2026-09-16T00-00-00Z
 WORKDIR /config
 COPY init-app-user.sh inkcore-app-policy.json lifecycle.json.template /config/
 RUN tr -d '\r' < /config/init-app-user.sh > /tmp/init-app-user.sh \
