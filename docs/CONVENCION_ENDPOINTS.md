@@ -51,10 +51,28 @@ No usar sinónimos fuera de esta tabla (`create`, `fetch`, etc.).
 | PUT | `/api/v1/cut-layouts/update/{cutLayoutId}` | `updateCutLayout` | Actualizar despiece (JWT) |
 | GET | `/api/v1/cut-layouts/list` | `listCutLayouts` | Listar despieces (JWT; filtros `companyId`, `state`) |
 | GET | `/api/v1/cut-layouts/get/{cutLayoutId}` | `getCutLayout` | Despiece por ID (JWT) |
-| POST | `/api/v1/paper-types/register` | `registerPaperType` | Registrar tipo de papel (JWT; despieces opcionales) |
-| PUT | `/api/v1/paper-types/update/{paperTypeId}` | `updatePaperType` | Actualizar tipo de papel (JWT) |
-| GET | `/api/v1/paper-types/list` | `listPaperTypes` | Listar tipos de papel (JWT; filtros `companyId`, `state`) |
-| GET | `/api/v1/paper-types/get/{paperTypeId}` | `getPaperType` | Tipo de papel por ID (JWT) |
+| POST | `/api/v1/papers/register` | `registerPaper` | Registrar papel (JWT; formato + acceptsRemnants/minRemnant W/H/unit) |
+| PUT | `/api/v1/papers/update/{paperId}` | `updatePaper` | Actualizar papel (JWT; incluye política de remanentes) |
+| GET | `/api/v1/papers/{paperId}` | `getPaper` | Papel por ID (JWT) |
+| GET | `/api/v1/papers` | `listPapers` | Listar papeles (JWT; filtros `state`, `coated`, `acceptsRemnants`) |
+| PUT | `/api/v1/papers/{paperId}/prices` | `replacePaperPrices` | Reemplazar precios del papel (JWT) |
+| GET | `/api/v1/papers/{paperId}/prices` | `listPaperPrices` | Listar precios vigentes del papel (JWT) |
+| GET | `/api/v1/papers/{paperId}/prices/history` | `listPaperPriceHistory` | Historial de precios del papel (JWT) |
+| POST | `/api/v1/papers/{paperId}/cut-layouts/register` | `registerPaperCutLayout` | Asociar despiece al papel (JWT) |
+| PUT | `/api/v1/papers/{paperId}/cut-layouts/update/{paperCutLayoutId}` | `updatePaperCutLayout` | Actualizar despiece por papel (JWT) |
+| GET | `/api/v1/papers/{paperId}/cut-layouts/{paperCutLayoutId}` | `getPaperCutLayout` | Despiece por papel por ID (JWT) |
+| GET | `/api/v1/papers/{paperId}/cut-layouts` | `listPaperCutLayouts` | Listar despieces del papel (JWT) |
+| DELETE | `/api/v1/papers/{paperId}/cut-layouts/{paperCutLayoutId}` | `deletePaperCutLayout` | Eliminar despiece por papel (JWT) |
+| POST | `/api/v1/papers/{paperId}/stock/register` | `registerPaperStock` | Registrar lote de inventario (JWT) |
+| PUT | `/api/v1/papers/{paperId}/stock/update/{paperStockId}` | `updatePaperStock` | Actualizar lote de inventario (JWT) |
+| GET | `/api/v1/papers/{paperId}/stock/{paperStockId}` | `getPaperStock` | Lote de inventario por ID (JWT) |
+| GET | `/api/v1/papers/{paperId}/stock` | `listPaperStock` | Listar inventario del papel (JWT; filtro `state`) |
+| DELETE | `/api/v1/papers/{paperId}/stock/{paperStockId}` | `deletePaperStock` | Eliminar lote de inventario (JWT) |
+| POST | `/api/v1/papers/{paperId}/remnants/register` | `registerPaperRemnant` | Registrar remanente reutilizable de corte (JWT) |
+| PUT | `/api/v1/papers/{paperId}/remnants/update/{paperRemnantId}` | `updatePaperRemnant` | Actualizar remanente (JWT) |
+| GET | `/api/v1/papers/{paperId}/remnants/{paperRemnantId}` | `getPaperRemnant` | Remanente por ID (JWT) |
+| GET | `/api/v1/papers/{paperId}/remnants` | `listPaperRemnants` | Listar remanentes del papel (JWT; filtro `state`) |
+| DELETE | `/api/v1/papers/{paperId}/remnants/{paperRemnantId}` | `deletePaperRemnant` | Eliminar remanente (JWT) |
 
 ## Contrato de respuesta (Swagger)
 

@@ -97,6 +97,7 @@ public class CutLayoutController {
                                         "height": 5.00,
                                         "unit": "cm",
                                         "piecesPerSheet": 24,
+                                        "cutValue": 50.00,
                                         "state": true,
                                         "creationDate": "2026-08-01"
                                       }
@@ -124,6 +125,7 @@ public class CutLayoutController {
                                               "height": 5.00,
                                               "unit": "cm",
                                               "piecesPerSheet": 24,
+                                              "cutValue": 50.00,
                                               "state": true
                                             }
                                             """
@@ -174,6 +176,7 @@ public class CutLayoutController {
                                         "height": 6.00,
                                         "unit": "cm",
                                         "piecesPerSheet": 20,
+                                        "cutValue": 60.00,
                                         "state": true,
                                         "creationDate": "2026-08-01"
                                       }
@@ -206,6 +209,7 @@ public class CutLayoutController {
                                               "height": 6.00,
                                               "unit": "cm",
                                               "piecesPerSheet": 20,
+                                              "cutValue": 60.00,
                                               "state": true
                                             }
                                             """
@@ -253,6 +257,7 @@ public class CutLayoutController {
                                             "height": 5.00,
                                             "unit": "cm",
                                             "piecesPerSheet": 24,
+                                            "cutValue": 50.00,
                                             "state": true,
                                             "creationDate": "2026-08-01"
                                           }
@@ -320,6 +325,7 @@ public class CutLayoutController {
                                         "height": 5.00,
                                         "unit": "cm",
                                         "piecesPerSheet": 24,
+                                        "cutValue": 50.00,
                                         "state": true,
                                         "creationDate": "2026-08-01"
                                       }
@@ -359,6 +365,7 @@ public class CutLayoutController {
                 request.height(),
                 request.unit(),
                 request.piecesPerSheet(),
+                request.cutValue(),
                 request.state()
         );
     }
@@ -371,6 +378,7 @@ public class CutLayoutController {
                 request.height(),
                 request.unit(),
                 request.piecesPerSheet(),
+                request.cutValue(),
                 Boolean.TRUE.equals(request.state())
         );
     }

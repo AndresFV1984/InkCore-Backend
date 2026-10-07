@@ -15,6 +15,7 @@ import java.math.BigDecimal;
         description = """
                 Actualización de despiece (PUT /api/v1/cut-layouts/update/{cutLayoutId}).
                 Obligatorios: name, width, height, unit, piecesPerSheet, state. No envía companyId.
+                Opcional: cutValue (>= 0; null limpia la tarifa).
                 """
 )
 public record UpdateCutLayoutRequest(
@@ -42,6 +43,10 @@ public record UpdateCutLayoutRequest(
         @NotNull(message = "Las piezas por pliego son obligatorias")
         @Min(value = 1, message = "Las piezas por pliego deben ser mayor que 0")
         Integer piecesPerSheet,
+
+        @Schema(description = "Precio/tarifa de corte por pliego (>= 0; null si no aplica)", example = "50.00")
+        @DecimalMin(value = "0.00", inclusive = true, message = "El precio de corte no puede ser negativo")
+        BigDecimal cutValue,
 
         @Schema(description = "Estado: true=activo, false=inactivo", example = "true", requiredMode = Schema.RequiredMode.REQUIRED)
         @NotNull

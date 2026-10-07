@@ -41,6 +41,9 @@ public class CutLayoutEntity implements Persistable<String> {
     @Column(name = "pieces_per_sheet", nullable = false)
     private int piecesPerSheet;
 
+    @Column(name = "cut_value", precision = 12, scale = 2)
+    private BigDecimal cutValue;
+
     @Column(nullable = false)
     private boolean state;
 
@@ -120,6 +123,14 @@ public class CutLayoutEntity implements Persistable<String> {
 
     public void setPiecesPerSheet(int piecesPerSheet) {
         this.piecesPerSheet = piecesPerSheet;
+    }
+
+    public BigDecimal getCutValue() {
+        return cutValue;
+    }
+
+    public void setCutValue(BigDecimal cutValue) {
+        this.cutValue = cutValue;
     }
 
     public boolean isState() {

@@ -9,6 +9,7 @@ public record CreateCutLayoutCommand(
         BigDecimal height,
         String unit,
         Integer piecesPerSheet,
+        BigDecimal cutValue,
         Boolean state
 ) {
 }

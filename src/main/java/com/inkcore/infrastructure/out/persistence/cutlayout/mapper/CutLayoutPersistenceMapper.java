@@ -21,6 +21,7 @@ public class CutLayoutPersistenceMapper {
         e.setHeight(cutLayout.getHeight());
         e.setUnit(cutLayout.getUnit());
         e.setPiecesPerSheet(cutLayout.getPiecesPerSheet());
+        e.setCutValue(cutLayout.getCutValue());
         e.setState(cutLayout.isState());
         e.setCreationDate(cutLayout.getCreationDate());
     }
@@ -34,6 +35,7 @@ public class CutLayoutPersistenceMapper {
                 entity.getHeight(),
                 entity.getUnit(),
                 entity.getPiecesPerSheet(),
+                entity.getCutValue(),
                 entity.isState(),
                 entity.getCreationDate()
         );

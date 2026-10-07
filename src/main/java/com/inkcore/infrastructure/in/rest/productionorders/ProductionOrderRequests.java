@@ -220,15 +220,33 @@ public final class ProductionOrderRequests {
             Integer missingSheetsQuantity,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
             Boolean clientSuppliesPaper,
-            String paperTypeId,
+            @Schema(description = "Papel del catálogo (FK papers)", example = "paper-seed-001")
+            String paperId,
+            @Schema(description = "Proveedor del precio vigente del papel", example = "supplier-seed-001")
             String supplierId,
+            @Schema(description = "Despiece de catálogo (cut_layouts). Alternativa: paperCutLayoutId.",
+                    example = "cut-layout-seed-001")
             String cutLayoutId,
+            @Schema(description = "Asociación papel↔despiece; si se envía, resuelve cutLayoutId.",
+                    example = "paper-cut-layout-001")
+            String paperCutLayoutId,
+            @Schema(description = "Regla de selección de proveedor",
+                    allowableValues = {"PREFERRED", "REPLACEMENT", "BEST_COST"},
+                    example = "PREFERRED")
+            String priceRule,
             Boolean isPaperCut,
             Integer deliveredSheetsByClient,
             Integer manualGoodSizes,
             Integer manualSurplus,
-            @Schema(description = "Porcentaje de merma de corte. Si se omite, se usa el default de la compañía (sugerencia inicial 2%).", example = "2.00")
-            BigDecimal plannedWastePercentage
+            @Schema(description = "Merma de corte de la OP (company_waste_settings). "
+                    + "NO enviar el wastePercentage del paper_cut_layout como si fuera cálculo: ese es solo sugerencia UI. "
+                    + "Si se omite, se usa el default de la compañía (sugerencia inicial ~2%).",
+                    example = "2.00")
+            BigDecimal plannedWastePercentage,
+            @Schema(description = "Remanente del mismo papel usado como origen del corte. "
+                    + "Al guardar se descuenta calculatedSheetsCount de quantity_available; al anular la OP se devuelve.",
+                    example = "paper-remnant-seed-001")
+            String paperRemnantId
     ) {
     }
 

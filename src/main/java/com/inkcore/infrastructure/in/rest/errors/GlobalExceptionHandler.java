@@ -6,11 +6,11 @@ import com.inkcore.domain.cutlayout.exception.CutLayoutAlreadyExistsException;
 import com.inkcore.domain.objectstorage.exception.InvalidObjectKeyException;
 import com.inkcore.domain.objectstorage.exception.ObjectStorageAccessDeniedException;
 import com.inkcore.domain.objectstorage.exception.ObjectStorageUnavailableException;
-import com.inkcore.domain.papertype.exception.PaperTypeAlreadyExistsException;
 import com.inkcore.domain.assemblyprice.exception.AssemblyPriceAlreadyExistsException;
 import com.inkcore.domain.thousandrate.exception.ThousandRateAlreadyExistsException;
 import com.inkcore.domain.platetype.exception.PlateTypeAlreadyExistsException;
 import com.inkcore.domain.machine.exception.MachineAlreadyExistsException;
+import com.inkcore.domain.paper.exception.PaperAlreadyExistsException;
 import com.inkcore.domain.colorconversion.exception.ColorConversionFailedException;
 import com.inkcore.domain.colorconversion.exception.ConversionIntegrityException;
 import com.inkcore.domain.colorconversion.exception.GhostscriptNotAvailableException;
@@ -211,19 +211,6 @@ public class GlobalExceptionHandler {
         );
     }
 
-    @ExceptionHandler(PaperTypeAlreadyExistsException.class)
-    public ResponseEntity<ApiErrorEnvelope> handlePaperTypeExists(
-            PaperTypeAlreadyExistsException ex,
-            HttpServletRequest request
-    ) {
-        return responseFactory.error(
-                request,
-                HttpStatus.CONFLICT,
-                ex.getMessage(),
-                List.of(ex.getCode())
-        );
-    }
-
     @ExceptionHandler(PlateTypeAlreadyExistsException.class)
     public ResponseEntity<ApiErrorEnvelope> handlePlateTypeExists(
             PlateTypeAlreadyExistsException ex,
@@ -240,6 +227,19 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MachineAlreadyExistsException.class)
     public ResponseEntity<ApiErrorEnvelope> handleMachineExists(
             MachineAlreadyExistsException ex,
+            HttpServletRequest request
+    ) {
+        return responseFactory.error(
+                request,
+                HttpStatus.CONFLICT,
+                ex.getMessage(),
+                List.of(ex.getCode())
+        );
+    }
+
+    @ExceptionHandler(PaperAlreadyExistsException.class)
+    public ResponseEntity<ApiErrorEnvelope> handlePaperExists(
+            PaperAlreadyExistsException ex,
             HttpServletRequest request
     ) {
         return responseFactory.error(

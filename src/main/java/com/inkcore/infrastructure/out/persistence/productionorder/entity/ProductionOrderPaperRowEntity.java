@@ -12,6 +12,7 @@ import org.hibernate.type.SqlTypes;
 import org.springframework.data.domain.Persistable;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -49,8 +50,8 @@ public class ProductionOrderPaperRowEntity implements Persistable<String> {
     @Column(name = "client_supplies_paper", nullable = false)
     private boolean clientSuppliesPaper;
 
-    @Column(name = "paper_type_id", length = 64)
-    private String paperTypeId;
+    @Column(name = "paper_id", length = 64)
+    private String paperId;
 
     @Column(name = "supplier_id", length = 64)
     private String supplierId;
@@ -69,6 +70,33 @@ public class ProductionOrderPaperRowEntity implements Persistable<String> {
 
     @Column(name = "is_coated")
     private Boolean coated;
+
+    @Column(name = "freight_per_sheet_snapshot", precision = 12, scale = 2)
+    private BigDecimal freightPerSheetSnapshot;
+
+    @Column(name = "price_date_snapshot")
+    private LocalDate priceDateSnapshot;
+
+    @Column(name = "price_rule", length = 20)
+    private String priceRule;
+
+    @Column(name = "pieces_per_sheet_snapshot")
+    private Integer piecesPerSheetSnapshot;
+
+    @Column(name = "net_sheets", precision = 12, scale = 2)
+    private BigDecimal netSheets;
+
+    @Column(name = "waste_sheets", precision = 12, scale = 2)
+    private BigDecimal wasteSheets;
+
+    @Column(name = "total_sheets", precision = 12, scale = 2)
+    private BigDecimal totalSheets;
+
+    @Column(name = "cost_per_piece", precision = 12, scale = 2)
+    private BigDecimal costPerPiece;
+
+    @Column(name = "is_coated_snapshot")
+    private Boolean coatedSnapshot;
 
     @Column(name = "cut_layout_id", length = 64)
     private String cutLayoutId;
@@ -109,6 +137,12 @@ public class ProductionOrderPaperRowEntity implements Persistable<String> {
 
     @Column(name = "planned_waste_percentage", nullable = false, precision = 5, scale = 2)
     private BigDecimal plannedWastePercentage;
+
+    @Column(name = "paper_remnant_id", length = 64)
+    private String paperRemnantId;
+
+    @Column(name = "remnant_quantity_used", precision = 12, scale = 2)
+    private BigDecimal remnantQuantityUsed;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -207,12 +241,12 @@ public class ProductionOrderPaperRowEntity implements Persistable<String> {
         this.clientSuppliesPaper = clientSuppliesPaper;
     }
 
-    public String getPaperTypeId() {
-        return paperTypeId;
+    public String getPaperId() {
+        return paperId;
     }
 
-    public void setPaperTypeId(String paperTypeId) {
-        this.paperTypeId = paperTypeId;
+    public void setPaperId(String paperId) {
+        this.paperId = paperId;
     }
 
     public String getSupplierId() {
@@ -261,6 +295,78 @@ public class ProductionOrderPaperRowEntity implements Persistable<String> {
 
     public void setCoated(Boolean coated) {
         this.coated = coated;
+    }
+
+    public BigDecimal getFreightPerSheetSnapshot() {
+        return freightPerSheetSnapshot;
+    }
+
+    public void setFreightPerSheetSnapshot(BigDecimal freightPerSheetSnapshot) {
+        this.freightPerSheetSnapshot = freightPerSheetSnapshot;
+    }
+
+    public LocalDate getPriceDateSnapshot() {
+        return priceDateSnapshot;
+    }
+
+    public void setPriceDateSnapshot(LocalDate priceDateSnapshot) {
+        this.priceDateSnapshot = priceDateSnapshot;
+    }
+
+    public String getPriceRule() {
+        return priceRule;
+    }
+
+    public void setPriceRule(String priceRule) {
+        this.priceRule = priceRule;
+    }
+
+    public Integer getPiecesPerSheetSnapshot() {
+        return piecesPerSheetSnapshot;
+    }
+
+    public void setPiecesPerSheetSnapshot(Integer piecesPerSheetSnapshot) {
+        this.piecesPerSheetSnapshot = piecesPerSheetSnapshot;
+    }
+
+    public BigDecimal getNetSheets() {
+        return netSheets;
+    }
+
+    public void setNetSheets(BigDecimal netSheets) {
+        this.netSheets = netSheets;
+    }
+
+    public BigDecimal getWasteSheets() {
+        return wasteSheets;
+    }
+
+    public void setWasteSheets(BigDecimal wasteSheets) {
+        this.wasteSheets = wasteSheets;
+    }
+
+    public BigDecimal getTotalSheets() {
+        return totalSheets;
+    }
+
+    public void setTotalSheets(BigDecimal totalSheets) {
+        this.totalSheets = totalSheets;
+    }
+
+    public BigDecimal getCostPerPiece() {
+        return costPerPiece;
+    }
+
+    public void setCostPerPiece(BigDecimal costPerPiece) {
+        this.costPerPiece = costPerPiece;
+    }
+
+    public Boolean getCoatedSnapshot() {
+        return coatedSnapshot;
+    }
+
+    public void setCoatedSnapshot(Boolean coatedSnapshot) {
+        this.coatedSnapshot = coatedSnapshot;
     }
 
     public String getCutLayoutId() {
@@ -365,6 +471,22 @@ public class ProductionOrderPaperRowEntity implements Persistable<String> {
 
     public void setPlannedWastePercentage(BigDecimal plannedWastePercentage) {
         this.plannedWastePercentage = plannedWastePercentage;
+    }
+
+    public String getPaperRemnantId() {
+        return paperRemnantId;
+    }
+
+    public void setPaperRemnantId(String paperRemnantId) {
+        this.paperRemnantId = paperRemnantId;
+    }
+
+    public BigDecimal getRemnantQuantityUsed() {
+        return remnantQuantityUsed;
+    }
+
+    public void setRemnantQuantityUsed(BigDecimal remnantQuantityUsed) {
+        this.remnantQuantityUsed = remnantQuantityUsed;
     }
 
     public LocalDateTime getCreatedAt() {

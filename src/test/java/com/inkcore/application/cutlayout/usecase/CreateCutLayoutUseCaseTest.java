@@ -54,6 +54,7 @@ class CreateCutLayoutUseCaseTest {
                 new BigDecimal("5"),
                 null,
                 24,
+                new BigDecimal("50"),
                 null
         ));
 
@@ -62,6 +63,7 @@ class CreateCutLayoutUseCaseTest {
         assertEquals(new BigDecimal("5.00"), created.getHeight());
         assertEquals("cm", created.getUnit());
         assertEquals(24, created.getPiecesPerSheet());
+        assertEquals(new BigDecimal("50.00"), created.getCutValue());
         assertTrue(created.isState());
         assertEquals(LocalDate.of(2026, 8, 1), created.getCreationDate());
 
@@ -82,6 +84,7 @@ class CreateCutLayoutUseCaseTest {
                 new BigDecimal("5"),
                 "cm",
                 24,
+                new BigDecimal("50"),
                 true
         )));
 
@@ -100,6 +103,7 @@ class CreateCutLayoutUseCaseTest {
                 new BigDecimal("5"),
                 "px",
                 24,
+                new BigDecimal("50"),
                 true
         )));
 

@@ -29,6 +29,9 @@ public record CutLayoutResponse(
         @Schema(description = "Piezas por pliego", example = "24")
         int piecesPerSheet,
 
+        @Schema(description = "Precio/tarifa de corte por pliego", example = "50.00")
+        BigDecimal cutValue,
+
         @Schema(description = "true = Activo, false = Inactivo", example = "true")
         boolean state,
 
@@ -44,6 +47,7 @@ public record CutLayoutResponse(
                 c.getHeight(),
                 c.getUnit(),
                 c.getPiecesPerSheet(),
+                c.getCutValue(),
                 c.isState(),
                 c.getCreationDate()
         );

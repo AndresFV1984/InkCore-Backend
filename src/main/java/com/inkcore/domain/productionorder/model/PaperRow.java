@@ -1,6 +1,9 @@
 package com.inkcore.domain.productionorder.model;
 
+import com.inkcore.domain.paper.model.PriceRule;
+
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -21,13 +24,22 @@ public final class PaperRow {
 
     private boolean clientSuppliesPaper;
 
-    private String paperTypeId;
+    private String paperId;
     private String supplierId;
     private String paperName;
     private String paperSize;
     private BigDecimal sheetValue;
     private Integer packageUnit;
     private Boolean coated;
+    private BigDecimal freightPerSheetSnapshot;
+    private LocalDate priceDateSnapshot;
+    private PriceRule priceRule;
+    private Integer piecesPerSheetSnapshot;
+    private BigDecimal netSheets;
+    private BigDecimal wasteSheets;
+    private BigDecimal totalSheets;
+    private BigDecimal costPerPiece;
+    private Boolean coatedSnapshot;
 
     private String cutLayoutId;
     private String cutLayoutName;
@@ -44,6 +56,11 @@ public final class PaperRow {
     private BigDecimal totalPaperValue;
     private BigDecimal totalCutValue;
     private BigDecimal plannedWastePercentage;
+
+    /** Remanente usado como origen del corte (opcional). */
+    private String paperRemnantId;
+    /** Unidades descontadas de {@code paper_remnants.quantity_available}. */
+    private BigDecimal remnantQuantityUsed;
 
     public PaperRow() {
         this.paperRowId = UUID.randomUUID().toString();
@@ -121,12 +138,12 @@ public final class PaperRow {
         this.clientSuppliesPaper = clientSuppliesPaper;
     }
 
-    public String getPaperTypeId() {
-        return paperTypeId;
+    public String getPaperId() {
+        return paperId;
     }
 
-    public void setPaperTypeId(String paperTypeId) {
-        this.paperTypeId = paperTypeId;
+    public void setPaperId(String paperId) {
+        this.paperId = paperId;
     }
 
     public String getSupplierId() {
@@ -175,6 +192,78 @@ public final class PaperRow {
 
     public void setCoated(Boolean coated) {
         this.coated = coated;
+    }
+
+    public BigDecimal getFreightPerSheetSnapshot() {
+        return freightPerSheetSnapshot;
+    }
+
+    public void setFreightPerSheetSnapshot(BigDecimal freightPerSheetSnapshot) {
+        this.freightPerSheetSnapshot = freightPerSheetSnapshot;
+    }
+
+    public LocalDate getPriceDateSnapshot() {
+        return priceDateSnapshot;
+    }
+
+    public void setPriceDateSnapshot(LocalDate priceDateSnapshot) {
+        this.priceDateSnapshot = priceDateSnapshot;
+    }
+
+    public PriceRule getPriceRule() {
+        return priceRule;
+    }
+
+    public void setPriceRule(PriceRule priceRule) {
+        this.priceRule = priceRule;
+    }
+
+    public Integer getPiecesPerSheetSnapshot() {
+        return piecesPerSheetSnapshot;
+    }
+
+    public void setPiecesPerSheetSnapshot(Integer piecesPerSheetSnapshot) {
+        this.piecesPerSheetSnapshot = piecesPerSheetSnapshot;
+    }
+
+    public BigDecimal getNetSheets() {
+        return netSheets;
+    }
+
+    public void setNetSheets(BigDecimal netSheets) {
+        this.netSheets = netSheets;
+    }
+
+    public BigDecimal getWasteSheets() {
+        return wasteSheets;
+    }
+
+    public void setWasteSheets(BigDecimal wasteSheets) {
+        this.wasteSheets = wasteSheets;
+    }
+
+    public BigDecimal getTotalSheets() {
+        return totalSheets;
+    }
+
+    public void setTotalSheets(BigDecimal totalSheets) {
+        this.totalSheets = totalSheets;
+    }
+
+    public BigDecimal getCostPerPiece() {
+        return costPerPiece;
+    }
+
+    public void setCostPerPiece(BigDecimal costPerPiece) {
+        this.costPerPiece = costPerPiece;
+    }
+
+    public Boolean getCoatedSnapshot() {
+        return coatedSnapshot;
+    }
+
+    public void setCoatedSnapshot(Boolean coatedSnapshot) {
+        this.coatedSnapshot = coatedSnapshot;
     }
 
     public String getCutLayoutId() {
@@ -279,6 +368,22 @@ public final class PaperRow {
 
     public void setPlannedWastePercentage(BigDecimal plannedWastePercentage) {
         this.plannedWastePercentage = plannedWastePercentage;
+    }
+
+    public String getPaperRemnantId() {
+        return paperRemnantId;
+    }
+
+    public void setPaperRemnantId(String paperRemnantId) {
+        this.paperRemnantId = paperRemnantId;
+    }
+
+    public BigDecimal getRemnantQuantityUsed() {
+        return remnantQuantityUsed;
+    }
+
+    public void setRemnantQuantityUsed(BigDecimal remnantQuantityUsed) {
+        this.remnantQuantityUsed = remnantQuantityUsed;
     }
 
     @Override

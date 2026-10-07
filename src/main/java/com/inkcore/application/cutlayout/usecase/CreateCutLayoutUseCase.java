@@ -41,6 +41,7 @@ public class CreateCutLayoutUseCase {
                 command.height(),
                 unit,
                 command.piecesPerSheet(),
+                command.cutValue(),
                 state,
                 LocalDate.now(clock)
         );

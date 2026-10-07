@@ -36,6 +36,7 @@ public class UpdateCutLayoutUseCase {
                 command.height(),
                 command.unit(),
                 command.piecesPerSheet(),
+                command.cutValue(),
                 command.state()
         );
         return cutLayoutRepository.save(updated);

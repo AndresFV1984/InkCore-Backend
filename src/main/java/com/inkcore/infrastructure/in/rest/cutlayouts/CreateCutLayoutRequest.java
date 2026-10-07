@@ -15,7 +15,7 @@ import java.math.BigDecimal;
         description = """
                 Alta de despiece (POST /api/v1/cut-layouts/register).
                 Obligatorios: companyId, name, width, height, piecesPerSheet.
-                Opcionales: unit (default cm), state (default true).
+                Opcionales: unit (default cm), cutValue (>= 0), state (default true).
                 """
 )
 public record CreateCutLayoutRequest(
@@ -47,6 +47,10 @@ public record CreateCutLayoutRequest(
         @NotNull(message = "Las piezas por pliego son obligatorias")
         @Min(value = 1, message = "Las piezas por pliego deben ser mayor que 0")
         Integer piecesPerSheet,
+
+        @Schema(description = "Precio/tarifa de corte por pliego (>= 0; null si no aplica)", example = "50.00")
+        @DecimalMin(value = "0.00", inclusive = true, message = "El precio de corte no puede ser negativo")
+        BigDecimal cutValue,
 
         @Schema(description = "Estado: true=activo, false=inactivo (default true)", example = "true")
         Boolean state

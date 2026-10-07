@@ -13,13 +13,16 @@ public class UpdateProductionOrderStatusUseCase {
 
     private final ProductionOrderSupport support;
     private final CustomerOrderRepositoryPort customerOrderRepository;
+    private final PaperRemnantStockSync remnantStockSync;
 
     public UpdateProductionOrderStatusUseCase(
             ProductionOrderSupport support,
-            CustomerOrderRepositoryPort customerOrderRepository
+            CustomerOrderRepositoryPort customerOrderRepository,
+            PaperRemnantStockSync remnantStockSync
     ) {
         this.support = support;
         this.customerOrderRepository = customerOrderRepository;
+        this.remnantStockSync = remnantStockSync;
     }
 
     @Transactional
@@ -44,9 +47,21 @@ public class UpdateProductionOrderStatusUseCase {
         if (command.state() != null) {
             order.setState(command.state());
         }
-        order.setUpdatedAt(support.now());
+
+        var now = support.now();
+        boolean cancelling = targetStatus == ProductionOrderStatus.ANULADA
+                && !ProductionOrderStatus.isAnuladaAlias(previousStatus);
+        if (cancelling) {
+            // Devuelve stock de remanentes y limpia remnantQuantityUsed (evita doble devolución).
+            remnantStockSync.releaseUsagesOnCancel(order.getPaperRows(), now);
+        }
+
+        order.setUpdatedAt(now);
         order.setUpdatedBy(userId);
-        ProductionOrder saved = support.repository().saveRoot(order);
+        // save() persiste también paper_rows cuando se limpió remnantQuantityUsed.
+        ProductionOrder saved = cancelling
+                ? support.repository().save(order)
+                : support.repository().saveRoot(order);
 
         CustomerOrder customerOrder;
         if (shouldCreateOrder(previousStatus, targetStatus)) {

@@ -332,13 +332,24 @@ public class ProductionOrderPersistenceMapper {
         row.setMissingSupply(entity.isMissingSupply());
         row.setMissingSheetsQuantity(entity.getMissingSheetsQuantity());
         row.setClientSuppliesPaper(entity.isClientSuppliesPaper());
-        row.setPaperTypeId(entity.getPaperTypeId());
+        row.setPaperId(entity.getPaperId());
         row.setSupplierId(entity.getSupplierId());
         row.setPaperName(entity.getPaperName());
         row.setPaperSize(entity.getPaperSize());
         row.setSheetValue(entity.getSheetValue());
         row.setPackageUnit(entity.getPackageUnit());
         row.setCoated(entity.getCoated());
+        row.setFreightPerSheetSnapshot(entity.getFreightPerSheetSnapshot());
+        row.setPriceDateSnapshot(entity.getPriceDateSnapshot());
+        row.setPriceRule(entity.getPriceRule() == null
+                ? null
+                : com.inkcore.domain.paper.model.PriceRule.fromApiValue(entity.getPriceRule()));
+        row.setPiecesPerSheetSnapshot(entity.getPiecesPerSheetSnapshot());
+        row.setNetSheets(entity.getNetSheets());
+        row.setWasteSheets(entity.getWasteSheets());
+        row.setTotalSheets(entity.getTotalSheets());
+        row.setCostPerPiece(entity.getCostPerPiece());
+        row.setCoatedSnapshot(entity.getCoatedSnapshot());
         row.setCutLayoutId(entity.getCutLayoutId());
         row.setCutLayoutName(entity.getCutLayoutName());
         row.setCutLayoutSize(entity.getCutLayoutSize());
@@ -352,6 +363,8 @@ public class ProductionOrderPersistenceMapper {
         row.setTotalPaperValue(entity.getTotalPaperValue());
         row.setTotalCutValue(entity.getTotalCutValue());
         row.setPlannedWastePercentage(entity.getPlannedWastePercentage());
+        row.setPaperRemnantId(entity.getPaperRemnantId());
+        row.setRemnantQuantityUsed(entity.getRemnantQuantityUsed());
         return row;
     }
 
@@ -366,13 +379,22 @@ public class ProductionOrderPersistenceMapper {
         entity.setMissingSupply(row.isMissingSupply());
         entity.setMissingSheetsQuantity(row.getMissingSheetsQuantity());
         entity.setClientSuppliesPaper(row.isClientSuppliesPaper());
-        entity.setPaperTypeId(row.getPaperTypeId());
+        entity.setPaperId(row.getPaperId());
         entity.setSupplierId(row.getSupplierId());
         entity.setPaperName(row.getPaperName());
         entity.setPaperSize(row.getPaperSize());
         entity.setSheetValue(row.getSheetValue());
         entity.setPackageUnit(row.getPackageUnit());
         entity.setCoated(row.getCoated());
+        entity.setFreightPerSheetSnapshot(row.getFreightPerSheetSnapshot());
+        entity.setPriceDateSnapshot(row.getPriceDateSnapshot());
+        entity.setPriceRule(row.getPriceRule() == null ? null : row.getPriceRule().toApiValue());
+        entity.setPiecesPerSheetSnapshot(row.getPiecesPerSheetSnapshot());
+        entity.setNetSheets(row.getNetSheets());
+        entity.setWasteSheets(row.getWasteSheets());
+        entity.setTotalSheets(row.getTotalSheets());
+        entity.setCostPerPiece(row.getCostPerPiece());
+        entity.setCoatedSnapshot(row.getCoatedSnapshot());
         entity.setCutLayoutId(row.getCutLayoutId());
         entity.setCutLayoutName(row.getCutLayoutName());
         entity.setCutLayoutSize(row.getCutLayoutSize());
@@ -388,6 +410,8 @@ public class ProductionOrderPersistenceMapper {
         entity.setPlannedWastePercentage(row.getPlannedWastePercentage() == null
                 ? BigDecimal.ZERO
                 : row.getPlannedWastePercentage());
+        entity.setPaperRemnantId(row.getPaperRemnantId());
+        entity.setRemnantQuantityUsed(row.getRemnantQuantityUsed());
         entity.setCreatedAt(now);
         entity.setUpdatedAt(now);
         return entity;

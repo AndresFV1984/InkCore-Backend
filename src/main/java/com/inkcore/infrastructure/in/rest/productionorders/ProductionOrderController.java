@@ -400,8 +400,12 @@ public class ProductionOrderController {
     @Operation(
             operationId = "updateProductionOrderPaperCutting",
             summary = "Actualiza Corte de papel.",
-            description = "Reemplaza paper_rows. Totales (sheets/paper/cut) calculados en servidor. "
-                    + "plannedWastePercentage genera merma_corte; si se omite se usa el default de la compañía. "
+            description = "Reemplaza paper_rows. paperId = catálogo papers (material+formato). "
+                    + "supplierId y priceRule (PREFERRED|REPLACEMENT|BEST_COST) definen el precio snapshot. "
+                    + "cutLayoutId = despiece de catálogo; paperCutLayoutId (opcional) resuelve cutLayoutId desde paper_cut_layouts. "
+                    + "Totales (sheets/paper/cut) calculados en servidor. "
+                    + "plannedWastePercentage genera merma_corte vía company_waste_settings (NO usa wastePercentage del paper_cut_layout; ese campo es solo sugerencia UI). "
+                    + "Si se omite plannedWastePercentage se usa el default de la compañía. "
                     + "plannedMakereadyQuantity suma pliegos fijos de arranque a esa merma; si se omite se usan los de la compañía (inicial 0). "
                     + "machineUsages guarda snapshot de máquinas type=corte-papel. "
                     + "null no toca las máquinas de la fase; [] las quita. "
@@ -871,9 +875,10 @@ public class ProductionOrderController {
     private static UpdateProductionOrderPaperCuttingCommand.PaperRowInput toPaperRowInput(PaperRowRequest r) {
         return new UpdateProductionOrderPaperCuttingCommand.PaperRowInput(
                 r.paperRowId(), r.plateId(), r.parentRowId(), r.cutRowKey(), r.isMissingSupply(),
-                r.missingSheetsQuantity(), r.clientSuppliesPaper(), r.paperTypeId(), r.supplierId(), r.cutLayoutId(),
+                r.missingSheetsQuantity(), r.clientSuppliesPaper(), r.paperId(),
+                r.supplierId(), r.cutLayoutId(), r.paperCutLayoutId(), r.priceRule(),
                 r.isPaperCut(), r.deliveredSheetsByClient(), r.manualGoodSizes(), r.manualSurplus(),
-                r.plannedWastePercentage()
+                r.plannedWastePercentage(), r.paperRemnantId()
         );
     }
 

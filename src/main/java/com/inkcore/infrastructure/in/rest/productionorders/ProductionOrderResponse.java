@@ -346,6 +346,8 @@ public record ProductionOrderResponse(
         }
     }
 
+    @Schema(name = "ProductionOrderPaperRowResponse",
+            description = "Fila de corte: paperId del catálogo papers + snapshots. Merma = company_waste_settings / plannedWastePercentage (no waste% del paper_cut_layout).")
     public record PaperRowResponse(
             String productionOrderPaperRowId,
             @Schema(description = "Debe coincidir con plates[].productionOrderPlateId")
@@ -355,17 +357,35 @@ public record ProductionOrderResponse(
             Boolean isMissingSupply,
             Integer missingSheetsQuantity,
             Boolean clientSuppliesPaper,
-            String paperTypeId,
+            @Schema(description = "Papel del catálogo (FK papers)", example = "paper-seed-001")
+            String paperId,
+            @Schema(description = "Proveedor usado en el snapshot de precio", example = "supplier-seed-001")
             String supplierId,
+            @Schema(description = "Snapshot del nombre del papel")
             String paperName,
+            @Schema(description = "Snapshot del formato (width×height unit)")
             String paperSize,
             BigDecimal sheetValue,
+            @Schema(description = "Snapshot de unidad de empaque del precio del proveedor")
             Integer packageUnit,
             Boolean isCoated,
+            BigDecimal freightPerSheetSnapshot,
+            java.time.LocalDate priceDateSnapshot,
+            @Schema(description = "Regla aplicada", allowableValues = {"PREFERRED", "REPLACEMENT", "BEST_COST"},
+                    example = "PREFERRED")
+            String priceRule,
+            Integer piecesPerSheetSnapshot,
+            BigDecimal netSheets,
+            BigDecimal wasteSheets,
+            BigDecimal totalSheets,
+            BigDecimal costPerPiece,
+            Boolean isCoatedSnapshot,
+            @Schema(description = "Despiece de catálogo (cut_layouts)", example = "cut-layout-seed-001")
             String cutLayoutId,
             String cutLayoutName,
             String cutLayoutSize,
             Integer piecesPerSheet,
+            @Schema(description = "Tarifa de corte snapshot desde cut_layouts.cut_value")
             BigDecimal cutValue,
             Boolean isPaperCut,
             Integer deliveredSheetsByClient,
@@ -374,8 +394,13 @@ public record ProductionOrderResponse(
             Integer calculatedSheetsCount,
             BigDecimal totalPaperValue,
             BigDecimal totalCutValue,
-            @Schema(description = "Porcentaje de merma de corte aplicado a la fila", example = "2.00")
-            BigDecimal plannedWastePercentage
+            @Schema(description = "Merma de corte aplicada (OP / company_waste_settings). No es el waste% sugerido del despiece.",
+                    example = "2.00")
+            BigDecimal plannedWastePercentage,
+            @Schema(description = "Remanente usado como origen del corte", example = "paper-remnant-seed-001")
+            String paperRemnantId,
+            @Schema(description = "Unidades descontadas del remanente al guardar el corte")
+            BigDecimal remnantQuantityUsed
     ) {
         static PaperRowResponse from(PaperRow r) {
             return new PaperRowResponse(
@@ -386,13 +411,22 @@ public record ProductionOrderResponse(
                     r.isMissingSupply(),
                     r.getMissingSheetsQuantity(),
                     r.isClientSuppliesPaper(),
-                    r.getPaperTypeId(),
+                    r.getPaperId(),
                     r.getSupplierId(),
                     r.getPaperName(),
                     r.getPaperSize(),
                     r.getSheetValue(),
                     r.getPackageUnit(),
                     r.getCoated(),
+                    r.getFreightPerSheetSnapshot(),
+                    r.getPriceDateSnapshot(),
+                    r.getPriceRule() == null ? null : r.getPriceRule().toApiValue(),
+                    r.getPiecesPerSheetSnapshot(),
+                    r.getNetSheets(),
+                    r.getWasteSheets(),
+                    r.getTotalSheets(),
+                    r.getCostPerPiece(),
+                    r.getCoatedSnapshot(),
                     r.getCutLayoutId(),
                     r.getCutLayoutName(),
                     r.getCutLayoutSize(),
@@ -405,7 +439,9 @@ public record ProductionOrderResponse(
                     r.getCalculatedSheetsCount(),
                     r.getTotalPaperValue(),
                     r.getTotalCutValue(),
-                    r.getPlannedWastePercentage()
+                    r.getPlannedWastePercentage(),
+                    r.getPaperRemnantId(),
+                    r.getRemnantQuantityUsed()
             );
         }
     }

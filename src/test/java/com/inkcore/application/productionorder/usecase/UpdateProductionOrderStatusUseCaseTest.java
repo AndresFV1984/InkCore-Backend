@@ -29,6 +29,7 @@ class UpdateProductionOrderStatusUseCaseTest {
 
     @Mock ProductionOrderSupport support;
     @Mock CustomerOrderRepositoryPort customerOrderRepository;
+    @Mock PaperRemnantStockSync remnantStockSync;
     @Mock Authentication authentication;
     @Mock com.inkcore.domain.productionorder.ports.out.ProductionOrderRepositoryPort repository;
 
@@ -36,7 +37,7 @@ class UpdateProductionOrderStatusUseCaseTest {
 
     @BeforeEach
     void setUp() {
-        useCase = new UpdateProductionOrderStatusUseCase(support, customerOrderRepository);
+        useCase = new UpdateProductionOrderStatusUseCase(support, customerOrderRepository, remnantStockSync);
     }
 
     @Test
@@ -47,7 +48,7 @@ class UpdateProductionOrderStatusUseCaseTest {
         when(support.requireOrder("op-1", "company-1")).thenReturn(order);
         when(support.now()).thenReturn(LocalDateTime.of(2026, 9, 9, 12, 0));
         when(support.repository()).thenReturn(repository);
-        when(repository.saveRoot(any(ProductionOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(repository.save(any(ProductionOrder.class))).thenAnswer(inv -> inv.getArgument(0));
         when(customerOrderRepository.findByProductionOrderId("company-1", "op-1")).thenReturn(Optional.empty());
 
         UpdateProductionOrderStatusUseCase.Result result = useCase.execute(
@@ -58,6 +59,7 @@ class UpdateProductionOrderStatusUseCaseTest {
 
         assertEquals("ANULADA", result.order().getStatus());
         assertNull(result.customerOrder());
+        verify(remnantStockSync).releaseUsagesOnCancel(any(), any());
         verify(customerOrderRepository, never()).save(any());
     }
 
@@ -69,7 +71,7 @@ class UpdateProductionOrderStatusUseCaseTest {
         when(support.requireOrder("op-1", "company-1")).thenReturn(order);
         when(support.now()).thenReturn(LocalDateTime.of(2026, 9, 9, 12, 0));
         when(support.repository()).thenReturn(repository);
-        when(repository.saveRoot(any(ProductionOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(repository.save(any(ProductionOrder.class))).thenAnswer(inv -> inv.getArgument(0));
         when(customerOrderRepository.findByProductionOrderId("company-1", "op-1")).thenReturn(Optional.empty());
 
         useCase.execute(
@@ -79,8 +81,9 @@ class UpdateProductionOrderStatusUseCaseTest {
         );
 
         ArgumentCaptor<ProductionOrder> captor = ArgumentCaptor.forClass(ProductionOrder.class);
-        verify(repository).saveRoot(captor.capture());
+        verify(repository).save(captor.capture());
         assertEquals("ANULADA", captor.getValue().getStatus());
+        verify(remnantStockSync).releaseUsagesOnCancel(any(), any());
         verify(customerOrderRepository, never()).save(any());
     }
 

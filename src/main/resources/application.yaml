@@ -2,7 +2,7 @@ spring:
   application:
     name: InkCore-backend
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:dev}
+    active: ${SPRING_PROFILES_ACTIVE:docker}
 
   servlet:
     multipart:
@@ -85,3 +85,8 @@ inkcore:
     rate-recalculation-enabled: ${MACHINE_RATE_RECALC_ENABLED:true}
     # 03:00 del día 1 de enero, abril, julio y octubre
     rate-recalculation-cron: ${MACHINE_RATE_RECALC_CRON:0 0 3 1 1,4,7,10 *}
+
+  paper:
+    price-stale-days: ${PAPER_PRICE_STALE_DAYS:30}
+    iva-rate: ${PAPER_IVA_RATE:19}
+    iva-deductible: ${PAPER_IVA_DEDUCTIBLE:true}

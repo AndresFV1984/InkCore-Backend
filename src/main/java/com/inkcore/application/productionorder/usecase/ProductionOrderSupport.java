@@ -44,6 +44,10 @@ public class ProductionOrderSupport {
         return LocalDateTime.now(clock);
     }
 
+    public Clock clock() {
+        return clock;
+    }
+
     public ProductionOrder requireOrder(String productionOrderId, String companyId) {
         ProductionOrder order = repository.findById(productionOrderId)
                 .orElseThrow(() -> new ResourceNotFoundException(

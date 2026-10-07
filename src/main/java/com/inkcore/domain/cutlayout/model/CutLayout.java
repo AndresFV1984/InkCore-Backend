@@ -22,6 +22,7 @@ public final class CutLayout {
     private final BigDecimal height;
     private final String unit;
     private final int piecesPerSheet;
+    private final BigDecimal cutValue;
     private final boolean state;
     private final LocalDate creationDate;
 
@@ -33,6 +34,7 @@ public final class CutLayout {
             BigDecimal height,
             String unit,
             int piecesPerSheet,
+            BigDecimal cutValue,
             boolean state,
             LocalDate creationDate
     ) {
@@ -43,6 +45,7 @@ public final class CutLayout {
         this.height = height;
         this.unit = unit;
         this.piecesPerSheet = piecesPerSheet;
+        this.cutValue = cutValue;
         this.state = state;
         this.creationDate = creationDate;
     }
@@ -54,6 +57,7 @@ public final class CutLayout {
             BigDecimal height,
             String unit,
             int piecesPerSheet,
+            BigDecimal cutValue,
             boolean state,
             LocalDate creationDate
     ) {
@@ -68,6 +72,7 @@ public final class CutLayout {
                 normalizePositiveDimension(height, "El alto debe ser mayor que 0"),
                 normalizeUnit(unit),
                 requirePositivePieces(piecesPerSheet),
+                normalizeCutValue(cutValue),
                 state,
                 creationDate
         );
@@ -79,6 +84,7 @@ public final class CutLayout {
             BigDecimal height,
             String unit,
             int piecesPerSheet,
+            BigDecimal cutValue,
             boolean state
     ) {
         requireNotBlank(name, "El nombre es obligatorio");
@@ -90,6 +96,7 @@ public final class CutLayout {
                 normalizePositiveDimension(height, "El alto debe ser mayor que 0"),
                 normalizeUnit(unit),
                 requirePositivePieces(piecesPerSheet),
+                normalizeCutValue(cutValue),
                 state,
                 this.creationDate
         );
@@ -103,6 +110,7 @@ public final class CutLayout {
             BigDecimal height,
             String unit,
             int piecesPerSheet,
+            BigDecimal cutValue,
             boolean state,
             LocalDate creationDate
     ) {
@@ -114,6 +122,7 @@ public final class CutLayout {
                 height,
                 unit,
                 piecesPerSheet,
+                cutValue,
                 state,
                 creationDate
         );
@@ -124,6 +133,16 @@ public final class CutLayout {
             throw new IllegalArgumentException(message);
         }
         return value.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private static BigDecimal normalizeCutValue(BigDecimal cutValue) {
+        if (cutValue == null) {
+            return null;
+        }
+        if (cutValue.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("El precio de corte no puede ser negativo");
+        }
+        return cutValue.setScale(2, RoundingMode.HALF_UP);
     }
 
     private static String normalizeUnit(String unit) {
@@ -173,6 +192,10 @@ public final class CutLayout {
 
     public int getPiecesPerSheet() {
         return piecesPerSheet;
+    }
+
+    public BigDecimal getCutValue() {
+        return cutValue;
     }
 
     public boolean isState() {

@@ -33,7 +33,7 @@ siguiendo EXACTAMENTE las convenciones ya usadas en el schema:
   DELETE ... TO indicolors_app; al final de cada tabla
 - Patrón "snapshot": cuando una fila de una orden referencia un catálogo
   (ej. production_order_paper_rows guarda paper_name, sheet_value como
-  snapshot de paper_types), replica el mismo patrón para máquinas
+  snapshot de papers), replica el mismo patrón para máquinas
 - Patrón de tabla derivada con trigger (ver accounts_receivable +
   fn_sync_accounts_receivable_delivery/payment): para el resumen de costos,
   usa una tabla derivada mantenida por trigger, no calculada solo en la app

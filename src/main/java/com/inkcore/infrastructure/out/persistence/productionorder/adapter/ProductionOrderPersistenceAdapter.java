@@ -56,7 +56,7 @@ import java.util.Optional;
  * Persistencia del agregado Orden de Producción.
  * <p>
  * Las colecciones se guardan con estrategia de reemplazo (borrar + insertar en
- * lote), igual que {@code PaperTypePersistenceAdapter.replaceAssignments}, para
+ * lote), igual que el replaceDiff de precios de pliego, para
  * no depender de {@code orphanRemoval} en listas potencialmente grandes.
  */
 @Component

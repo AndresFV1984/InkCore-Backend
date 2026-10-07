@@ -33,7 +33,7 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("InkCore API")
                         .description("")
-                        .version("0.0.63")
+                        .version("0.0.73")
                         .contact(new Contact().name("InkCore").email("admin@indicolors.com")))
                 .servers(List.of(
                         new Server().url(basePath).description("Context path local")
@@ -49,7 +49,9 @@ public class OpenApiConfig {
                         new Tag().name("Cuentas bancarias").description("Gestión de cuentas bancarias"),
                         new Tag().name("Terminados").description("Gestión de terminados"),
                         new Tag().name("Acabados").description("Gestión de acabados"),
-                        new Tag().name("Tipos de papel").description("Catálogo de tipos de papel"),
+                        new Tag().name("Papeles").description(
+                                "Catálogo (acceptsRemnants + minRemnant W/H/unit), precios, despieces, "
+                                        + "stock y remanentes."),
                         new Tag().name("Despieces").description("Catálogo de despieces / patrones de corte"),
                         new Tag().name("Tipos de plancha").description("Catálogo de tipos de plancha"),
                         new Tag().name("Precios de montaje").description("Catálogo de precios de montaje"),

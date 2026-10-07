@@ -9,6 +9,7 @@ public record UpdateCutLayoutCommand(
         BigDecimal height,
         String unit,
         int piecesPerSheet,
+        BigDecimal cutValue,
         boolean state
 ) {
 }
