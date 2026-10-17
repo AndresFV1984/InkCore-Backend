@@ -399,4 +399,54 @@ public final class ProductionOrderRequests {
             String machineId
     ) {
     }
+
+    @Schema(
+            name = "ReorderProductionOrdersRequest",
+            description = "Cola de trabajo de la orden completa, de la primera a la última. "
+                    + "Debe incluir todas las órdenes abiertas de la empresa."
+    )
+    public record ReorderRequest(
+            @NotNull
+            @Schema(
+                    description = "Identificadores en el orden de trabajo. El primero es la siguiente orden.",
+                    requiredMode = Schema.RequiredMode.REQUIRED
+            )
+            List<@NotBlank String> productionOrderIds
+    ) {
+    }
+
+    @Schema(
+            name = "ReorderProductionOrderStageRequest",
+            description = "Cola de una etapa para las órdenes en proceso, de la primera a la última."
+    )
+    public record ReorderStageRequest(
+            @NotBlank
+            @Schema(
+                    description = "Etapa: preprensa, corte-papel, impresion, terminados o acabados.",
+                    allowableValues = {"preprensa", "corte-papel", "impresion", "terminados", "acabados"},
+                    requiredMode = Schema.RequiredMode.REQUIRED
+            )
+            String stage,
+            @NotNull
+            @Schema(
+                    description = "Órdenes en proceso, en el turno de esa etapa. El primero es el siguiente.",
+                    requiredMode = Schema.RequiredMode.REQUIRED
+            )
+            List<@NotBlank String> productionOrderIds
+    ) {
+    }
+
+    @Schema(name = "ProductionOrderStagePriority", description = "Turno de una etapa para una orden en proceso.")
+    public record StagePriorityResponse(
+            String productionOrderId,
+            @Schema(description = "Etapa: preprensa, corte-papel, impresion, terminados o acabados.")
+            String stage,
+            int priorityRank
+    ) {
+        public static StagePriorityResponse from(
+                com.inkcore.domain.productionorder.ports.out.ProductionOrderStagePriorityRepositoryPort.StagePriority row
+        ) {
+            return new StagePriorityResponse(row.productionOrderId(), row.stageCode(), row.priorityRank());
+        }
+    }
 }

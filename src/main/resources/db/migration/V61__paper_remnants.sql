@@ -74,3 +74,10 @@ INSERT INTO indicolors.paper_remnants (
      36.00, 51.00, 'cm', 4.00, 3.00, 800.00, CURRENT_DATE - 2,
      'Remanente Couche reutilizable', TRUE)
 ON CONFLICT (paper_remnant_id) DO NOTHING;
+
+-- FK circular: paper_rows se crea antes que paper_remnants.
+ALTER TABLE indicolors.production_order_paper_rows
+    ADD CONSTRAINT production_order_paper_rows_paper_remnant_fk
+        FOREIGN KEY (paper_remnant_id)
+            REFERENCES indicolors.paper_remnants (paper_remnant_id)
+            ON DELETE SET NULL;

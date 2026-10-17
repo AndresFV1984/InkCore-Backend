@@ -106,6 +106,12 @@ public record ProductionOrderResponse(
                 }
         )
         String status,
+        @Schema(
+                description = "Posición de trabajo de la orden completa. 1 es la siguiente en todas las etapas. "
+                        + "La define el administrador; el operador la consulta al iniciar.",
+                example = "1"
+        )
+        int priorityRank,
         Boolean state,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
@@ -174,6 +180,7 @@ public record ProductionOrderResponse(
                 order.getClientSuppliesPaperDefault(),
                 order.getRoundingMargin(),
                 ProductionOrderStatus.toWire(order.getStatus()),
+                order.getPriorityRank(),
                 order.isState(),
                 order.getCreatedAt(),
                 order.getUpdatedAt(),

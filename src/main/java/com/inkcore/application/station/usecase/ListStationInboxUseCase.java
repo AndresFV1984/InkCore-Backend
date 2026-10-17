@@ -106,11 +106,14 @@ public class ListStationInboxUseCase {
                     displayStatus(order.getStatus()),
                     new StationValidationService().orderAllowsOperatorExecution(order),
                     summarize(progresses),
-                    cantidadByOrder.getOrDefault(order.getProductionOrderId(), 0)
+                    cantidadByOrder.getOrDefault(order.getProductionOrderId(), 0),
+                    order.getPriorityRank()
             ));
         }
 
-        items.sort(Comparator.comparing(StationInboxItem::displayNumber).reversed());
+        items.sort(Comparator
+                .comparingInt(StationInboxItem::priorityRank)
+                .thenComparing(StationInboxItem::displayNumber, Comparator.nullsLast(String::compareTo)));
         int from = Math.min(pageQuery.offset(), items.size());
         int to = Math.min(from + pageQuery.size(), items.size());
         return new PageResult<>(items.subList(from, to), pageQuery.page(), pageQuery.size(), items.size());
@@ -160,7 +163,8 @@ public class ListStationInboxUseCase {
             String productionStatus,
             boolean executionAllowed,
             AssignedProcessSummary assignedProcessSummary,
-            int cantidadDisponible
+            int cantidadDisponible,
+            int priorityRank
     ) {
     }
 

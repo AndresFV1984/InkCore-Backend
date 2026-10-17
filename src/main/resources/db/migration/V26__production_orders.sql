@@ -27,6 +27,9 @@ CREATE TABLE IF NOT EXISTS indicolors.production_orders (
     client_supplies_paper_default    BOOLEAN,
     rounding_margin                  INTEGER                     DEFAULT 2,
 
+    -- Posición de trabajo de la orden completa (1 = siguiente). La heredan todas las etapas.
+    priority_rank                    INTEGER                     NOT NULL,
+
     status                           CHARACTER VARYING(30)       NOT NULL DEFAULT 'PENDING',
     state                            BOOLEAN                     NOT NULL DEFAULT TRUE,
     created_at                       TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
@@ -40,6 +43,7 @@ CREATE TABLE IF NOT EXISTS indicolors.production_orders (
     CONSTRAINT production_orders_client_fk FOREIGN KEY (client_id) REFERENCES indicolors.clients (client_id),
     CONSTRAINT production_orders_seller_fk FOREIGN KEY (seller_id) REFERENCES indicolors.sellers (seller_id),
     CONSTRAINT production_orders_requested_quantity_check CHECK (requested_quantity > 0),
+    CONSTRAINT production_orders_priority_rank_check CHECK (priority_rank > 0),
     CONSTRAINT production_orders_status_check CHECK (status IN (
         'PENDING',
         'PAUSED',
@@ -60,6 +64,8 @@ CREATE INDEX IF NOT EXISTS idx_production_orders_client_id ON indicolors.product
 CREATE INDEX IF NOT EXISTS idx_production_orders_status ON indicolors.production_orders (status);
 CREATE INDEX IF NOT EXISTS idx_production_orders_company_state ON indicolors.production_orders (company_id, state);
 CREATE INDEX IF NOT EXISTS idx_production_orders_seller_id ON indicolors.production_orders (seller_id);
+CREATE INDEX IF NOT EXISTS idx_production_orders_company_priority
+    ON indicolors.production_orders (company_id, state, priority_rank);
 
 COMMENT ON TABLE indicolors.production_orders IS 'Núcleo de la Orden de Producción: Especificaciones y control de flujo. Preprensa y Cobro viven en tablas 1:1 separadas por tamaño (production_order_prepress_details, production_order_billing_details)';
 
@@ -81,6 +87,7 @@ COMMENT ON COLUMN indicolors.production_orders.finished_products_completed_at IS
 COMMENT ON COLUMN indicolors.production_orders.finishing_processes_completed_at IS 'Fecha/hora en que se completó el paso de Acabados';
 COMMENT ON COLUMN indicolors.production_orders.client_supplies_paper_default IS 'Valor por defecto del paso Corte de papel: True=el cliente suministra el papel';
 COMMENT ON COLUMN indicolors.production_orders.rounding_margin IS 'Margen de redondeo aplicado en los cálculos del paso de Corte de papel';
+COMMENT ON COLUMN indicolors.production_orders.priority_rank IS 'Posición de trabajo de la orden completa. 1 es la siguiente en todas las etapas. La define el administrador; el operador la consulta.';
 COMMENT ON COLUMN indicolors.production_orders.status IS
     'Estado de planta. ANULADA es el cierre/anulación de la OP (antes CANCELLED). '
     'Aliases de entrada temporal en API: CANCELLED, CANCELED, CANCELADA, ANULADO → ANULADA.';

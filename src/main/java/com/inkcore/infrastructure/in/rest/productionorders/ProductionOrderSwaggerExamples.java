@@ -33,6 +33,7 @@ final class ProductionOrderSwaggerExamples {
                 "proposalQuantity2": null,
                 "specificationsCompletedAt": "2026-08-15T17:00:00",
                 "status": "PENDING",
+                "priorityRank": 1,
                 "state": true,
                 "plates": [],
                 "paperRows": [],
@@ -70,6 +71,7 @@ final class ProductionOrderSwaggerExamples {
                 "finishedProductsCompletedAt": "2026-08-15T17:30:00",
                 "finishingProcessesCompletedAt": "2026-08-15T17:40:00",
                 "status": "IN_PROGRESS",
+                "priorityRank": 1,
                 "state": true,
                 "plates": [
                   {
@@ -110,7 +112,9 @@ final class ProductionOrderSwaggerExamples {
                     "calculatedSheetsCount": 255,
                     "totalPaperValue": 382500.00,
                     "totalCutValue": 0.00,
-                    "plannedWastePercentage": 2.00
+                    "plannedWastePercentage": 2.00,
+                    "paperRemnantId": "paper-remnant-seed-001",
+                    "remnantQuantityUsed": 12.00
                   }
                 ],
                 "prints": [
@@ -169,6 +173,7 @@ final class ProductionOrderSwaggerExamples {
                     "totalToCharge": 1500000.00,
                     "cantidadDisponible": 500,
                     "status": "IN_PROGRESS",
+                    "priorityRank": 1,
                     "state": true
                   }
                 ],
@@ -279,7 +284,8 @@ final class ProductionOrderSwaggerExamples {
                   "cutLayoutId": "cut-layout-seed-001",
                   "paperCutLayoutId": "paper-cut-layout-001",
                   "priceRule": "PREFERRED",
-                  "plannedWastePercentage": 2.00
+                  "plannedWastePercentage": 2.00,
+                  "paperRemnantId": "paper-remnant-seed-001"
                 }
               ]
             }
@@ -380,6 +386,7 @@ final class ProductionOrderSwaggerExamples {
                 "version": 2,
                 "workName": "Brochure corporativo",
                 "status": "PENDING",
+                "priorityRank": 1,
                 "state": true,
                 "machineUsages": [
                   {
@@ -430,6 +437,7 @@ final class ProductionOrderSwaggerExamples {
                 "version": 5,
                 "workName": "Brochure corporativo",
                 "status": "PENDING",
+                "priorityRank": 1,
                 "state": true,
                 "machineUsages": [
                   {
@@ -480,6 +488,7 @@ final class ProductionOrderSwaggerExamples {
                 "version": 6,
                 "workName": "Brochure corporativo",
                 "status": "PENDING",
+                "priorityRank": 1,
                 "state": true,
                 "machineUsages": [
                   {
@@ -623,6 +632,7 @@ final class ProductionOrderSwaggerExamples {
                 "requestedQuantity": 1000,
                 "cantidadDisponible": 0,
                 "status": "IN_PROGRESS",
+                "priorityRank": 1,
                 "state": true,
                 "plates": [],
                 "paperRows": [],
@@ -657,6 +667,7 @@ final class ProductionOrderSwaggerExamples {
                 "requestedQuantity": 1000,
                 "cantidadDisponible": 500,
                 "status": "ANULADA",
+                "priorityRank": 1,
                 "state": true,
                 "plates": [],
                 "paperRows": [],
@@ -699,6 +710,95 @@ final class ProductionOrderSwaggerExamples {
                 "actualCost": 183333.50,
                 "note": "Defecto de impresión"
               }
+            }
+            """;
+
+    static final String STAGE_PRIORITIES = """
+            {
+              "headers": {
+                "correlationId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "statusCode": 200,
+                "code": "OK",
+                "description": "Success"
+              },
+              "timestamp": "2026-10-16T15:00:00Z",
+              "data": [
+                {
+                  "productionOrderId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                  "stage": "impresion",
+                  "priorityRank": 1
+                },
+                {
+                  "productionOrderId": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+                  "stage": "impresion",
+                  "priorityRank": 2
+                }
+              ]
+            }
+            """;
+
+    static final String REORDER_BODY = """
+            {
+              "productionOrderIds": [
+                "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+              ]
+            }
+            """;
+
+    static final String REORDER_OK = """
+            {
+              "headers": {
+                "correlationId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "statusCode": 200,
+                "code": "OK",
+                "description": "Success"
+              },
+              "timestamp": "2026-10-16T15:00:00Z",
+              "data": [
+                {
+                  "productionOrderId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                  "priorityRank": 1
+                },
+                {
+                  "productionOrderId": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+                  "priorityRank": 2
+                }
+              ]
+            }
+            """;
+
+    static final String REORDER_STAGE_BODY = """
+            {
+              "stage": "impresion",
+              "productionOrderIds": [
+                "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+              ]
+            }
+            """;
+
+    static final String REORDER_STAGE_OK = """
+            {
+              "headers": {
+                "correlationId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "statusCode": 200,
+                "code": "OK",
+                "description": "Success"
+              },
+              "timestamp": "2026-10-16T15:00:00Z",
+              "data": [
+                {
+                  "productionOrderId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                  "stage": "impresion",
+                  "priorityRank": 1
+                },
+                {
+                  "productionOrderId": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+                  "stage": "impresion",
+                  "priorityRank": 2
+                }
+              ]
             }
             """;
 

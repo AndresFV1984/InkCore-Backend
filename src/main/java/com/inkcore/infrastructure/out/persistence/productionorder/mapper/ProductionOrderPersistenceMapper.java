@@ -63,6 +63,7 @@ public class ProductionOrderPersistenceMapper {
         order.setFinishingProcessesCompletedAt(entity.getFinishingProcessesCompletedAt());
         order.setClientSuppliesPaperDefault(entity.getClientSuppliesPaperDefault());
         order.setRoundingMargin(entity.getRoundingMargin());
+        order.setPriorityRank(entity.getPriorityRank());
         order.setStatus(entity.getStatus());
         order.setState(entity.isState());
         order.setCreatedAt(entity.getCreatedAt());
@@ -101,6 +102,7 @@ public class ProductionOrderPersistenceMapper {
         entity.setFinishingProcessesCompletedAt(order.getFinishingProcessesCompletedAt());
         entity.setClientSuppliesPaperDefault(order.getClientSuppliesPaperDefault());
         entity.setRoundingMargin(order.getRoundingMargin());
+        entity.setPriorityRank(order.getPriorityRank());
         entity.setStatus(order.getStatus());
         entity.setState(order.isState());
         entity.setCreatedAt(order.getCreatedAt());

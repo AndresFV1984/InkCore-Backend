@@ -59,6 +59,7 @@ class CreateProductionOrderUseCaseTest {
                 )
         ));
         when(repository.allocateNextOrderSequence("company-seed-001")).thenReturn(42L);
+        when(repository.allocateNextPriorityRank("company-seed-001")).thenReturn(3);
         when(repository.save(any(ProductionOrder.class))).thenAnswer(inv -> inv.getArgument(0));
 
         ProductionOrder created = useCase.execute(
@@ -72,6 +73,7 @@ class CreateProductionOrderUseCaseTest {
         assertEquals("Brochure", created.getWorkName());
         assertEquals(1000, created.getRequestedQuantity());
         assertEquals("OP-42", created.getOrderNumber());
+        assertEquals(3, created.getPriorityRank());
         assertNull(created.getVersion());
     }
 }

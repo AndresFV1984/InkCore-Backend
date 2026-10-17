@@ -4,6 +4,8 @@ import com.inkcore.domain.productionorder.model.ProductionOrder;
 import com.inkcore.domain.shared.PageQuery;
 import com.inkcore.domain.shared.PageResult;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 public interface ProductionOrderRepositoryPort {
@@ -40,6 +42,32 @@ public interface ProductionOrderRepositoryPort {
      * para la empresa (sin colisiones bajo concurrencia).
      */
     long allocateNextOrderSequence(String companyId);
+
+    /**
+     * Siguiente posición al final de la cola de la empresa (MAX + 1).
+     */
+    int allocateNextPriorityRank(String companyId);
+
+    /**
+     * Órdenes abiertas (activas, no finalizadas ni anuladas), de la primera a la última.
+     */
+    List<String> findOpenWorkQueueIds(String companyId);
+
+    /**
+     * Órdenes activas en proceso (cualquier etapa de planta), sin orden definido.
+     */
+    List<String> findInProgressIds(String companyId);
+
+    /**
+     * Reemplaza la posición de trabajo sin tocar {@code version}.
+     * Reordenar no debe invalidar el guardado del wizard.
+     */
+    void replaceWorkQueuePriority(
+            String companyId,
+            List<String> orderedProductionOrderIds,
+            String updatedBy,
+            LocalDateTime updatedAt
+    );
 
     boolean hasOperators(String productionOrderId);
 

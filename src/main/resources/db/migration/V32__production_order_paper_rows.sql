@@ -47,6 +47,9 @@ CREATE TABLE indicolors.production_order_paper_rows (
     total_cut_value               NUMERIC(12,2),
     planned_waste_percentage      NUMERIC(5,2)                NOT NULL DEFAULT 0,
 
+    paper_remnant_id              CHARACTER VARYING(64),
+    remnant_quantity_used         NUMERIC(12,2),
+
     created_at                    TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
     updated_at                    TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
 
@@ -61,7 +64,9 @@ CREATE TABLE indicolors.production_order_paper_rows (
     CONSTRAINT production_order_paper_rows_planned_waste_percentage_check
         CHECK (planned_waste_percentage >= 0 AND planned_waste_percentage <= 100),
     CONSTRAINT production_order_paper_rows_price_rule_check
-        CHECK (price_rule IS NULL OR price_rule IN ('PREFERRED', 'REPLACEMENT', 'BEST_COST'))
+        CHECK (price_rule IS NULL OR price_rule IN ('PREFERRED', 'REPLACEMENT', 'BEST_COST')),
+    CONSTRAINT production_order_paper_rows_remnant_qty_check
+        CHECK (remnant_quantity_used IS NULL OR remnant_quantity_used >= 0)
 );
 
 CREATE INDEX idx_production_order_paper_rows_company_id ON indicolors.production_order_paper_rows (company_id);
@@ -72,6 +77,7 @@ CREATE INDEX idx_production_order_paper_rows_cut_row_key ON indicolors.productio
 CREATE INDEX idx_production_order_paper_rows_paper_id ON indicolors.production_order_paper_rows (paper_id);
 CREATE INDEX idx_production_order_paper_rows_supplier_id ON indicolors.production_order_paper_rows (supplier_id);
 CREATE INDEX idx_production_order_paper_rows_cut_layout_id ON indicolors.production_order_paper_rows (cut_layout_id);
+CREATE INDEX idx_production_order_paper_rows_paper_remnant_id ON indicolors.production_order_paper_rows (paper_remnant_id);
 
 COMMENT ON TABLE indicolors.production_order_paper_rows IS 'Corte de papel por plancha, 0..N filas (incluye filas de faltante cubierto por litografía)';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.paper_id IS 'Papel seleccionado del catálogo (FK a papers)';
@@ -79,6 +85,8 @@ COMMENT ON COLUMN indicolors.production_order_paper_rows.supplier_id IS 'Proveed
 COMMENT ON COLUMN indicolors.production_order_paper_rows.paper_name IS 'Snapshot del nombre del papel al momento de guardar';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.paper_size IS 'Snapshot del formato del papel al momento de guardar';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.planned_waste_percentage IS 'Merma de corte aplicada (company_waste_settings u override de OP; no del waste sugerido del papel-despiece)';
+COMMENT ON COLUMN indicolors.production_order_paper_rows.paper_remnant_id IS 'Remanente usado como origen del corte (opcional; FK paper_remnants)';
+COMMENT ON COLUMN indicolors.production_order_paper_rows.remnant_quantity_used IS 'Unidades descontadas de quantity_available del remanente al guardar el corte';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.created_at IS 'Fecha y hora de creación del registro';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.updated_at IS 'Fecha y hora de la última actualización del registro';
 

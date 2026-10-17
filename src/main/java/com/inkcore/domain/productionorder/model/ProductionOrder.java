@@ -44,6 +44,9 @@ public final class ProductionOrder {
     private Boolean clientSuppliesPaperDefault;
     private Integer roundingMargin;
 
+    /** Posición de trabajo de la orden completa. 1 es la siguiente en todas las etapas. */
+    private int priorityRank;
+
     private String status;
     private boolean state;
     private LocalDateTime createdAt;
@@ -152,6 +155,16 @@ public final class ProductionOrder {
         this.proposalQuantity2 = proposalQuantity2;
         this.specificationsCompletedAt = now;
         this.updatedAt = now;
+    }
+
+    /**
+     * Fija la posición de trabajo de la orden completa. 1 es la primera.
+     */
+    public void assignPriorityRank(int rank) {
+        if (rank < 1) {
+            throw new IllegalArgumentException("La prioridad debe ser mayor que 0");
+        }
+        this.priorityRank = rank;
     }
 
     /**
@@ -372,6 +385,14 @@ public final class ProductionOrder {
 
     public void setRoundingMargin(Integer roundingMargin) {
         this.roundingMargin = roundingMargin;
+    }
+
+    public int getPriorityRank() {
+        return priorityRank;
+    }
+
+    public void setPriorityRank(int priorityRank) {
+        this.priorityRank = priorityRank;
     }
 
     public String getStatus() {

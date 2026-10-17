@@ -232,6 +232,7 @@ final class StationSwaggerExamples {
                     "productionStatus": "En Proceso",
                     "executionAllowed": true,
                     "cantidadDisponible": 1500,
+                    "priorityRank": 1,
                     "assignedProcessSummary": {
                       "done": 0,
                       "active": 1,

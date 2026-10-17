@@ -100,7 +100,12 @@ public final class StationResponses {
             boolean executionAllowed,
             AssignedProcessSummaryResponse assignedProcessSummary,
             @Schema(description = "Unidades disponibles para pedidos (agregado station)", example = "1500")
-            int cantidadDisponible
+            int cantidadDisponible,
+            @Schema(
+                    description = "Posición de trabajo de la orden completa. 1 es la siguiente.",
+                    example = "1"
+            )
+            int priorityRank
     ) {
         public static InboxItemResponse from(ListStationInboxUseCase.StationInboxItem item) {
             return new InboxItemResponse(
@@ -113,7 +118,8 @@ public final class StationResponses {
                     item.productionStatus(),
                     item.executionAllowed(),
                     AssignedProcessSummaryResponse.from(item.assignedProcessSummary()),
-                    item.cantidadDisponible()
+                    item.cantidadDisponible(),
+                    item.priorityRank()
             );
         }
     }

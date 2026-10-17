@@ -6,6 +6,9 @@ import com.inkcore.application.productionorder.usecase.DeleteProductionOrderUseC
 import com.inkcore.application.productionorder.usecase.GenerateProductionOrderBillingPdfUseCase;
 import com.inkcore.application.productionorder.usecase.GetProductionOrderCostSummaryUseCase;
 import com.inkcore.application.productionorder.usecase.RegisterReprintWasteUseCase;
+import com.inkcore.application.productionorder.usecase.ListProductionOrderStagePrioritiesUseCase;
+import com.inkcore.application.productionorder.usecase.ReorderProductionOrderStageUseCase;
+import com.inkcore.application.productionorder.usecase.ReorderProductionOrdersUseCase;
 import com.inkcore.application.productionorder.usecase.GetProductionOrderUseCase;
 import com.inkcore.application.productionorder.usecase.ListProductionOrdersUseCase;
 import com.inkcore.application.productionorder.usecase.MachineUsageInput;
@@ -110,6 +113,9 @@ public class ProductionOrderController {
     private final UpdateProductionOrderPostpressUseCase updatePostpressUseCase;
     private final UpdateProductionOrderBillingUseCase updateBillingUseCase;
     private final UpdateProductionOrderStatusUseCase updateStatusUseCase;
+    private final ReorderProductionOrdersUseCase reorderUseCase;
+    private final ListProductionOrderStagePrioritiesUseCase listStagePrioritiesUseCase;
+    private final ReorderProductionOrderStageUseCase reorderStageUseCase;
     private final DeleteProductionOrderUseCase deleteUseCase;
     private final GenerateProductionOrderBillingPdfUseCase generatePdfUseCase;
     private final GetProductionOrderCostSummaryUseCase costSummaryUseCase;
@@ -130,6 +136,9 @@ public class ProductionOrderController {
             UpdateProductionOrderPostpressUseCase updatePostpressUseCase,
             UpdateProductionOrderBillingUseCase updateBillingUseCase,
             UpdateProductionOrderStatusUseCase updateStatusUseCase,
+            ReorderProductionOrdersUseCase reorderUseCase,
+            ListProductionOrderStagePrioritiesUseCase listStagePrioritiesUseCase,
+            ReorderProductionOrderStageUseCase reorderStageUseCase,
             DeleteProductionOrderUseCase deleteUseCase,
             GenerateProductionOrderBillingPdfUseCase generatePdfUseCase,
             GetProductionOrderCostSummaryUseCase costSummaryUseCase,
@@ -149,6 +158,9 @@ public class ProductionOrderController {
         this.updatePostpressUseCase = updatePostpressUseCase;
         this.updateBillingUseCase = updateBillingUseCase;
         this.updateStatusUseCase = updateStatusUseCase;
+        this.reorderUseCase = reorderUseCase;
+        this.listStagePrioritiesUseCase = listStagePrioritiesUseCase;
+        this.reorderStageUseCase = reorderStageUseCase;
         this.deleteUseCase = deleteUseCase;
         this.generatePdfUseCase = generatePdfUseCase;
         this.costSummaryUseCase = costSummaryUseCase;
@@ -690,6 +702,113 @@ public class ProductionOrderController {
                 httpRequest,
                 HttpStatus.OK,
                 toResponse(updated.order(), cantidad, updated.customerOrder())
+        );
+    }
+
+    @GetMapping("/stage-priorities")
+    @Operation(
+            operationId = "listProductionOrderStagePriorities",
+            summary = "Consulta el turno de cada etapa de las órdenes en proceso."
+    )
+    @ApiResponse(
+            responseCode = "200",
+            description = "Turnos por etapa",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    examples = @ExampleObject(name = "TurnosPorEtapa", value = ProductionOrderSwaggerExamples.STAGE_PRIORITIES)
+            )
+    )
+    @ApiErrorResponses
+    @ApiSecuredErrorResponses
+    public ResponseEntity<ApiSuccessEnvelope<List<ProductionOrderRequests.StagePriorityResponse>>> listStagePriorities(
+            Authentication authentication,
+            HttpServletRequest httpRequest
+    ) {
+        return responseFactory.success(
+                httpRequest,
+                HttpStatus.OK,
+                listStagePrioritiesUseCase.execute(authentication).stream()
+                        .map(ProductionOrderRequests.StagePriorityResponse::from)
+                        .toList()
+        );
+    }
+
+    @PutMapping("/stage-priority")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @Operation(
+            operationId = "reorderProductionOrderStage",
+            summary = "Define el turno de una etapa entre las órdenes en proceso.",
+            description = "Solo aplica a órdenes en proceso. El cuerpo debe incluir todas esas órdenes, sin repetir. "
+                    + "No cambia el turno de la orden completa ni version."
+    )
+    @ApiResponse(
+            responseCode = "200",
+            description = "Turno de la etapa actualizado",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    examples = @ExampleObject(name = "TurnoEtapa", value = ProductionOrderSwaggerExamples.REORDER_STAGE_OK)
+            )
+    )
+    @ApiErrorResponses
+    @ApiSecuredErrorResponses
+    public ResponseEntity<ApiSuccessEnvelope<List<ReorderProductionOrderStageUseCase.StageAssignment>>> reorderStage(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ProductionOrderRequests.ReorderStageRequest.class),
+                            examples = @ExampleObject(name = "ReordenarEtapa", value = ProductionOrderSwaggerExamples.REORDER_STAGE_BODY)
+                    )
+            )
+            @Valid @RequestBody ProductionOrderRequests.ReorderStageRequest request,
+            Authentication authentication,
+            HttpServletRequest httpRequest
+    ) {
+        return responseFactory.success(
+                httpRequest,
+                HttpStatus.OK,
+                reorderStageUseCase.execute(request.stage(), request.productionOrderIds(), authentication)
+        );
+    }
+
+    @PutMapping("/reorder")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @Operation(
+            operationId = "reorderProductionOrders",
+            summary = "Define el orden de trabajo de las órdenes abiertas.",
+            description = "La posición es de la orden completa y la heredan todas las etapas. "
+                    + "1 es la siguiente. El cuerpo debe incluir todas las órdenes abiertas "
+                    + "(activas, no finalizadas ni anuladas), sin repetir. "
+                    + "No modifica version, para no chocar con el guardado del wizard. "
+                    + "El operador consulta ese orden al iniciar; no lo cambia."
+    )
+    @ApiResponse(
+            responseCode = "200",
+            description = "Cola actualizada",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    examples = @ExampleObject(name = "ColaOrden", value = ProductionOrderSwaggerExamples.REORDER_OK)
+            )
+    )
+    @ApiErrorResponses
+    @ApiSecuredErrorResponses
+    public ResponseEntity<ApiSuccessEnvelope<List<ReorderProductionOrdersUseCase.PriorityAssignment>>> reorder(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ProductionOrderRequests.ReorderRequest.class),
+                            examples = @ExampleObject(name = "ReordenarOrdenes", value = ProductionOrderSwaggerExamples.REORDER_BODY)
+                    )
+            )
+            @Valid @RequestBody ProductionOrderRequests.ReorderRequest request,
+            Authentication authentication,
+            HttpServletRequest httpRequest
+    ) {
+        return responseFactory.success(
+                httpRequest,
+                HttpStatus.OK,
+                reorderUseCase.execute(request.productionOrderIds(), authentication)
         );
     }
 

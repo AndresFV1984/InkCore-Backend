@@ -77,6 +77,9 @@ public class ProductionOrderEntity {
     @Column(name = "rounding_margin")
     private Integer roundingMargin;
 
+    @Column(name = "priority_rank", nullable = false)
+    private int priorityRank;
+
     @Column(name = "status", nullable = false, length = 30)
     private String status;
 
@@ -240,6 +243,14 @@ public class ProductionOrderEntity {
 
     public void setRoundingMargin(Integer roundingMargin) {
         this.roundingMargin = roundingMargin;
+    }
+
+    public int getPriorityRank() {
+        return priorityRank;
+    }
+
+    public void setPriorityRank(int priorityRank) {
+        this.priorityRank = priorityRank;
     }
 
     public String getStatus() {

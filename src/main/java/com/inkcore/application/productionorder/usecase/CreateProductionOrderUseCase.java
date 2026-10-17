@@ -49,6 +49,7 @@ public class CreateProductionOrderUseCase {
                 userId,
                 support.now()
         );
+        order.assignPriorityRank(support.repository().allocateNextPriorityRank(companyId));
         if (command.operatorUserId() != null && !command.operatorUserId().isBlank()) {
             order.upsertOperator(ProductionOrderStage.PREPRESS, command.operatorUserId());
         }

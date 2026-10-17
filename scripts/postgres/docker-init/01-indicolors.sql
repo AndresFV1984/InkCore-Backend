@@ -42,16 +42,22 @@ ALTER ROLE inkcore_admin WITH PASSWORD 'kpDh7QcJVviWaxU91wLYyv2wIMECIUUb';
 ALTER DATABASE inkcore OWNER TO inkcore_admin;
 GRANT indicolors_owner TO inkcore_admin;
 
--- Event trigger: inkcore_admin recibe ALL sobre esquemas nuevos
+-- Event trigger: inkcore_admin recibe ALL sobre esquemas nuevos.
+-- Usar nspname vía objid: en CREATE SCHEMA, pg_event_trigger_ddl_commands().schema_name
+-- suele ser NULL (el schema ES el objeto), y format(%I, NULL) aborta el CREATE.
 CREATE OR REPLACE FUNCTION inkcore_grant_admin_on_new_schema()
 RETURNS event_trigger AS $$
 DECLARE
 	obj record;
+	new_schema text;
 BEGIN
 	FOR obj IN SELECT * FROM pg_event_trigger_ddl_commands()
 		WHERE command_tag = 'CREATE SCHEMA'
 	LOOP
-		EXECUTE format('GRANT ALL ON SCHEMA %I TO inkcore_admin', obj.schema_name);
+		SELECT nspname INTO new_schema FROM pg_namespace WHERE oid = obj.objid;
+		IF new_schema IS NOT NULL THEN
+			EXECUTE format('GRANT ALL ON SCHEMA %I TO inkcore_admin', new_schema);
+		END IF;
 	END LOOP;
 END;
 $$ LANGUAGE plpgsql;

@@ -5,6 +5,7 @@ import com.inkcore.domain.productionorder.model.PostpressLine;
 import com.inkcore.domain.productionorder.model.PostpressRecord;
 import com.inkcore.domain.productionorder.model.PrintConfig;
 import com.inkcore.domain.productionorder.model.PrintEntry;
+import com.inkcore.domain.productionorder.exception.ProductionOrderBusinessRuleException;
 import com.inkcore.domain.productionorder.model.ProductionOrder;
 import com.inkcore.domain.productionorder.model.WasteRecord;
 import com.inkcore.domain.productionorder.service.WasteMakeready;
@@ -228,6 +229,62 @@ public class ProductionOrderPersistenceAdapter implements ProductionOrderReposit
                 .setParameter("companyId", companyId.trim())
                 .getSingleResult();
         return ((Number) result).longValue();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public int allocateNextPriorityRank(String companyId) {
+        if (companyId == null || companyId.isBlank()) {
+            throw new IllegalArgumentException("companyId es obligatorio para asignar la prioridad");
+        }
+        return orderRepository.findMaxPriorityRank(companyId.trim()) + 1;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<String> findOpenWorkQueueIds(String companyId) {
+        if (companyId == null || companyId.isBlank()) {
+            return List.of();
+        }
+        return orderRepository.findOpenWorkQueueIds(companyId.trim());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<String> findInProgressIds(String companyId) {
+        if (companyId == null || companyId.isBlank()) {
+            return List.of();
+        }
+        return orderRepository.findInProgressIds(companyId.trim());
+    }
+
+    @Override
+    @Transactional
+    public void replaceWorkQueuePriority(
+            String companyId,
+            List<String> orderedProductionOrderIds,
+            String updatedBy,
+            LocalDateTime updatedAt
+    ) {
+        if (companyId == null || companyId.isBlank()) {
+            throw new IllegalArgumentException("companyId es obligatorio para reordenar la cola");
+        }
+        int rank = 1;
+        for (String productionOrderId : orderedProductionOrderIds) {
+            int updated = orderRepository.updatePriorityRank(
+                    productionOrderId,
+                    companyId.trim(),
+                    rank,
+                    updatedAt,
+                    updatedBy
+            );
+            if (updated != 1) {
+                throw new ProductionOrderBusinessRuleException(
+                        "No se pudo actualizar la prioridad de la orden"
+                );
+            }
+            rank++;
+        }
     }
 
     @Override
@@ -537,7 +594,11 @@ public class ProductionOrderPersistenceAdapter implements ProductionOrderReposit
         return PageRequest.of(
                 pageQuery.page(),
                 pageQuery.size(),
-                Sort.by(Sort.Order.desc("orderDate"), Sort.Order.desc("createdAt"))
+                Sort.by(
+                        Sort.Order.asc("priorityRank"),
+                        Sort.Order.desc("orderDate"),
+                        Sort.Order.desc("createdAt")
+                )
         );
     }
 }

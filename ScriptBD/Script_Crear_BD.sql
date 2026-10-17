@@ -61,15 +61,21 @@ GRANT indicolors_owner TO inkcore_admin;
 -- Event trigger: otorga automáticamente todos los privilegios a
 -- inkcore_admin sobre cualquier esquema nuevo que se cree en esta base
 -- de datos, sin necesidad de acordarse de hacerlo manualmente cada vez.
+-- Usar nspname vía objid: en CREATE SCHEMA, schema_name suele ser NULL
+-- (el schema ES el objeto) y format(%I, NULL) aborta el CREATE.
 CREATE OR REPLACE FUNCTION inkcore_grant_admin_on_new_schema()
 RETURNS event_trigger AS $$
 DECLARE
     obj record;
+    new_schema text;
 BEGIN
     FOR obj IN SELECT * FROM pg_event_trigger_ddl_commands()
         WHERE command_tag = 'CREATE SCHEMA'
     LOOP
-        EXECUTE format('GRANT ALL ON SCHEMA %I TO inkcore_admin', obj.schema_name);
+        SELECT nspname INTO new_schema FROM pg_namespace WHERE oid = obj.objid;
+        IF new_schema IS NOT NULL THEN
+            EXECUTE format('GRANT ALL ON SCHEMA %I TO inkcore_admin', new_schema);
+        END IF;
     END LOOP;
 END;
 $$ LANGUAGE plpgsql;
@@ -1272,6 +1278,9 @@ CREATE TABLE indicolors.production_orders (
     client_supplies_paper_default    BOOLEAN,
     rounding_margin                  INTEGER                     DEFAULT 2,
 
+    -- Posición de trabajo de la orden completa (1 = siguiente). La heredan todas las etapas.
+    priority_rank                    INTEGER                     NOT NULL,
+
     status                           CHARACTER VARYING(30)       NOT NULL DEFAULT 'PENDING',
     state                            BOOLEAN                     NOT NULL DEFAULT TRUE,
     created_at                       TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
@@ -1285,6 +1294,7 @@ CREATE TABLE indicolors.production_orders (
     CONSTRAINT production_orders_client_fk FOREIGN KEY (client_id) REFERENCES indicolors.clients (client_id),
     CONSTRAINT production_orders_seller_fk FOREIGN KEY (seller_id) REFERENCES indicolors.sellers (seller_id),
     CONSTRAINT production_orders_requested_quantity_check CHECK (requested_quantity > 0),
+    CONSTRAINT production_orders_priority_rank_check CHECK (priority_rank > 0),
     CONSTRAINT production_orders_status_check CHECK (status IN (
         'PENDING',
         'PAUSED',
@@ -1305,6 +1315,8 @@ CREATE INDEX idx_production_orders_client_id ON indicolors.production_orders (cl
 CREATE INDEX idx_production_orders_status ON indicolors.production_orders (status);
 CREATE INDEX idx_production_orders_company_state ON indicolors.production_orders (company_id, state);
 CREATE INDEX idx_production_orders_seller_id ON indicolors.production_orders (seller_id);
+CREATE INDEX idx_production_orders_company_priority
+    ON indicolors.production_orders (company_id, state, priority_rank);
 
 COMMENT ON TABLE indicolors.production_orders IS 'Núcleo de la Orden de Producción: Especificaciones y control de flujo. Preprensa y Cobro viven en tablas 1:1 separadas por tamaño (production_order_prepress_details, production_order_billing_details)';
 
@@ -1326,6 +1338,7 @@ COMMENT ON COLUMN indicolors.production_orders.finished_products_completed_at IS
 COMMENT ON COLUMN indicolors.production_orders.finishing_processes_completed_at IS 'Fecha/hora en que se completó el paso de Acabados';
 COMMENT ON COLUMN indicolors.production_orders.client_supplies_paper_default IS 'Valor por defecto del paso Corte de papel: True=el cliente suministra el papel';
 COMMENT ON COLUMN indicolors.production_orders.rounding_margin IS 'Margen de redondeo aplicado en los cálculos del paso de Corte de papel';
+COMMENT ON COLUMN indicolors.production_orders.priority_rank IS 'Posición de trabajo de la orden completa. 1 es la siguiente en todas las etapas. La define el administrador; el operador la consulta.';
 COMMENT ON COLUMN indicolors.production_orders.status IS 'Estado de planta. ANULADA es el cierre/anulación de la OP (antes CANCELLED). Aliases de entrada temporal en API: CANCELLED, CANCELED, CANCELADA, ANULADO → ANULADA.';
 COMMENT ON COLUMN indicolors.production_orders.state IS 'True=Activa, False=Borrador eliminado (baja lógica)';
 COMMENT ON COLUMN indicolors.production_orders.created_at IS 'Fecha y hora de creación del registro';
@@ -1335,6 +1348,47 @@ COMMENT ON COLUMN indicolors.production_orders.updated_by IS 'Identificador del 
 
 GRANT ALL PRIVILEGES ON TABLE indicolors.production_orders TO indicolors_owner;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.production_orders TO indicolors_app;
+
+-- ============================================
+-- 28.1 TURNO POR ETAPA DE UNA ORDEN EN PROCESO
+-- ============================================
+CREATE TABLE indicolors.production_order_stage_priorities (
+    stage_priority_id    CHARACTER VARYING(64)       NOT NULL DEFAULT gen_random_uuid()::text,
+    company_id           CHARACTER VARYING(64)       NOT NULL,
+    production_order_id  CHARACTER VARYING(64)       NOT NULL,
+    stage_code           CHARACTER VARYING(32)       NOT NULL,
+    priority_rank        INTEGER                     NOT NULL,
+    created_at           TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
+    updated_at           TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
+    created_by           CHARACTER VARYING(64),
+    updated_by           CHARACTER VARYING(64),
+
+    CONSTRAINT production_order_stage_priorities_pkey PRIMARY KEY (stage_priority_id),
+    CONSTRAINT production_order_stage_priorities_order_stage_unique
+        UNIQUE (company_id, production_order_id, stage_code),
+    CONSTRAINT production_order_stage_priorities_company_fk
+        FOREIGN KEY (company_id) REFERENCES indicolors.companies (company_id),
+    CONSTRAINT production_order_stage_priorities_order_fk
+        FOREIGN KEY (production_order_id) REFERENCES indicolors.production_orders (production_order_id) ON DELETE CASCADE,
+    CONSTRAINT production_order_stage_priorities_rank_check CHECK (priority_rank > 0),
+    CONSTRAINT production_order_stage_priorities_stage_check CHECK (stage_code IN (
+        'preprensa',
+        'corte-papel',
+        'impresion',
+        'terminados',
+        'acabados'
+    ))
+);
+
+CREATE INDEX idx_production_order_stage_priorities_queue
+    ON indicolors.production_order_stage_priorities (company_id, stage_code, priority_rank);
+
+COMMENT ON TABLE indicolors.production_order_stage_priorities IS 'Turno de trabajo por etapa de una orden en proceso. 1 es la siguiente en esa estación.';
+COMMENT ON COLUMN indicolors.production_order_stage_priorities.stage_code IS 'Etapa: preprensa, corte-papel, impresion, terminados o acabados.';
+COMMENT ON COLUMN indicolors.production_order_stage_priorities.priority_rank IS 'Posición en la cola de esa etapa. 1 es la siguiente.';
+
+GRANT ALL PRIVILEGES ON TABLE indicolors.production_order_stage_priorities TO indicolors_owner;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.production_order_stage_priorities TO indicolors_app;
 
 -- ============================================
 -- 29.0 CREAR TABLA SECUENCIA DE NÚMEROS DE OP (consecutivo atómico por empresa)
@@ -1690,6 +1744,9 @@ CREATE TABLE indicolors.production_order_paper_rows (
     total_cut_value               NUMERIC(12,2),
     planned_waste_percentage      NUMERIC(5,2)                NOT NULL DEFAULT 0,
 
+    paper_remnant_id              CHARACTER VARYING(64),
+    remnant_quantity_used         NUMERIC(12,2),
+
     created_at                    TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
     updated_at                    TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
 
@@ -1704,7 +1761,9 @@ CREATE TABLE indicolors.production_order_paper_rows (
     CONSTRAINT production_order_paper_rows_planned_waste_percentage_check
         CHECK (planned_waste_percentage >= 0 AND planned_waste_percentage <= 100),
     CONSTRAINT production_order_paper_rows_price_rule_check
-        CHECK (price_rule IS NULL OR price_rule IN ('PREFERRED', 'REPLACEMENT', 'BEST_COST'))
+        CHECK (price_rule IS NULL OR price_rule IN ('PREFERRED', 'REPLACEMENT', 'BEST_COST')),
+    CONSTRAINT production_order_paper_rows_remnant_qty_check
+        CHECK (remnant_quantity_used IS NULL OR remnant_quantity_used >= 0)
 );
 
 CREATE INDEX idx_production_order_paper_rows_company_id ON indicolors.production_order_paper_rows (company_id);
@@ -1715,6 +1774,7 @@ CREATE INDEX idx_production_order_paper_rows_cut_row_key ON indicolors.productio
 CREATE INDEX idx_production_order_paper_rows_paper_id ON indicolors.production_order_paper_rows (paper_id);
 CREATE INDEX idx_production_order_paper_rows_supplier_id ON indicolors.production_order_paper_rows (supplier_id);
 CREATE INDEX idx_production_order_paper_rows_cut_layout_id ON indicolors.production_order_paper_rows (cut_layout_id);
+CREATE INDEX idx_production_order_paper_rows_paper_remnant_id ON indicolors.production_order_paper_rows (paper_remnant_id);
 
 COMMENT ON TABLE indicolors.production_order_paper_rows IS 'Corte de papel por plancha, 0..N filas (incluye filas de faltante cubierto por litografía)';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.paper_id IS 'Papel seleccionado del catálogo (FK a papers)';
@@ -1722,6 +1782,8 @@ COMMENT ON COLUMN indicolors.production_order_paper_rows.supplier_id IS 'Proveed
 COMMENT ON COLUMN indicolors.production_order_paper_rows.paper_name IS 'Snapshot del nombre del papel al momento de guardar';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.paper_size IS 'Snapshot del formato del papel al momento de guardar';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.planned_waste_percentage IS 'Merma de corte aplicada (company_waste_settings u override de OP; no del waste sugerido del papel-despiece)';
+COMMENT ON COLUMN indicolors.production_order_paper_rows.paper_remnant_id IS 'Remanente usado como origen del corte (opcional; FK paper_remnants)';
+COMMENT ON COLUMN indicolors.production_order_paper_rows.remnant_quantity_used IS 'Unidades descontadas de quantity_available del remanente al guardar el corte';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.created_at IS 'Fecha y hora de creación del registro';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.updated_at IS 'Fecha y hora de la última actualización del registro';
 
@@ -1793,6 +1855,13 @@ COMMENT ON COLUMN indicolors.paper_remnants.state IS 'True=disponible para uso, 
 
 GRANT ALL PRIVILEGES ON TABLE indicolors.paper_remnants TO indicolors_owner;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.paper_remnants TO indicolors_app;
+
+-- FK circular: production_order_paper_rows se crea antes que paper_remnants.
+ALTER TABLE indicolors.production_order_paper_rows
+    ADD CONSTRAINT production_order_paper_rows_paper_remnant_fk
+        FOREIGN KEY (paper_remnant_id)
+            REFERENCES indicolors.paper_remnants (paper_remnant_id)
+            ON DELETE SET NULL;
 
 -- 32. CREAR TABLA IMPRESIÓN DE LA ORDEN (1 por plancha)
 -- ============================================
