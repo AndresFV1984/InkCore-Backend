@@ -2584,15 +2584,38 @@ CREATE TABLE indicolors.order_payment_number_sequences (
 );
 
 COMMENT ON TABLE indicolors.order_payment_number_sequences IS
-    'Consecutivo ABN-{n} por compañía: payment_number (movimientos) y abonos_number (id del agregado de Abonos). '
-    'Compartido para que el id del agregado nunca coincida con un payment_number.';
+    'Consecutivo ABN-{n} por compañía para abonos_number (id del agregado de Abonos). '
+    'Serie propia; distinta de order_liq_number_sequences (LIQ de movimientos).';
 COMMENT ON COLUMN indicolors.order_payment_number_sequences.company_id IS
     'Identificador de la empresa dueña del contador';
 COMMENT ON COLUMN indicolors.order_payment_number_sequences.last_value IS
-    'Último ABN asignado (payment_number o abonos_number = ABN-{last_value})';
+    'Último ABN asignado (abonos_number = ABN-{last_value})';
 
 GRANT ALL PRIVILEGES ON TABLE indicolors.order_payment_number_sequences TO indicolors_owner;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.order_payment_number_sequences TO indicolors_app;
+
+-- ============================================
+-- 39.2 CREAR TABLA SECUENCIA LIQ (liquidaciones / payment_number)
+-- ============================================
+CREATE TABLE indicolors.order_liq_number_sequences (
+    company_id  CHARACTER VARYING(64) NOT NULL,
+    last_value  BIGINT                NOT NULL DEFAULT 0,
+    CONSTRAINT order_liq_number_sequences_pkey PRIMARY KEY (company_id),
+    CONSTRAINT order_liq_number_sequences_company_fk
+        FOREIGN KEY (company_id) REFERENCES indicolors.companies (company_id),
+    CONSTRAINT order_liq_number_sequences_last_value_check CHECK (last_value >= 0)
+);
+
+COMMENT ON TABLE indicolors.order_liq_number_sequences IS
+    'Consecutivo LIQ-{n} por compañía para payment_number (liquidaciones / movimientos). '
+    'Serie propia, distinta de order_payment_number_sequences (ABN de cuentas).';
+COMMENT ON COLUMN indicolors.order_liq_number_sequences.company_id IS
+    'Identificador de la empresa dueña del contador';
+COMMENT ON COLUMN indicolors.order_liq_number_sequences.last_value IS
+    'Último LIQ asignado (payment_number = LIQ-{last_value})';
+
+GRANT ALL PRIVILEGES ON TABLE indicolors.order_liq_number_sequences TO indicolors_owner;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.order_liq_number_sequences TO indicolors_app;
 
 -- ============================================
 -- 40. CREAR TABLA ABONOS DE PEDIDO (append-only, ledger de liquidaciones)
@@ -2664,7 +2687,7 @@ CREATE TABLE indicolors.order_payments (
     CONSTRAINT order_payments_withholding_rate_check
         CHECK (withholding_rate IS NULL OR withholding_rate >= 0),
     CONSTRAINT order_payments_payment_number_format_check
-        CHECK (payment_number ~ '^ABN-[0-9]+$')
+        CHECK (payment_number ~ '^LIQ-[0-9]+$')
 );
 
 CREATE INDEX idx_order_payments_company_id ON indicolors.order_payments (company_id);
@@ -2682,7 +2705,9 @@ COMMENT ON TABLE indicolors.order_payments IS
 
 COMMENT ON COLUMN indicolors.order_payments.order_payment_id IS 'Identificador único del movimiento de pago';
 COMMENT ON COLUMN indicolors.order_payments.company_id IS 'Identificador de la empresa dueña del registro';
-COMMENT ON COLUMN indicolors.order_payments.payment_number IS 'Consecutivo corto por compañía (ABN-{n}), generado por el backend';
+COMMENT ON COLUMN indicolors.order_payments.payment_number IS
+    'Consecutivo corto por compañía (LIQ-{n}), generado por el backend. '
+    'Serie distinta de abonos_number (ABN-{n}) del agregado.';
 COMMENT ON COLUMN indicolors.order_payments.production_order_id IS 'Orden de Producción contra la que se liquida';
 COMMENT ON COLUMN indicolors.order_payments.client_id IS 'Cliente snapshot desde production_orders.client_id';
 COMMENT ON COLUMN indicolors.order_payments.payment_type IS
@@ -2756,11 +2781,10 @@ $$ LANGUAGE plpgsql;
 COMMENT ON FUNCTION indicolors.fn_next_cxc_number(CHARACTER VARYING) IS 'Incrementa de forma atómica accounts_receivable_number_sequences para la compañía dada y devuelve el siguiente cxc_number (CXC-{n})';
 
 -- ============================================
--- fn_next_abonos_number (ABN-{n}; secuencia compartida con payment_number)
+-- fn_next_abonos_number (ABN-{n}; serie propia de cuentas, distinta de LIQ)
 -- ============================================
--- abonos_number (id del agregado de Abonos) = ABN-{n}, mismo prefijo que payment_number.
--- Comparte order_payment_number_sequences para garantizar que, por compañía,
--- abonos_number nunca coincida con un payment_number (movimientos). Sin tabla aparte.
+-- abonos_number (id del agregado de Abonos) = ABN-{n}.
+-- Usa order_payment_number_sequences; payment_number usa order_liq_number_sequences (LIQ-{n}).
 -- Lo consumen los triggers de accounts_receivable vía fn_next_abonos_number (no el backend).
 
 CREATE OR REPLACE FUNCTION indicolors.fn_next_abonos_number(p_company_id CHARACTER VARYING)
@@ -2780,7 +2804,7 @@ $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION indicolors.fn_next_abonos_number(CHARACTER VARYING) IS
     'Reserva el siguiente ABN-{n} de order_payment_number_sequences para abonos_number (agregado). '
-    'Misma secuencia que payment_number: el id del agregado nunca choca con un movimiento.';
+    'Serie propia de cuentas; distinta de LIQ-{n} (order_liq_number_sequences / payment_number).';
 
 
 -- ============================================
@@ -2792,7 +2816,7 @@ COMMENT ON FUNCTION indicolors.fn_next_abonos_number(CHARACTER VARYING) IS
 CREATE TABLE indicolors.accounts_receivable (
     accounts_receivable_id CHARACTER VARYING(64)       NOT NULL DEFAULT gen_random_uuid()::text,
     company_id             CHARACTER VARYING(64)       NOT NULL,
-    cxc_number             CHARACTER VARYING(32)       NOT NULL,
+    cxc_number             CHARACTER VARYING(32),
     abonos_number          CHARACTER VARYING(32)       NOT NULL,
     production_order_id    CHARACTER VARYING(64)       NOT NULL,
     client_id              CHARACTER VARYING(64)       NOT NULL,
@@ -2855,20 +2879,22 @@ COMMENT ON TABLE indicolors.accounts_receivable IS
 
 COMMENT ON COLUMN indicolors.accounts_receivable.accounts_receivable_id IS 'Identificador único (UUID) de la Cuenta por cobrar';
 COMMENT ON COLUMN indicolors.accounts_receivable.company_id IS 'Identificador de la empresa dueña del registro';
-COMMENT ON COLUMN indicolors.accounts_receivable.cxc_number IS 'Consecutivo CXC-{n}; lo asigna el trigger en el primer INSERT';
+COMMENT ON COLUMN indicolors.accounts_receivable.cxc_number IS 'Consecutivo CXC-{n}; null hasta la 1ª entrega. Lo asigna el trigger al abrir cartera.';
 COMMENT ON COLUMN indicolors.accounts_receivable.abonos_number IS
-    'Id de negocio del agregado de Abonos (ABN-{n}). 1:1 con la OP. Inmutable. '
-    'Misma familia ABN- que payment_number, pero valor distinto (secuencia compartida). ≠ last_payment_number.';
+    'Id de negocio del agregado de Abonos (ABN-{n}). 1:1 con la OP/pedido. Inmutable. '
+    'Serie propia (order_payment_number_sequences), distinta de payment_number (LIQ-{n}). '
+    '≠ last_payment_number.';
 COMMENT ON COLUMN indicolors.accounts_receivable.production_order_id IS 'OP asociada (1:1)';
 COMMENT ON COLUMN indicolors.accounts_receivable.client_id IS 'Cliente de la OP';
 COMMENT ON COLUMN indicolors.accounts_receivable.total_units IS 'Unidades totales de la OP (snapshot requested_quantity)';
 COMMENT ON COLUMN indicolors.accounts_receivable.delivered_units IS 'Unidades entregadas netas';
 COMMENT ON COLUMN indicolors.accounts_receivable.pending_units IS 'total_units - delivered_units, nunca negativo';
 COMMENT ON COLUMN indicolors.accounts_receivable.total_owed IS
-    'Valor acumulado de lo entregado (cartera CxC por entregas). API Abonos expone totalToCharge de la OP en totalOwed.';
+    'Valor acumulado de lo entregado (cartera CxC por entregas). API Abonos expone amountToCollect '
+    '(totalToCharge + ADN vigentes) en totalOwed.';
 COMMENT ON COLUMN indicolors.accounts_receivable.total_paid IS 'Suma neta de liquidaciones (abono+anticipo+retencion - reversiones)';
 COMMENT ON COLUMN indicolors.accounts_receivable.total_remaining IS
-    'En BD: total_owed(entregas) - total_paid. API Abonos: totalToCharge(OP) - total_paid (puede ser negativo).';
+    'En BD: total_owed(entregas) - total_paid. API Abonos: amountToCollect(OP) - total_paid (puede ser negativo).';
 COMMENT ON COLUMN indicolors.accounts_receivable.total_cash_paid IS 'Suma neta de abonos en caja (abono - reversiones de abono)';
 COMMENT ON COLUMN indicolors.accounts_receivable.total_withheld IS 'Suma neta de retenciones sufridas';
 COMMENT ON COLUMN indicolors.accounts_receivable.total_advance_paid IS 'Suma neta de anticipos aplicados/registrados';
@@ -2882,8 +2908,8 @@ COMMENT ON COLUMN indicolors.accounts_receivable.status IS
     'pendiente|parcial|pagado|anulado (estado de liquidación; el aging se calcula aparte con due_date)';
 COMMENT ON COLUMN indicolors.accounts_receivable.last_delivery_at IS 'delivered_at de la última entrega';
 COMMENT ON COLUMN indicolors.accounts_receivable.last_payment_number IS
-    'Último payment_number (ABN-{n}) vigente de la OP. Null si no hay liquidaciones netas. '
-    'No es el id del agregado de Abonos (ese es abonos_number = ABN-{n} distinto).';
+    'Último payment_number (LIQ-{n}) vigente de la OP. Null si no hay liquidaciones netas. '
+    'No es el id del agregado de Abonos (abonos_number = ABN-{n}).';
 COMMENT ON COLUMN indicolors.accounts_receivable.last_payment_at IS
     'paid_at del último abono/anticipo/retención vigente (no reversión). Null si no hay liquidaciones netas.';
 COMMENT ON COLUMN indicolors.accounts_receivable.updated_at IS 'Última actualización del agregado';
@@ -2892,18 +2918,146 @@ GRANT ALL PRIVILEGES ON TABLE indicolors.accounts_receivable TO indicolors_owner
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.accounts_receivable TO indicolors_app;
 
 -- ============================================
+-- 41.1 CREAR TABLA SECUENCIA ADN (adicionales negociados)
+-- ============================================
+CREATE TABLE indicolors.order_negotiated_addition_number_sequences (
+    company_id  CHARACTER VARYING(64) NOT NULL,
+    last_value  BIGINT                NOT NULL DEFAULT 0,
+    CONSTRAINT order_negotiated_addition_number_sequences_pkey PRIMARY KEY (company_id),
+    CONSTRAINT order_negotiated_addition_number_sequences_company_fk
+        FOREIGN KEY (company_id) REFERENCES indicolors.companies (company_id),
+    CONSTRAINT order_negotiated_addition_number_sequences_last_value_check CHECK (last_value >= 0)
+);
+
+COMMENT ON TABLE indicolors.order_negotiated_addition_number_sequences IS
+    'Consecutivo ADN-{n} por compañía para adicionales negociados de una OP.';
+COMMENT ON COLUMN indicolors.order_negotiated_addition_number_sequences.company_id IS
+    'Identificador de la empresa dueña del contador';
+COMMENT ON COLUMN indicolors.order_negotiated_addition_number_sequences.last_value IS
+    'Último ADN asignado (addition_number = ADN-{last_value})';
+
+GRANT ALL PRIVILEGES ON TABLE indicolors.order_negotiated_addition_number_sequences TO indicolors_owner;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.order_negotiated_addition_number_sequences TO indicolors_app;
+
+-- ============================================
+-- 41.2 CREAR TABLA ADICIONALES NEGOCIADOS
+-- ============================================
+CREATE TABLE indicolors.order_negotiated_additions (
+    order_negotiated_addition_id CHARACTER VARYING(64)       NOT NULL DEFAULT gen_random_uuid()::text,
+    company_id                   CHARACTER VARYING(64)       NOT NULL,
+    addition_number              CHARACTER VARYING(32)       NOT NULL,
+    production_order_id          CHARACTER VARYING(64)       NOT NULL,
+    client_id                    CHARACTER VARYING(64)       NOT NULL,
+
+    movement_type                CHARACTER VARYING(16)       NOT NULL DEFAULT 'registro',
+    concept                      CHARACTER VARYING(200)      NOT NULL,
+    change_reason                CHARACTER VARYING(32)       NOT NULL,
+    amount                       NUMERIC(14,2)               NOT NULL,
+    schedule_impact_days         INTEGER                     NOT NULL DEFAULT 0,
+    approved_by_client_name      CHARACTER VARYING(150)      NOT NULL,
+    approval_channel             CHARACTER VARYING(32)       NOT NULL,
+    approval_reference           CHARACTER VARYING(120),
+    approved_at                  TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    reversed_addition_id         CHARACTER VARYING(64),
+
+    registered_by                CHARACTER VARYING(64)       NOT NULL,
+    notes                        TEXT,
+    created_at                   TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
+    voided_at                    TIMESTAMP WITHOUT TIME ZONE,
+    voided_by                    CHARACTER VARYING(64),
+
+    CONSTRAINT order_negotiated_additions_pkey PRIMARY KEY (order_negotiated_addition_id),
+    CONSTRAINT order_negotiated_additions_number_company_unique UNIQUE (company_id, addition_number),
+    CONSTRAINT order_negotiated_additions_company_fk
+        FOREIGN KEY (company_id) REFERENCES indicolors.companies (company_id),
+    CONSTRAINT order_negotiated_additions_order_fk
+        FOREIGN KEY (production_order_id) REFERENCES indicolors.production_orders (production_order_id),
+    CONSTRAINT order_negotiated_additions_client_fk
+        FOREIGN KEY (client_id) REFERENCES indicolors.clients (client_id),
+    CONSTRAINT order_negotiated_additions_registered_by_fk
+        FOREIGN KEY (registered_by) REFERENCES indicolors.users (user_id),
+    CONSTRAINT order_negotiated_additions_reversed_fk
+        FOREIGN KEY (reversed_addition_id) REFERENCES indicolors.order_negotiated_additions (order_negotiated_addition_id),
+    CONSTRAINT order_negotiated_additions_voided_by_fk
+        FOREIGN KEY (voided_by) REFERENCES indicolors.users (user_id),
+    CONSTRAINT order_negotiated_additions_type_check
+        CHECK (movement_type IN ('registro', 'anulacion')),
+    CONSTRAINT order_negotiated_additions_amount_check
+        CHECK (amount > 0),
+    CONSTRAINT order_negotiated_additions_concept_check
+        CHECK (char_length(btrim(concept)) > 0),
+    CONSTRAINT order_negotiated_additions_approver_check
+        CHECK (char_length(btrim(approved_by_client_name)) > 0),
+    CONSTRAINT order_negotiated_additions_reason_check
+        CHECK (change_reason IN ('solicitud_cliente', 'condicion_no_prevista', 'ajuste_planta', 'otro')),
+    CONSTRAINT order_negotiated_additions_channel_check
+        CHECK (approval_channel IN ('correo', 'whatsapp', 'firma', 'otro')),
+    CONSTRAINT order_negotiated_additions_schedule_days_check
+        CHECK (schedule_impact_days >= 0),
+    CONSTRAINT order_negotiated_additions_reversion_ref_check
+        CHECK (movement_type <> 'anulacion' OR reversed_addition_id IS NOT NULL),
+    CONSTRAINT order_negotiated_additions_non_reversion_no_ref_check
+        CHECK (movement_type = 'anulacion' OR reversed_addition_id IS NULL),
+    CONSTRAINT order_negotiated_additions_number_format_check
+        CHECK (addition_number ~ '^ADN-[0-9]+$')
+);
+
+CREATE INDEX idx_order_negotiated_additions_company_id
+    ON indicolors.order_negotiated_additions (company_id);
+CREATE INDEX idx_order_negotiated_additions_order_time
+    ON indicolors.order_negotiated_additions (company_id, production_order_id, approved_at DESC);
+CREATE UNIQUE INDEX uq_order_negotiated_additions_reversed_once
+    ON indicolors.order_negotiated_additions (company_id, reversed_addition_id)
+    WHERE reversed_addition_id IS NOT NULL;
+
+COMMENT ON TABLE indicolors.order_negotiated_additions IS
+    'Cambios de alcance negociados con el cliente. Un ADN por adicional. Anular llena voided_at en la misma fila y no asigna otro consecutivo.';
+COMMENT ON COLUMN indicolors.order_negotiated_additions.order_negotiated_addition_id IS 'Identificador único del movimiento';
+COMMENT ON COLUMN indicolors.order_negotiated_additions.company_id IS 'Empresa dueña del registro';
+COMMENT ON COLUMN indicolors.order_negotiated_additions.addition_number IS 'Consecutivo ADN-{n} por compañía';
+COMMENT ON COLUMN indicolors.order_negotiated_additions.production_order_id IS 'OP a la que se suma el adicional';
+COMMENT ON COLUMN indicolors.order_negotiated_additions.client_id IS 'Cliente snapshot desde production_orders.client_id';
+COMMENT ON COLUMN indicolors.order_negotiated_additions.movement_type IS 'registro = alcance aprobado | anulacion = legado (preferir voided_at)';
+COMMENT ON COLUMN indicolors.order_negotiated_additions.concept IS 'Qué cambió de alcance (lo que el cliente aprueba)';
+COMMENT ON COLUMN indicolors.order_negotiated_additions.change_reason IS
+    'Por qué cambió el alcance: solicitud_cliente | condicion_no_prevista | ajuste_planta | otro';
+COMMENT ON COLUMN indicolors.order_negotiated_additions.amount IS 'Monto que el cliente paga por ese cambio; siempre positivo';
+COMMENT ON COLUMN indicolors.order_negotiated_additions.schedule_impact_days IS
+    'Días que se suman a la entrega. 0 si el plazo no cambia';
+COMMENT ON COLUMN indicolors.order_negotiated_additions.approved_by_client_name IS 'Persona del cliente que aprobó el cambio';
+COMMENT ON COLUMN indicolors.order_negotiated_additions.approval_channel IS
+    'Medio escrito de la aprobación: correo | whatsapp | firma | otro';
+COMMENT ON COLUMN indicolors.order_negotiated_additions.approval_reference IS
+    'Referencia del mensaje, correo o documento con el que el cliente aprobó';
+COMMENT ON COLUMN indicolors.order_negotiated_additions.approved_at IS 'Fecha/hora en que el cliente aprobó';
+COMMENT ON COLUMN indicolors.order_negotiated_additions.reversed_addition_id IS 'Movimiento registro que se anula (legado; preferir voided_at)';
+COMMENT ON COLUMN indicolors.order_negotiated_additions.registered_by IS 'Usuario que registró el movimiento';
+COMMENT ON COLUMN indicolors.order_negotiated_additions.notes IS 'Nota libre';
+COMMENT ON COLUMN indicolors.order_negotiated_additions.created_at IS 'Fecha y hora de persistencia';
+COMMENT ON COLUMN indicolors.order_negotiated_additions.voided_at IS
+    'Fecha en que se anuló este ADN. NULL = vigente y suma a lo que el cliente paga.';
+COMMENT ON COLUMN indicolors.order_negotiated_additions.voided_by IS
+    'Usuario que anuló el adicional';
+
+GRANT ALL PRIVILEGES ON TABLE indicolors.order_negotiated_additions TO indicolors_owner;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.order_negotiated_additions TO indicolors_app;
+
+-- ============================================
 -- 42-44. TRIGGERS CxC / Abonos (validación entregas + sync entrega/pago)
 -- ============================================
 -- Triggers del módulo Pedidos / CxC / Abonos (sin CREATE TABLE).
--- Estrategia CXC/Abonos: el trigger asigna accounts_receivable_id (DEFAULT) + cxc_number vía fn_next_cxc_number
--- y abonos_number vía fn_next_abonos_number (ABN-{n}; misma secuencia que payment_number → ≠ movimiento)
--- solo en el primer INSERT; los UPDATE posteriores nunca regeneran esos campos.
+-- Estrategia CXC/Abonos: ABN al crear pedido (shell cxc null); CXC en 1ª entrega;
+-- abonos_number vía fn_next_abonos_number (ABN-{n}); payment_number = LIQ-{n} (serie aparte);
+-- los UPDATE posteriores nunca regeneran abonos_number.
 -- due_date / payment_term_days se fijan al abrir deuda (1ª entrega) desde clients.credit_days.
--- API Abonos: totalOwed/totalRemaining se calculan en lectura como totalToCharge(OP) − totalPaid
--- (DB total_owed sigue siendo valor acumulado de entregas para cartera CxC por entregas).
+-- API Abonos: totalOwed/totalRemaining se calculan en lectura como amountToCollect(OP) − totalPaid
+-- (amountToCollect = totalToCharge + suma vigente de order_negotiated_additions; voided_at IS NULL).
+-- DB total_owed sigue siendo valor acumulado de entregas para cartera CxC por entregas.
 -- Depende de: order_deliveries, order_payments, accounts_receivable, station_order_progress,
--- clients, accounts_receivable_number_sequences / fn_next_cxc_number,
--- order_payment_number_sequences / fn_next_abonos_number (V52).
+-- clients, customer_orders, accounts_receivable_number_sequences / fn_next_cxc_number,
+-- order_payment_number_sequences / fn_next_abonos_number,
+-- order_liq_number_sequences (LIQ),
+-- order_negotiated_addition_number_sequences / order_negotiated_additions.
 
 CREATE OR REPLACE FUNCTION indicolors.fn_validate_delivery()
 RETURNS TRIGGER AS $$
@@ -2962,7 +3116,7 @@ BEGIN
                 v_orig.quantity_delivered, v_orig.total_value;
         END IF;
 
-        -- Abonos se aplican sobre totalToCharge de la OP (API), no sobre valor entregado:
+        -- Abonos se aplican sobre amountToCollect de la OP (API: totalToCharge + ADN), no sobre valor entregado:
         -- no se valida total_paid vs total_owed de entregas al anular.
 
         SELECT cantidad_disponible INTO v_processed
@@ -2987,8 +3141,76 @@ CREATE TRIGGER trg_deliveries_validate
     EXECUTE FUNCTION indicolors.fn_validate_delivery();
 
 COMMENT ON FUNCTION indicolors.fn_validate_delivery() IS
-    'entrega: calcula available_before y rechaza si quantity_delivered supera lo disponible. reversion: valida entrega original (Abonos usa totalToCharge OP, no bloquea por total_paid vs valor entregado)';
+    'entrega: calcula available_before y rechaza si quantity_delivered supera lo disponible. reversion: valida entrega original (Abonos usa amountToCollect OP, no bloquea por total_paid vs valor entregado)';
 
+
+-- ---------------------------------------------------------------------------
+-- Al INSERT en customer_orders: shell accounts_receivable con ABN (cxc null).
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION indicolors.fn_ensure_abonos_account_on_customer_order()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_exists      BOOLEAN;
+    v_term_days   INTEGER;
+    v_total_units INTEGER;
+BEGIN
+    SELECT EXISTS (
+        SELECT 1 FROM indicolors.accounts_receivable
+        WHERE production_order_id = NEW.production_order_id
+    ) INTO v_exists;
+
+    IF v_exists THEN
+        RETURN NEW;
+    END IF;
+
+    SELECT COALESCE(credit_days, 0) INTO v_term_days
+    FROM indicolors.clients
+    WHERE client_id = NEW.client_id;
+
+    SELECT COALESCE(requested_quantity, 0) INTO v_total_units
+    FROM indicolors.production_orders
+    WHERE production_order_id = NEW.production_order_id;
+
+    INSERT INTO indicolors.accounts_receivable (
+        cxc_number, abonos_number, company_id, production_order_id, client_id,
+        total_units, delivered_units, pending_units,
+        total_owed, total_paid, total_remaining,
+        total_cash_paid, total_withheld, total_advance_paid,
+        opened_at, due_date, payment_term_days,
+        status, updated_at
+    )
+    VALUES (
+        NULL,
+        indicolors.fn_next_abonos_number(NEW.company_id),
+        NEW.company_id,
+        NEW.production_order_id,
+        NEW.client_id,
+        COALESCE(v_total_units, 0),
+        0,
+        GREATEST(COALESCE(v_total_units, 0), 0),
+        0, 0, 0,
+        0, 0, 0,
+        NULL, NULL, COALESCE(v_term_days, 0),
+        'pendiente', now()
+    );
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_customer_orders_ensure_abonos_account ON indicolors.customer_orders;
+CREATE TRIGGER trg_customer_orders_ensure_abonos_account
+    AFTER INSERT ON indicolors.customer_orders
+    FOR EACH ROW
+    EXECUTE FUNCTION indicolors.fn_ensure_abonos_account_on_customer_order();
+
+COMMENT ON FUNCTION indicolors.fn_ensure_abonos_account_on_customer_order() IS
+    'Tras crear pedido comercial: inserta shell accounts_receivable con abonos_number=ABN-{n} '
+    '(cxc_number null hasta la 1ª entrega). Idempotente por production_order_id.';
+
+-- ---------------------------------------------------------------------------
+-- Sync entrega: asigna CXC si la cuenta shell aún no tiene; no regenera ABN.
+-- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION indicolors.fn_sync_accounts_receivable_delivery()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -3036,6 +3258,11 @@ BEGIN
         );
     ELSE
         UPDATE indicolors.accounts_receivable SET
+            cxc_number = CASE
+                WHEN cxc_number IS NULL AND NEW.movement_type = 'entrega'
+                    THEN indicolors.fn_next_cxc_number(NEW.company_id)
+                ELSE cxc_number
+            END,
             delivered_units  = delivered_units + v_sign * NEW.quantity_delivered,
             pending_units    = GREATEST(total_units - (delivered_units + v_sign * NEW.quantity_delivered), 0),
             total_owed       = total_owed + v_sign * NEW.total_value,
@@ -3067,15 +3294,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS trg_deliveries_sync_accounts_receivable ON indicolors.order_deliveries;
-CREATE TRIGGER trg_deliveries_sync_accounts_receivable
-    AFTER INSERT ON indicolors.order_deliveries
-    FOR EACH ROW
-    EXECUTE FUNCTION indicolors.fn_sync_accounts_receivable_delivery();
-
 COMMENT ON FUNCTION indicolors.fn_sync_accounts_receivable_delivery() IS
-    'Upsert CxC tras entrega/reversión; fija opened_at/due_date/payment_term_days solo en apertura (opened_at nunca se reescribe ni se limpia)';
+    'Upsert CxC tras entrega/reversión; asigna cxc_number en apertura si la cuenta ABN ya existía sin CXC; '
+    'opened_at/due_date solo en apertura; nunca regenera abonos_number';
 
+-- ---------------------------------------------------------------------------
+-- Sync pago: no crea CXC; usa ABN existente o crea shell con cxc null.
+-- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION indicolors.fn_sync_accounts_receivable_payment()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -3089,6 +3314,7 @@ DECLARE
     v_term_days             INTEGER;
     v_last_payment_number   CHARACTER VARYING(32);
     v_last_payment_at       TIMESTAMP WITHOUT TIME ZONE;
+    v_total_units           INTEGER;
 BEGIN
     v_signed_amount := CASE WHEN NEW.payment_type = 'reversion' THEN -NEW.amount ELSE NEW.amount END;
 
@@ -3134,6 +3360,10 @@ BEGIN
         FROM indicolors.clients
         WHERE client_id = NEW.client_id;
 
+        SELECT COALESCE(requested_quantity, 0) INTO v_total_units
+        FROM indicolors.production_orders
+        WHERE production_order_id = NEW.production_order_id;
+
         INSERT INTO indicolors.accounts_receivable (
             cxc_number, abonos_number, company_id, production_order_id, client_id,
             total_units, delivered_units, pending_units,
@@ -3143,10 +3373,11 @@ BEGIN
             status, last_payment_number, last_payment_at, updated_at
         )
         VALUES (
-            indicolors.fn_next_cxc_number(NEW.company_id),
+            NULL,
             indicolors.fn_next_abonos_number(NEW.company_id),
             NEW.company_id, NEW.production_order_id, NEW.client_id,
-            0, 0, 0, 0, v_signed_amount, -v_signed_amount,
+            COALESCE(v_total_units, 0), 0, GREATEST(COALESCE(v_total_units, 0), 0),
+            0, v_signed_amount, -v_signed_amount,
             v_cash_delta, v_withheld_delta, v_advance_delta,
             NULL, NULL, COALESCE(v_term_days, 0),
             'pendiente', v_last_payment_number, v_last_payment_at, now()
@@ -3176,14 +3407,23 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+COMMENT ON FUNCTION indicolors.fn_sync_accounts_receivable_payment() IS
+    'Upsert CxC/Abonos tras liquidación LIQ; no asigna cxc_number (queda null hasta 1ª entrega); '
+    'actualiza last_payment_* y no regenera abonos_number';
+
+
+DROP TRIGGER IF EXISTS trg_deliveries_sync_accounts_receivable ON indicolors.order_deliveries;
+CREATE TRIGGER trg_deliveries_sync_accounts_receivable
+    AFTER INSERT ON indicolors.order_deliveries
+    FOR EACH ROW
+    EXECUTE FUNCTION indicolors.fn_sync_accounts_receivable_delivery();
+
 DROP TRIGGER IF EXISTS trg_payments_sync_accounts_receivable ON indicolors.order_payments;
 CREATE TRIGGER trg_payments_sync_accounts_receivable
     AFTER INSERT ON indicolors.order_payments
     FOR EACH ROW
     EXECUTE FUNCTION indicolors.fn_sync_accounts_receivable_payment();
 
-COMMENT ON FUNCTION indicolors.fn_sync_accounts_receivable_payment() IS
-    'Upsert CxC tras abono/anticipo/retencion/reversion; actualiza total_paid, desglose y last_payment_* del último vigente';
 
 -- Backfills defensivos (idempotentes) del agregado CxC; viven aquí (no en V46) para no mezclar DML con el DDL de la tabla.
 UPDATE indicolors.accounts_receivable ar

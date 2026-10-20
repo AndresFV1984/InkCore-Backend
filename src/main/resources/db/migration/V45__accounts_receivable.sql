@@ -4,7 +4,7 @@
 CREATE TABLE IF NOT EXISTS indicolors.accounts_receivable (
     accounts_receivable_id CHARACTER VARYING(64)       NOT NULL DEFAULT gen_random_uuid()::text,
     company_id             CHARACTER VARYING(64)       NOT NULL,
-    cxc_number             CHARACTER VARYING(32)       NOT NULL,
+    cxc_number             CHARACTER VARYING(32),
     abonos_number          CHARACTER VARYING(32)       NOT NULL,
     production_order_id    CHARACTER VARYING(64)       NOT NULL,
     client_id              CHARACTER VARYING(64)       NOT NULL,
@@ -67,20 +67,23 @@ COMMENT ON TABLE indicolors.accounts_receivable IS
 
 COMMENT ON COLUMN indicolors.accounts_receivable.accounts_receivable_id IS 'Identificador único (UUID) de la Cuenta por cobrar';
 COMMENT ON COLUMN indicolors.accounts_receivable.company_id IS 'Identificador de la empresa dueña del registro';
-COMMENT ON COLUMN indicolors.accounts_receivable.cxc_number IS 'Consecutivo CXC-{n}; lo asigna el trigger en el primer INSERT';
+COMMENT ON COLUMN indicolors.accounts_receivable.cxc_number IS
+    'Consecutivo CXC-{n}; null hasta la 1ª entrega. Lo asigna el trigger al abrir cartera.';
 COMMENT ON COLUMN indicolors.accounts_receivable.abonos_number IS
-    'Id de negocio del agregado de Abonos (ABN-{n}). 1:1 con la OP. Inmutable. '
-    'Misma familia ABN- que payment_number, pero valor distinto (secuencia compartida). ≠ last_payment_number.';
+    'Id de negocio del agregado de Abonos (ABN-{n}). 1:1 con la OP/pedido. Inmutable. '
+    'Serie propia (order_payment_number_sequences), distinta de payment_number (LIQ-{n}). '
+    '≠ last_payment_number.';
 COMMENT ON COLUMN indicolors.accounts_receivable.production_order_id IS 'OP asociada (1:1)';
 COMMENT ON COLUMN indicolors.accounts_receivable.client_id IS 'Cliente de la OP';
 COMMENT ON COLUMN indicolors.accounts_receivable.total_units IS 'Unidades totales de la OP (snapshot requested_quantity)';
 COMMENT ON COLUMN indicolors.accounts_receivable.delivered_units IS 'Unidades entregadas netas';
 COMMENT ON COLUMN indicolors.accounts_receivable.pending_units IS 'total_units - delivered_units, nunca negativo';
 COMMENT ON COLUMN indicolors.accounts_receivable.total_owed IS
-    'Valor acumulado de lo entregado (cartera CxC por entregas). API Abonos expone totalToCharge de la OP en totalOwed.';
+    'Valor acumulado de lo entregado (cartera CxC por entregas). API Abonos expone amountToCollect '
+    '(totalToCharge + ADN vigentes) en totalOwed.';
 COMMENT ON COLUMN indicolors.accounts_receivable.total_paid IS 'Suma neta de liquidaciones (abono+anticipo+retencion - reversiones)';
 COMMENT ON COLUMN indicolors.accounts_receivable.total_remaining IS
-    'En BD: total_owed(entregas) - total_paid. API Abonos: totalToCharge(OP) - total_paid (puede ser negativo).';
+    'En BD: total_owed(entregas) - total_paid. API Abonos: amountToCollect(OP) - total_paid (puede ser negativo).';
 COMMENT ON COLUMN indicolors.accounts_receivable.total_cash_paid IS 'Suma neta de abonos en caja (abono - reversiones de abono)';
 COMMENT ON COLUMN indicolors.accounts_receivable.total_withheld IS 'Suma neta de retenciones sufridas';
 COMMENT ON COLUMN indicolors.accounts_receivable.total_advance_paid IS 'Suma neta de anticipos aplicados/registrados';
@@ -94,8 +97,8 @@ COMMENT ON COLUMN indicolors.accounts_receivable.status IS
     'pendiente|parcial|pagado|anulado (estado de liquidación; el aging se calcula aparte con due_date)';
 COMMENT ON COLUMN indicolors.accounts_receivable.last_delivery_at IS 'delivered_at de la última entrega';
 COMMENT ON COLUMN indicolors.accounts_receivable.last_payment_number IS
-    'Último payment_number (ABN-{n}) vigente de la OP. Null si no hay liquidaciones netas. '
-    'No es el id del agregado de Abonos (ese es abonos_number = ABN-{n} distinto).';
+    'Último payment_number (LIQ-{n}) vigente de la OP. Null si no hay liquidaciones netas. '
+    'No es el id del agregado de Abonos (abonos_number = ABN-{n}).';
 COMMENT ON COLUMN indicolors.accounts_receivable.last_payment_at IS
     'paid_at del último abono/anticipo/retención vigente (no reversión). Null si no hay liquidaciones netas.';
 COMMENT ON COLUMN indicolors.accounts_receivable.updated_at IS 'Última actualización del agregado';

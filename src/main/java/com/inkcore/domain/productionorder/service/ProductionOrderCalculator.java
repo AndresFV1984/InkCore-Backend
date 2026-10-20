@@ -207,6 +207,7 @@ public final class ProductionOrderCalculator {
     /**
      * Total a cobrar de la OP (panel Cobro): suma de etapas menos descuentos de
      * preprensa/impresión/cobro. Mismo criterio que el PDF de cobro.
+     * No incluye adicionales negociados ({@link #calculateAmountToCollect}).
      * {@code null} si aún no hay datos de costo cargados.
      */
     public static BigDecimal calculateTotalToCharge(ProductionOrder order) {
@@ -278,5 +279,21 @@ public final class ProductionOrderCalculator {
             );
         }
         return money(total);
+    }
+
+    /**
+     * Lo que el cliente debe pagar: total del panel Cobro más adicionales negociados vigentes.
+     * {@code null} solo cuando no hay costeo y tampoco hay adicionales.
+     */
+    public static BigDecimal calculateAmountToCollect(ProductionOrder order) {
+        if (order == null) {
+            return null;
+        }
+        BigDecimal production = calculateTotalToCharge(order);
+        BigDecimal additions = money(order.getNegotiatedAdditionsTotal());
+        if (production == null && additions.signum() == 0) {
+            return null;
+        }
+        return money(production).add(additions);
     }
 }

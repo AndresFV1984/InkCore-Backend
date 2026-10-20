@@ -45,7 +45,7 @@ class CreateOrderPaymentUseCaseTest {
         ProductionOrder order = bareOrder();
         LocalDateTime now = LocalDateTime.of(2026, 9, 8, 10, 0);
         AccountsReceivable updated = summary(new BigDecimal("-250000.00"));
-        updated.setLastPaymentNumber("ABN-1");
+        updated.setLastPaymentNumber("LIQ-1");
         updated.setLastPaymentAt(now);
         updated.setTotalPaid(new BigDecimal("250000.00"));
         updated.setCxcNumber("CXC-1");
@@ -55,7 +55,7 @@ class CreateOrderPaymentUseCaseTest {
         when(support.userId(authentication)).thenReturn("user-authenticated");
         when(support.now()).thenReturn(now);
         when(support.requireActiveOrder("op-1", "company-1")).thenReturn(order);
-        when(support.nextPaymentNumber("company-1")).thenReturn("ABN-1");
+        when(support.nextPaymentNumber("company-1")).thenReturn("LIQ-1");
         when(paymentRepository.save(any(OrderPayment.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(accountsReceivableRepository.findByProductionOrderId("company-1", "op-1"))
                 .thenReturn(Optional.of(updated));
@@ -82,11 +82,11 @@ class CreateOrderPaymentUseCaseTest {
         ArgumentCaptor<OrderPayment> captor = ArgumentCaptor.forClass(OrderPayment.class);
         verify(paymentRepository).save(captor.capture());
         assertEquals(PaymentType.ANTICIPO, captor.getValue().getPaymentType());
-        assertEquals("ABN-1", captor.getValue().getPaymentNumber());
+        assertEquals("LIQ-1", captor.getValue().getPaymentNumber());
         assertEquals("user-authenticated", captor.getValue().getRegisteredBy());
         assertEquals(0, new BigDecimal("250000.00").compareTo(captor.getValue().getAmount()));
         assertEquals("ODP-12", result.odpNumber());
-        assertEquals("ABN-1", result.accountsReceivable().getLastPaymentNumber());
+        assertEquals("LIQ-1", result.accountsReceivable().getLastPaymentNumber());
         assertEquals(0, new BigDecimal("250000.00").compareTo(result.accountsReceivable().getTotalPaid()));
         assertEquals(0, BigDecimal.ZERO.setScale(2).compareTo(result.accountsReceivable().getTotalOwed()));
         assertEquals(0, new BigDecimal("-250000.00").compareTo(result.accountsReceivable().getTotalRemaining()));
@@ -99,7 +99,7 @@ class CreateOrderPaymentUseCaseTest {
         updated.setCxcNumber("CXC-7");
         updated.setAbonosNumber("ABN-7");
         updated.setDeliveredUnits(0);
-        updated.setLastPaymentNumber("ABN-2");
+        updated.setLastPaymentNumber("LIQ-2");
         updated.setLastPaymentAt(LocalDateTime.of(2026, 9, 15, 16, 0));
         updated.setTotalPaid(new BigDecimal("300000.00"));
         updated.setTotalOwed(BigDecimal.ZERO);
@@ -108,7 +108,7 @@ class CreateOrderPaymentUseCaseTest {
         when(support.userId(authentication)).thenReturn("user-authenticated");
         when(support.now()).thenReturn(LocalDateTime.of(2026, 9, 15, 16, 0));
         when(support.requireActiveOrder("op-1", "company-1")).thenReturn(order);
-        when(support.nextPaymentNumber("company-1")).thenReturn("ABN-2");
+        when(support.nextPaymentNumber("company-1")).thenReturn("LIQ-2");
         when(paymentRepository.save(any(OrderPayment.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(accountsReceivableRepository.findByProductionOrderId("company-1", "op-1"))
                 .thenReturn(Optional.of(updated));
@@ -131,8 +131,8 @@ class CreateOrderPaymentUseCaseTest {
                 authentication
         );
 
-        assertEquals("ABN-2", result.payment().getPaymentNumber());
-        assertEquals("ABN-2", result.accountsReceivable().getLastPaymentNumber());
+        assertEquals("LIQ-2", result.payment().getPaymentNumber());
+        assertEquals("LIQ-2", result.accountsReceivable().getLastPaymentNumber());
         assertEquals(0, new BigDecimal("1500000.00").compareTo(result.accountsReceivable().getTotalOwed()));
         assertEquals(0, new BigDecimal("300000.00").compareTo(result.accountsReceivable().getTotalPaid()));
         assertEquals(0, new BigDecimal("1200000.00").compareTo(result.accountsReceivable().getTotalRemaining()));
@@ -145,7 +145,7 @@ class CreateOrderPaymentUseCaseTest {
         when(support.userId(authentication)).thenReturn("user-authenticated");
         when(support.now()).thenReturn(LocalDateTime.of(2026, 9, 8, 10, 0));
         when(support.requireActiveOrder("op-1", "company-1")).thenReturn(order);
-        when(support.nextPaymentNumber("company-1")).thenReturn("ABN-2");
+        when(support.nextPaymentNumber("company-1")).thenReturn("LIQ-2");
         when(paymentRepository.save(any(OrderPayment.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(accountsReceivableRepository.findByProductionOrderId("company-1", "op-1"))
                 .thenReturn(Optional.of(summary(BigDecimal.ZERO)));

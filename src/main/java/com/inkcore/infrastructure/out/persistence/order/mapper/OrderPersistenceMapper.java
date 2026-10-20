@@ -5,6 +5,10 @@ import com.inkcore.domain.order.model.AccountsReceivable;
 import com.inkcore.domain.order.model.DeliveryMovementType;
 import com.inkcore.domain.order.model.DeliveryType;
 import com.inkcore.domain.order.model.CustomerOrder;
+import com.inkcore.domain.order.model.NegotiatedAddition;
+import com.inkcore.domain.order.model.NegotiatedAdditionApprovalChannel;
+import com.inkcore.domain.order.model.NegotiatedAdditionMovementType;
+import com.inkcore.domain.order.model.NegotiatedAdditionReason;
 import com.inkcore.domain.order.model.OrderDelivery;
 import com.inkcore.domain.order.model.OrderPayment;
 import com.inkcore.domain.order.model.PaymentMethod;
@@ -13,6 +17,7 @@ import com.inkcore.domain.order.model.WithholdingType;
 import com.inkcore.infrastructure.out.persistence.order.entity.AccountsReceivableEntity;
 import com.inkcore.infrastructure.out.persistence.order.entity.OrderDeliveryEntity;
 import com.inkcore.infrastructure.out.persistence.order.entity.CustomerOrderEntity;
+import com.inkcore.infrastructure.out.persistence.order.entity.NegotiatedAdditionEntity;
 import com.inkcore.infrastructure.out.persistence.order.entity.OrderPaymentEntity;
 
 public final class OrderPersistenceMapper {
@@ -180,5 +185,66 @@ public final class OrderPersistenceMapper {
         order.setCreatedAt(entity.getCreatedAt());
         order.setCreatedBy(entity.getCreatedBy());
         return order;
+    }
+
+    public static NegotiatedAdditionEntity toEntity(NegotiatedAddition addition) {
+        NegotiatedAdditionEntity entity = new NegotiatedAdditionEntity();
+        entity.markNew();
+        copy(addition, entity);
+        return entity;
+    }
+
+    public static void copy(NegotiatedAddition addition, NegotiatedAdditionEntity entity) {
+        entity.setOrderNegotiatedAdditionId(addition.getOrderNegotiatedAdditionId());
+        entity.setCompanyId(addition.getCompanyId());
+        entity.setAdditionNumber(addition.getAdditionNumber());
+        entity.setProductionOrderId(addition.getProductionOrderId());
+        entity.setClientId(addition.getClientId());
+        entity.setMovementType(addition.getMovementType() == null
+                ? NegotiatedAdditionMovementType.REGISTRO.getDbValue()
+                : addition.getMovementType().getDbValue());
+        entity.setConcept(addition.getConcept());
+        entity.setChangeReason(addition.getChangeReason() == null
+                ? null
+                : addition.getChangeReason().getDbValue());
+        entity.setAmount(addition.getAmount());
+        entity.setScheduleImpactDays(addition.getScheduleImpactDays());
+        entity.setApprovedByClientName(addition.getApprovedByClientName());
+        entity.setApprovalChannel(addition.getApprovalChannel() == null
+                ? null
+                : addition.getApprovalChannel().getDbValue());
+        entity.setApprovalReference(addition.getApprovalReference());
+        entity.setApprovedAt(addition.getApprovedAt());
+        entity.setReversedAdditionId(addition.getReversedAdditionId());
+        entity.setRegisteredBy(addition.getRegisteredBy());
+        entity.setNotes(addition.getNotes());
+        entity.setCreatedAt(addition.getCreatedAt());
+        entity.setVoidedAt(addition.getVoidedAt());
+        entity.setVoidedBy(addition.getVoidedBy());
+    }
+
+    public static NegotiatedAddition toDomain(NegotiatedAdditionEntity entity) {
+        NegotiatedAddition addition = new NegotiatedAddition();
+        addition.setOrderNegotiatedAdditionId(entity.getOrderNegotiatedAdditionId());
+        addition.setCompanyId(entity.getCompanyId());
+        addition.setAdditionNumber(entity.getAdditionNumber());
+        addition.setProductionOrderId(entity.getProductionOrderId());
+        addition.setClientId(entity.getClientId());
+        addition.setMovementType(NegotiatedAdditionMovementType.fromValue(entity.getMovementType()));
+        addition.setConcept(entity.getConcept());
+        addition.setChangeReason(NegotiatedAdditionReason.fromValue(entity.getChangeReason()));
+        addition.setAmount(entity.getAmount());
+        addition.setScheduleImpactDays(entity.getScheduleImpactDays());
+        addition.setApprovedByClientName(entity.getApprovedByClientName());
+        addition.setApprovalChannel(NegotiatedAdditionApprovalChannel.fromValue(entity.getApprovalChannel()));
+        addition.setApprovalReference(entity.getApprovalReference());
+        addition.setApprovedAt(entity.getApprovedAt());
+        addition.setReversedAdditionId(entity.getReversedAdditionId());
+        addition.setRegisteredBy(entity.getRegisteredBy());
+        addition.setNotes(entity.getNotes());
+        addition.setCreatedAt(entity.getCreatedAt());
+        addition.setVoidedAt(entity.getVoidedAt());
+        addition.setVoidedBy(entity.getVoidedBy());
+        return addition;
     }
 }

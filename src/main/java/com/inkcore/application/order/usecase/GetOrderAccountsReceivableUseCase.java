@@ -35,17 +35,19 @@ public class GetOrderAccountsReceivableUseCase {
         String companyId = support.companyId(authentication);
         ProductionOrder order = support.requireActiveOrder(productionOrderId, companyId);
         String odpNumber = support.resolveOdpNumber(companyId, productionOrderId);
+        LocalDateTime accountCreatedAt = support.resolveCustomerOrderCreatedAt(companyId, productionOrderId);
 
         return accountsReceivableRepository.findByProductionOrderId(companyId, productionOrderId)
-                .map(summary -> from(summary, order, true, odpNumber))
-                .orElseGet(() -> withoutMovements(order, odpNumber));
+                .map(summary -> from(summary, order, true, odpNumber, accountCreatedAt))
+                .orElseGet(() -> withoutMovements(order, odpNumber, accountCreatedAt));
     }
 
     private static AccountsReceivableView from(
             AccountsReceivable summary,
             ProductionOrder order,
             boolean hasMovements,
-            String odpNumber
+            String odpNumber,
+            LocalDateTime createdAt
     ) {
         AbonosBalance.applyTo(summary, order);
         AccountsReceivableAging.AgingSnapshot aging = AccountsReceivableAging.of(summary, LocalDate.now());
@@ -67,6 +69,7 @@ public class GetOrderAccountsReceivableUseCase {
                 nullToZero(summary.getTotalAdvancePaid()),
                 summary.getStatus() == null ? null : summary.getStatus().getDbValue(),
                 hasMovements,
+                createdAt,
                 summary.getOpenedAt(),
                 summary.getDueDate(),
                 summary.getPaymentTermDays(),
@@ -81,7 +84,11 @@ public class GetOrderAccountsReceivableUseCase {
         );
     }
 
-    private static AccountsReceivableView withoutMovements(ProductionOrder order, String odpNumber) {
+    private static AccountsReceivableView withoutMovements(
+            ProductionOrder order,
+            String odpNumber,
+            LocalDateTime createdAt
+    ) {
         AbonosBalance.Snapshot balance = AbonosBalance.of(order, BigDecimal.ZERO);
         int requested = order.getRequestedQuantity();
         return new AccountsReceivableView(
@@ -102,6 +109,7 @@ public class GetOrderAccountsReceivableUseCase {
                 BigDecimal.ZERO,
                 STATUS_WITHOUT_MOVEMENTS,
                 false,
+                createdAt,
                 null,
                 null,
                 0,
@@ -138,6 +146,7 @@ public class GetOrderAccountsReceivableUseCase {
             BigDecimal totalAdvancePaid,
             String status,
             boolean hasMovements,
+            LocalDateTime createdAt,
             LocalDateTime openedAt,
             LocalDate dueDate,
             int paymentTermDays,

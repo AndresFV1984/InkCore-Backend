@@ -20,28 +20,28 @@ class AccountsReceivableItemResponseTest {
 
     @Test
     void from_serializesAbonosNumberDistinctFromPaymentMovements() {
-        ListAccountsReceivableUseCase.AccountsReceivableRow row = sampleRow("ABN-7", "ABN-4");
+        ListAccountsReceivableUseCase.AccountsReceivableRow row = sampleRow("ABN-7", "LIQ-4");
 
         OrderResponses.AccountsReceivableItemResponse response = OrderResponses.AccountsReceivableItemResponse.from(row);
 
         assertEquals("CXC-7", response.cxcNumber());
         assertEquals("ABN-7", response.abonosNumber());
         assertEquals("ODP-12", response.odpNumber());
-        assertEquals("ABN-4", response.lastPaymentNumber());
+        assertEquals("LIQ-4", response.lastPaymentNumber());
         assertFalse(response.abonosNumber().equals(response.lastPaymentNumber()));
         assertTrue(response.abonosNumber().startsWith("ABN-"));
-        assertTrue(response.lastPaymentNumber().startsWith("ABN-"));
+        assertTrue(response.lastPaymentNumber().startsWith("LIQ-"));
     }
 
     @Test
     void detailInvariant_abonosNumberNeverEqualsAnyPaymentNumber() {
         String abonosNumber = "ABN-7";
-        ListAccountsReceivableUseCase.AccountsReceivableRow row = sampleRow(abonosNumber, "ABN-4");
+        ListAccountsReceivableUseCase.AccountsReceivableRow row = sampleRow(abonosNumber, "LIQ-4");
 
         List<OrderPayment> payments = List.of(
-                payment("ABN-1"),
-                payment("ABN-4"),
-                payment("ABN-9")
+                payment("LIQ-1"),
+                payment("LIQ-4"),
+                payment("LIQ-9")
         );
 
         OrderResponses.AccountsReceivableDetailResponse detail = new OrderResponses.AccountsReceivableDetailResponse(
@@ -54,7 +54,22 @@ class AccountsReceivableItemResponseTest {
         assertTrue(detail.payments().stream()
                 .noneMatch(p -> abonosNumber.equals(p.paymentNumber())));
         assertTrue(detail.payments().stream()
-                .allMatch(p -> p.paymentNumber() != null && p.paymentNumber().startsWith("ABN-")));
+                .allMatch(p -> p.paymentNumber() != null && p.paymentNumber().startsWith("LIQ-")));
+    }
+
+    @Test
+    void detailInvariant_cxcNumberNeverEqualsDeliveryOrPaymentNumbers() {
+        ListAccountsReceivableUseCase.AccountsReceivableRow row = sampleRow("ABN-7", "LIQ-4");
+        OrderResponses.AccountsReceivableItemResponse summary =
+                OrderResponses.AccountsReceivableItemResponse.from(row);
+
+        assertEquals("CXC-7", summary.cxcNumber());
+        assertEquals("ODP-3", summary.lastDeliveryNumber());
+        assertFalse(summary.cxcNumber().equals(summary.lastDeliveryNumber()));
+        assertFalse(summary.cxcNumber().equals(summary.lastPaymentNumber()));
+        assertTrue(summary.cxcNumber().startsWith("CXC-"));
+        assertTrue(summary.lastDeliveryNumber().startsWith("ODP-"));
+        assertTrue(summary.lastPaymentNumber().startsWith("LIQ-"));
     }
 
     @Test
@@ -91,6 +106,7 @@ class AccountsReceivableItemResponseTest {
                 lastPaymentNumber == null ? BigDecimal.ZERO : new BigDecimal("50000.00"),
                 BigDecimal.ZERO,
                 lastPaymentNumber == null ? "pendiente" : "parcial",
+                LocalDateTime.of(2026, 9, 1, 9, 0),
                 LocalDateTime.of(2026, 9, 5, 14, 30),
                 LocalDate.of(2026, 10, 5),
                 30,

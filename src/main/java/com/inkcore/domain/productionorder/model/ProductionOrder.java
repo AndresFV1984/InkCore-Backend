@@ -1,6 +1,7 @@
 package com.inkcore.domain.productionorder.model;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -69,6 +70,8 @@ public final class ProductionOrder {
     private BigDecimal plannedOperationalMakereadyQuantity;
     private BigDecimal phaseEstimatedMachineCost;
     private BigDecimal phaseEstimatedWasteCost;
+    /** Suma vigente de adicionales negociados. No se persiste en production_orders; se hidrata al leer. */
+    private BigDecimal negotiatedAdditionsTotal;
 
     private ProductionOrder() {
     }
@@ -561,6 +564,16 @@ public final class ProductionOrder {
 
     public void setPhaseEstimatedWasteCost(BigDecimal phaseEstimatedWasteCost) {
         this.phaseEstimatedWasteCost = phaseEstimatedWasteCost;
+    }
+
+    public BigDecimal getNegotiatedAdditionsTotal() {
+        return negotiatedAdditionsTotal == null
+                ? BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)
+                : negotiatedAdditionsTotal;
+    }
+
+    public void setNegotiatedAdditionsTotal(BigDecimal negotiatedAdditionsTotal) {
+        this.negotiatedAdditionsTotal = negotiatedAdditionsTotal;
     }
 
     @Override

@@ -8,7 +8,7 @@ import java.time.Instant;
 import java.util.List;
 
 @Schema(name = "OrderPaymentListSuccessEnvelope", description = "Listado de liquidaciones/reversiones "
-        + "con paymentNumber ABN-{n} (≠ abonosNumber del agregado; secuencia ABN compartida)")
+        + "con paymentNumber LIQ-{n} (≠ abonosNumber ABN-{n} del agregado; series separadas)")
 public record OrderPaymentListSuccessEnvelope(
         @Schema(description = "Metadatos de la respuesta")
         ApiHeaders headers,

@@ -60,6 +60,7 @@ public class GetAccountsReceivableDetailUseCase {
                 .map(Client::getName)
                 .orElse(null);
         String odpNumber = support.resolveOdpNumber(companyId, productionOrderId);
+        var accountCreatedAt = support.resolveCustomerOrderCreatedAt(companyId, productionOrderId);
 
         List<OrderDelivery> deliveries = deliveryRepository.findByProductionOrderId(companyId, productionOrderId);
         String lastDeliveryNumber = deliveries.stream()
@@ -90,6 +91,7 @@ public class GetAccountsReceivableDetailUseCase {
                 nullToZero(summary.getTotalWithheld()),
                 nullToZero(summary.getTotalAdvancePaid()),
                 summary.getStatus() == null ? null : summary.getStatus().getDbValue(),
+                accountCreatedAt,
                 summary.getOpenedAt(),
                 summary.getDueDate(),
                 summary.getPaymentTermDays(),

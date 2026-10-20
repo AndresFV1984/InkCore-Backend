@@ -89,4 +89,21 @@ class ProductionOrderCalculatorTest {
 
         assertEquals(new BigDecimal("1350000.00"), ProductionOrderCalculator.calculateTotalToCharge(order));
     }
+
+    @Test
+    void amountToCollectAddsNegotiatedAdditionsWithoutChangingProductionTotal() {
+        ProductionOrder order = ProductionOrder.reconstitute();
+        PrepressDetails prepress = new PrepressDetails();
+        prepress.setTotalPlatesValue(new BigDecimal("1500000.00"));
+        order.setPrepress(prepress);
+        order.setNegotiatedAdditionsTotal(new BigDecimal("180000.00"));
+
+        assertEquals(new BigDecimal("1500000.00"), ProductionOrderCalculator.calculateTotalToCharge(order));
+        assertEquals(new BigDecimal("1680000.00"), ProductionOrderCalculator.calculateAmountToCollect(order));
+    }
+
+    @Test
+    void amountToCollectIsNullWhenThereIsNoCostAndNoAddition() {
+        assertNull(ProductionOrderCalculator.calculateAmountToCollect(ProductionOrder.reconstitute()));
+    }
 }

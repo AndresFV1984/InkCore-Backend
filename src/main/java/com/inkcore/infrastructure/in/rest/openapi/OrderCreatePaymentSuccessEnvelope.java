@@ -6,8 +6,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.Instant;
 
-@Schema(name = "OrderCreatePaymentSuccessEnvelope", description = "Abono/reversión con paymentNumber ABN-{n} "
-        + "y accountsReceivable (cxcNumber + abonosNumber ABN-n + lastPaymentNumber)")
+@Schema(name = "OrderCreatePaymentSuccessEnvelope", description = "Abono/reversión con paymentNumber LIQ-{n} "
+        + "y accountsReceivable (cxcNumber + abonosNumber ABN-n + lastPaymentNumber LIQ)")
 public record OrderCreatePaymentSuccessEnvelope(
         @Schema(description = "Metadatos de la respuesta")
         ApiHeaders headers,

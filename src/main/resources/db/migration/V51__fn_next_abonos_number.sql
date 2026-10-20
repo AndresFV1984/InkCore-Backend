@@ -1,7 +1,6 @@
--- abonos_number (id del agregado de Abonos) = ABN-{n}, mismo prefijo que payment_number.
--- Comparte order_payment_number_sequences (V48) para garantizar que, por compañía,
--- abonos_number nunca coincida con un payment_number (movimientos). Sin tabla aparte.
--- Lo consumen los triggers de accounts_receivable (V53) vía fn_next_abonos_number (no el backend).
+-- abonos_number (id del agregado de Abonos) = ABN-{n}.
+-- Usa order_payment_number_sequences (serie propia de cuentas; distinta de LIQ).
+-- Lo consumen los triggers de accounts_receivable vía fn_next_abonos_number (no el backend).
 
 CREATE OR REPLACE FUNCTION indicolors.fn_next_abonos_number(p_company_id CHARACTER VARYING)
 RETURNS CHARACTER VARYING AS $$
@@ -20,4 +19,4 @@ $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION indicolors.fn_next_abonos_number(CHARACTER VARYING) IS
     'Reserva el siguiente ABN-{n} de order_payment_number_sequences para abonos_number (agregado). '
-    'Misma secuencia que payment_number: el id del agregado nunca choca con un movimiento.';
+    'Serie propia de cuentas; distinta de LIQ-{n} (order_liq_number_sequences / payment_number).';

@@ -12,6 +12,11 @@ public interface JpaAccountsReceivableRepository
 
     Optional<AccountsReceivableEntity> findByCompanyIdAndProductionOrderId(String companyId, String productionOrderId);
 
+    List<AccountsReceivableEntity> findAllByCompanyIdAndProductionOrderIdIn(
+            String companyId,
+            List<String> productionOrderIds
+    );
+
     List<AccountsReceivableEntity> findAllByCompanyIdAndClientIdOrderByUpdatedAtDesc(
             String companyId,
             String clientId

@@ -11,6 +11,8 @@ public interface AccountsReceivableRepositoryPort {
 
     Optional<AccountsReceivable> findByProductionOrderId(String companyId, String productionOrderId);
 
+    List<AccountsReceivable> findByProductionOrderIds(String companyId, List<String> productionOrderIds);
+
     List<AccountsReceivable> findByClientId(String companyId, String clientId);
 
     PageResult<AccountsReceivable> findPage(
@@ -19,4 +21,10 @@ public interface AccountsReceivableRepositoryPort {
             String clientId,
             PageQuery pageQuery
     );
+
+    /**
+     * Red de seguridad: crea shell ABN para customer_orders sin fila AR.
+     * Preferir el trigger en INSERT de customer_orders; este método cubre históricos.
+     */
+    void openMissingBillableAccounts(String companyId);
 }

@@ -2,6 +2,7 @@ package com.inkcore.application.order;
 
 import com.inkcore.application.shared.AuthenticatedCompanyResolver;
 import com.inkcore.domain.order.model.CustomerOrder;
+import com.inkcore.domain.order.ports.out.NegotiatedAdditionRepositoryPort;
 import com.inkcore.domain.order.ports.out.OrderDeliveryRepositoryPort;
 import com.inkcore.domain.order.ports.out.OrderPaymentRepositoryPort;
 import com.inkcore.domain.order.ports.out.CustomerOrderRepositoryPort;
@@ -20,6 +21,7 @@ public class OrderSupport {
     private final ProductionOrderRepositoryPort productionOrderRepository;
     private final OrderDeliveryRepositoryPort deliveryRepository;
     private final OrderPaymentRepositoryPort paymentRepository;
+    private final NegotiatedAdditionRepositoryPort negotiatedAdditionRepository;
     private final CustomerOrderRepositoryPort customerOrderRepository;
     private final AuthenticatedCompanyResolver companyResolver;
     private final Clock clock;
@@ -28,6 +30,7 @@ public class OrderSupport {
             ProductionOrderRepositoryPort productionOrderRepository,
             OrderDeliveryRepositoryPort deliveryRepository,
             OrderPaymentRepositoryPort paymentRepository,
+            NegotiatedAdditionRepositoryPort negotiatedAdditionRepository,
             CustomerOrderRepositoryPort customerOrderRepository,
             AuthenticatedCompanyResolver companyResolver,
             Clock clock
@@ -35,6 +38,7 @@ public class OrderSupport {
         this.productionOrderRepository = productionOrderRepository;
         this.deliveryRepository = deliveryRepository;
         this.paymentRepository = paymentRepository;
+        this.negotiatedAdditionRepository = negotiatedAdditionRepository;
         this.customerOrderRepository = customerOrderRepository;
         this.companyResolver = companyResolver;
         this.clock = clock;
@@ -77,7 +81,11 @@ public class OrderSupport {
     }
 
     public String nextPaymentNumber(String companyId) {
-        return "ABN-" + paymentRepository.allocateNextPaymentSequence(companyId);
+        return "LIQ-" + paymentRepository.allocateNextPaymentSequence(companyId);
+    }
+
+    public String nextNegotiatedAdditionNumber(String companyId) {
+        return "ADN-" + negotiatedAdditionRepository.allocateNextSequence(companyId);
     }
 
     public String nextOdpNumber(String companyId) {
@@ -92,6 +100,16 @@ public class OrderSupport {
     public String resolveOdpNumber(String companyId, String productionOrderId) {
         return customerOrderRepository.findByProductionOrderId(companyId, productionOrderId)
                 .map(CustomerOrder::getOdpNumber)
+                .orElse(null);
+    }
+
+    /**
+     * Fecha de creación del pedido comercial (= nacimiento de la cuenta ABN en dashboard Abonos).
+     * Distinto de {@code accounts_receivable.opened_at} (1ª entrega / apertura CxC).
+     */
+    public java.time.LocalDateTime resolveCustomerOrderCreatedAt(String companyId, String productionOrderId) {
+        return customerOrderRepository.findByProductionOrderId(companyId, productionOrderId)
+                .map(CustomerOrder::getCreatedAt)
                 .orElse(null);
     }
 }

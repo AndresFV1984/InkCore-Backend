@@ -66,17 +66,17 @@ public class OrderPaymentPersistenceAdapter implements OrderPaymentRepositoryPor
             throw new IllegalArgumentException("companyId es obligatorio para asignar payment_number");
         }
         Object result = entityManager.createNativeQuery("""
-                INSERT INTO indicolors.order_payment_number_sequences (company_id, last_value)
+                INSERT INTO indicolors.order_liq_number_sequences (company_id, last_value)
                 SELECT :companyId,
                        COALESCE(
                            (SELECT MAX(CAST(substring(p.payment_number FROM 5) AS BIGINT))
                             FROM indicolors.order_payments p
                             WHERE p.company_id = :companyId
-                              AND p.payment_number ~ '^ABN-[0-9]+$'),
+                              AND p.payment_number ~ '^LIQ-[0-9]+$'),
                            0
                        ) + 1
                 ON CONFLICT (company_id) DO UPDATE
-                SET last_value = order_payment_number_sequences.last_value + 1
+                SET last_value = order_liq_number_sequences.last_value + 1
                 RETURNING last_value
                 """)
                 .setParameter("companyId", companyId.trim())

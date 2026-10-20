@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS indicolors.order_payments (
     CONSTRAINT order_payments_withholding_rate_check
         CHECK (withholding_rate IS NULL OR withholding_rate >= 0),
     CONSTRAINT order_payments_payment_number_format_check
-        CHECK (payment_number ~ '^ABN-[0-9]+$')
+        CHECK (payment_number ~ '^LIQ-[0-9]+$')
 );
 
 CREATE INDEX IF NOT EXISTS idx_order_payments_company_id ON indicolors.order_payments (company_id);
@@ -83,7 +83,9 @@ COMMENT ON TABLE indicolors.order_payments IS
 
 COMMENT ON COLUMN indicolors.order_payments.order_payment_id IS 'Identificador único del movimiento de pago';
 COMMENT ON COLUMN indicolors.order_payments.company_id IS 'Identificador de la empresa dueña del registro';
-COMMENT ON COLUMN indicolors.order_payments.payment_number IS 'Consecutivo corto por compañía (ABN-{n}), generado por el backend';
+COMMENT ON COLUMN indicolors.order_payments.payment_number IS
+    'Consecutivo corto por compañía (LIQ-{n}), generado por el backend. '
+    'Serie distinta de abonos_number (ABN-{n}) del agregado.';
 COMMENT ON COLUMN indicolors.order_payments.production_order_id IS 'Orden de Producción contra la que se liquida';
 COMMENT ON COLUMN indicolors.order_payments.client_id IS 'Cliente snapshot desde production_orders.client_id';
 COMMENT ON COLUMN indicolors.order_payments.payment_type IS

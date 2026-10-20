@@ -59,6 +59,17 @@ class AbonosBalanceTest {
         assertEquals(AccountsReceivableStatus.PARCIAL, summary.getStatus());
     }
 
+    @Test
+    void of_addsNegotiatedAdditionsToAmountOwed() {
+        ProductionOrder order = orderWithTotalToCharge(new BigDecimal("1500000.00"));
+        order.setNegotiatedAdditionsTotal(new BigDecimal("180000.00"));
+
+        AbonosBalance.Snapshot snapshot = AbonosBalance.of(order, new BigDecimal("300000.00"));
+
+        assertEquals(0, new BigDecimal("1680000.00").compareTo(snapshot.totalOwed()));
+        assertEquals(0, new BigDecimal("1380000.00").compareTo(snapshot.totalRemaining()));
+    }
+
     private static ProductionOrder orderWithTotalToCharge(BigDecimal amount) {
         ProductionOrder order = ProductionOrder.reconstitute();
         PrepressDetails prepress = new PrepressDetails();

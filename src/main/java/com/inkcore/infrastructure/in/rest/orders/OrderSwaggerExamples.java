@@ -8,6 +8,7 @@ public final class OrderSwaggerExamples {
     public static final String ORDER_ID = "ef658d09-bf30-43de-ba7a-edd0f14a61bd";
     public static final String DELIVERY_ID = "del-uuid-001";
     public static final String PAYMENT_ID = "pay-uuid-001";
+    public static final String ADDITION_ID = "adn-uuid-001";
     public static final String CLIENT_ID = "client-seed-001";
 
     public static final String CREATE_DELIVERY_REQUEST = """
@@ -281,7 +282,7 @@ public final class OrderSwaggerExamples {
                 "dueSoon": true,
                 "overdue": false,
                 "lastDeliveryAt": "2026-09-05T14:30:00",
-                "lastPaymentNumber": "ABN-4",
+                "lastPaymentNumber": "LIQ-4",
                 "lastPaymentAt": "2026-09-05T16:00:00"
               }
             }
@@ -377,7 +378,7 @@ public final class OrderSwaggerExamples {
               "data": {
                 "payment": {
                   "orderPaymentId": "pay-uuid-001",
-                  "paymentNumber": "ABN-15",
+                  "paymentNumber": "LIQ-15",
                   "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
                   "paymentType": "abono",
                   "amount": 200000.00,
@@ -420,7 +421,7 @@ public final class OrderSwaggerExamples {
                   "dueSoon": true,
                   "overdue": false,
                   "lastDeliveryAt": "2026-09-05T14:30:00",
-                  "lastPaymentNumber": "ABN-4",
+                  "lastPaymentNumber": "LIQ-4",
                   "lastPaymentAt": "2026-09-05T16:00:00"
                 }
               }
@@ -445,7 +446,7 @@ public final class OrderSwaggerExamples {
               "data": {
                 "payment": {
                   "orderPaymentId": "reversion-uuid-001",
-                  "paymentNumber": "ABN-16",
+                  "paymentNumber": "LIQ-16",
                   "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
                   "paymentType": "reversion",
                   "amount": 200000.00,
@@ -507,7 +508,7 @@ public final class OrderSwaggerExamples {
               "data": [
                 {
                   "orderPaymentId": "pay-uuid-001",
-                  "paymentNumber": "ABN-15",
+                  "paymentNumber": "LIQ-15",
                   "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
                   "paymentType": "abono",
                   "amount": 200000.00,
@@ -525,7 +526,7 @@ public final class OrderSwaggerExamples {
                 },
                 {
                   "orderPaymentId": "pay-ret-uuid-001",
-                  "paymentNumber": "ABN-17",
+                  "paymentNumber": "LIQ-17",
                   "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
                   "paymentType": "retencion",
                   "amount": 50000.00,
@@ -585,7 +586,7 @@ public final class OrderSwaggerExamples {
                     "dueSoon": false,
                     "lastDeliveryNumber": "ODP-42",
                     "lastDeliveryAt": "2026-09-05T14:30:00",
-                    "lastPaymentNumber": "ABN-4",
+                    "lastPaymentNumber": "LIQ-4",
                     "lastPaymentAt": "2026-09-05T16:00:00"
                   }
                 ],
@@ -637,7 +638,7 @@ public final class OrderSwaggerExamples {
                   "dueSoon": true,
                   "lastDeliveryNumber": "ODP-42",
                   "lastDeliveryAt": "2026-09-05T14:30:00",
-                  "lastPaymentNumber": "ABN-4",
+                  "lastPaymentNumber": "LIQ-4",
                   "lastPaymentAt": "2026-09-05T16:00:00"
                 },
                 "deliveries": [
@@ -661,7 +662,7 @@ public final class OrderSwaggerExamples {
                 "payments": [
                   {
                     "orderPaymentId": "pay-uuid-001",
-                    "paymentNumber": "ABN-15",
+                    "paymentNumber": "LIQ-15",
                     "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
                     "paymentType": "abono",
                     "amount": 150000.00,
@@ -679,7 +680,7 @@ public final class OrderSwaggerExamples {
                   },
                   {
                     "orderPaymentId": "pay-ret-uuid-001",
-                    "paymentNumber": "ABN-17",
+                    "paymentNumber": "LIQ-17",
                     "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
                     "paymentType": "retencion",
                     "amount": 50000.00,
@@ -732,6 +733,191 @@ public final class OrderSwaggerExamples {
                 "totalPaid": 300000.00,
                 "totalRemaining": 1200000.00
               }
+            }
+            """;
+
+    public static final String CREATE_NEGOTIATED_ADDITION_REQUEST = """
+            {
+              "concept": "Troquel adicional en la tapa",
+              "changeReason": "solicitud_cliente",
+              "amount": 180000.00,
+              "scheduleImpactDays": 2,
+              "approvedByClientName": "María Gómez",
+              "approvalChannel": "correo",
+              "approvalReference": "Correo 19/10 asunto Troquel",
+              "approvedAt": "2026-10-19T11:30:00",
+              "notes": "Aprobado por correo el 19/10"
+            }
+            """;
+
+    public static final String CREATE_NEGOTIATED_ADDITION_RESPONSE = """
+            {
+              "headers": {
+                "correlationId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "statusCode": 201,
+                "code": "OK",
+                "description": "Success"
+              },
+              "timestamp": "2026-10-19T16:00:01Z",
+              "data": {
+                "addition": {
+                  "orderNegotiatedAdditionId": "adn-uuid-001",
+                  "additionNumber": "ADN-3",
+                  "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
+                  "movementType": "registro",
+                  "concept": "Troquel adicional en la tapa",
+                  "changeReason": "solicitud_cliente",
+                  "amount": 180000.00,
+                  "scheduleImpactDays": 2,
+                  "approvedByClientName": "María Gómez",
+                  "approvalChannel": "correo",
+                  "approvalReference": "Correo 19/10 asunto Troquel",
+                  "approvedAt": "2026-10-19T11:30:00",
+                  "reversedAdditionId": null,
+                  "registeredBy": "operator-seed-003",
+                  "notes": "Aprobado por correo el 19/10",
+                  "voidedAt": null,
+                  "voidedBy": null
+                },
+                "productionTotal": 1500000.00,
+                "negotiatedAdditionsTotal": 180000.00,
+                "amountToCollect": 1680000.00,
+                "accountsReceivable": {
+                  "accountsReceivableId": "ar-uuid-001",
+                  "cxcNumber": "CXC-7",
+                  "abonosNumber": "ABN-7",
+                  "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
+                  "odpNumber": "ODP-12",
+                  "clientId": "client-seed-001",
+                  "totalUnits": 1000,
+                  "deliveredUnits": 500,
+                  "pendingUnits": 500,
+                  "totalOwed": 1680000.00,
+                  "totalPaid": 300000.00,
+                  "totalRemaining": 1380000.00,
+                  "totalCashPaid": 150000.00,
+                  "totalWithheld": 50000.00,
+                  "totalAdvancePaid": 0.00,
+                  "status": "parcial",
+                  "hasMovements": true,
+                  "openedAt": "2026-09-05T14:30:00",
+                  "dueDate": "2026-10-05",
+                  "paymentTermDays": 30,
+                  "collectionStatus": "por_vencer",
+                  "daysOverdue": 0,
+                  "agingBucket": "current",
+                  "dueSoon": true,
+                  "overdue": false,
+                  "lastDeliveryAt": "2026-09-05T14:30:00",
+                  "lastPaymentNumber": "LIQ-4",
+                  "lastPaymentAt": "2026-09-05T16:00:00"
+                }
+              }
+            }
+            """;
+
+    public static final String REVERSE_NEGOTIATED_ADDITION_REQUEST = """
+            {
+              "reason": "El cliente desistió del troquel"
+            }
+            """;
+
+    public static final String REVERSE_NEGOTIATED_ADDITION_RESPONSE = """
+            {
+              "headers": {
+                "correlationId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "statusCode": 200,
+                "code": "OK",
+                "description": "Success"
+              },
+              "timestamp": "2026-10-19T17:00:00Z",
+              "data": {
+                "addition": {
+                  "orderNegotiatedAdditionId": "adn-uuid-001",
+                  "additionNumber": "ADN-3",
+                  "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
+                  "movementType": "registro",
+                  "concept": "Troquel adicional en la tapa",
+                  "changeReason": "solicitud_cliente",
+                  "amount": 180000.00,
+                  "scheduleImpactDays": 2,
+                  "approvedByClientName": "María Gómez",
+                  "approvalChannel": "correo",
+                  "approvalReference": "Correo 19/10 asunto Troquel",
+                  "approvedAt": "2026-10-19T11:30:00",
+                  "reversedAdditionId": null,
+                  "registeredBy": "operator-seed-003",
+                  "notes": "Aprobado por correo el 19/10\\nAnulado por: El cliente desistió del troquel",
+                  "voidedAt": "2026-10-19T17:00:00",
+                  "voidedBy": "operator-seed-003"
+                },
+                "productionTotal": 1500000.00,
+                "negotiatedAdditionsTotal": 0.00,
+                "amountToCollect": 1500000.00,
+                "accountsReceivable": {
+                  "accountsReceivableId": "ar-uuid-001",
+                  "cxcNumber": "CXC-7",
+                  "abonosNumber": "ABN-7",
+                  "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
+                  "odpNumber": "ODP-12",
+                  "clientId": "client-seed-001",
+                  "totalUnits": 1000,
+                  "deliveredUnits": 500,
+                  "pendingUnits": 500,
+                  "totalOwed": 1500000.00,
+                  "totalPaid": 300000.00,
+                  "totalRemaining": 1200000.00,
+                  "totalCashPaid": 150000.00,
+                  "totalWithheld": 50000.00,
+                  "totalAdvancePaid": 0.00,
+                  "status": "parcial",
+                  "hasMovements": true,
+                  "openedAt": "2026-09-05T14:30:00",
+                  "dueDate": "2026-10-05",
+                  "paymentTermDays": 30,
+                  "collectionStatus": "por_vencer",
+                  "daysOverdue": 0,
+                  "agingBucket": "current",
+                  "dueSoon": true,
+                  "overdue": false,
+                  "lastDeliveryAt": "2026-09-05T14:30:00",
+                  "lastPaymentNumber": "LIQ-4",
+                  "lastPaymentAt": "2026-09-05T16:00:00"
+                }
+              }
+            }
+            """;
+
+    public static final String NEGOTIATED_ADDITION_LIST_RESPONSE = """
+            {
+              "headers": {
+                "correlationId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "statusCode": 200,
+                "code": "OK",
+                "description": "Success"
+              },
+              "timestamp": "2026-10-19T16:05:00Z",
+              "data": [
+                {
+                  "orderNegotiatedAdditionId": "adn-uuid-001",
+                  "additionNumber": "ADN-3",
+                  "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
+                  "movementType": "registro",
+                  "concept": "Troquel adicional en la tapa",
+                  "changeReason": "solicitud_cliente",
+                  "amount": 180000.00,
+                  "scheduleImpactDays": 2,
+                  "approvedByClientName": "María Gómez",
+                  "approvalChannel": "correo",
+                  "approvalReference": "Correo 19/10 asunto Troquel",
+                  "approvedAt": "2026-10-19T11:30:00",
+                  "reversedAdditionId": null,
+                  "registeredBy": "operator-seed-003",
+                  "notes": "Aprobado por correo el 19/10",
+                  "voidedAt": null,
+                  "voidedBy": null
+                }
+              ]
             }
             """;
 }

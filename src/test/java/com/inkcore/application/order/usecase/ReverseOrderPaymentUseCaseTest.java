@@ -46,7 +46,7 @@ class ReverseOrderPaymentUseCaseTest {
         OrderPayment original = originalPayment();
         AccountsReceivable updated = new AccountsReceivable();
         updated.setProductionOrderId("op-1");
-        updated.setLastPaymentNumber("ABN-1");
+        updated.setLastPaymentNumber("LIQ-1");
         updated.setLastPaymentAt(LocalDateTime.of(2026, 9, 5, 16, 0));
         updated.setTotalPaid(new BigDecimal("100000.00"));
         updated.setTotalRemaining(new BigDecimal("500000.00"));
@@ -55,7 +55,7 @@ class ReverseOrderPaymentUseCaseTest {
         when(support.userId(authentication)).thenReturn("user-authenticated");
         when(support.now()).thenReturn(now);
         when(support.requireActiveOrder("op-1", "company-1")).thenReturn(ProductionOrder.reconstitute());
-        when(support.nextPaymentNumber("company-1")).thenReturn("ABN-9");
+        when(support.nextPaymentNumber("company-1")).thenReturn("LIQ-9");
         when(paymentRepository.findByIdForUpdate("company-1", "payment-1"))
                 .thenReturn(Optional.of(original));
         when(paymentRepository.existsReversionFor("company-1", "payment-1")).thenReturn(false);
@@ -70,12 +70,12 @@ class ReverseOrderPaymentUseCaseTest {
         verify(paymentRepository).save(captor.capture());
         OrderPayment reversion = captor.getValue();
         assertEquals(PaymentType.REVERSION, reversion.getPaymentType());
-        assertEquals("ABN-9", reversion.getPaymentNumber());
+        assertEquals("LIQ-9", reversion.getPaymentNumber());
         assertEquals("payment-1", reversion.getReversedPaymentId());
         assertEquals(original.getAmount(), reversion.getAmount());
         assertEquals("user-authenticated", reversion.getRegisteredBy());
         assertEquals("Anulado por: Comprobante duplicado", reversion.getNotes());
-        assertEquals("ABN-1", result.accountsReceivable().getLastPaymentNumber());
+        assertEquals("LIQ-1", result.accountsReceivable().getLastPaymentNumber());
         assertEquals(0, new BigDecimal("100000.00").compareTo(result.accountsReceivable().getTotalPaid()));
     }
 

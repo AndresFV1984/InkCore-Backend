@@ -72,12 +72,14 @@ class GetOrderAccountsReceivableUseCaseTest {
         summary.setTotalPaid(new BigDecimal("300000.00"));
         summary.setTotalRemaining(new BigDecimal("-300000.00"));
         summary.setStatus(com.inkcore.domain.order.model.AccountsReceivableStatus.PARCIAL);
-        summary.setLastPaymentNumber("ABN-4");
+        summary.setLastPaymentNumber("LIQ-4");
         summary.setLastPaymentAt(java.time.LocalDateTime.of(2026, 9, 5, 16, 0));
 
         when(support.companyId(authentication)).thenReturn("company-1");
         when(support.requireActiveOrder("op-1", "company-1")).thenReturn(order);
         when(support.resolveOdpNumber("company-1", "op-1")).thenReturn("ODP-12");
+        when(support.resolveCustomerOrderCreatedAt("company-1", "op-1"))
+                .thenReturn(java.time.LocalDateTime.of(2026, 9, 1, 9, 0));
         when(repository.findByProductionOrderId("company-1", "op-1")).thenReturn(Optional.of(summary));
 
         GetOrderAccountsReceivableUseCase.AccountsReceivableView result = useCase.execute("op-1", authentication);
@@ -88,7 +90,8 @@ class GetOrderAccountsReceivableUseCaseTest {
         assertEquals("ODP-12", result.odpNumber());
         assertEquals("parcial", result.status());
         assertEquals(true, result.hasMovements());
-        assertEquals("ABN-4", result.lastPaymentNumber());
+        assertEquals(java.time.LocalDateTime.of(2026, 9, 1, 9, 0), result.createdAt());
+        assertEquals("LIQ-4", result.lastPaymentNumber());
         assertFalse(result.abonosNumber().equals(result.lastPaymentNumber()));
         assertEquals(0, new BigDecimal("1500000.00").compareTo(result.totalOwed()));
         assertEquals(0, new BigDecimal("300000.00").compareTo(result.totalPaid()));

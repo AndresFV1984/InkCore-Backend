@@ -33,7 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
         description = "Dashboard/detalle CxC/Abonos (CXC-{n} + abonosNumber ABN-{n} + accountsReceivableId). "
                 + "Incluye openedAt (1ª entrega), dueDate/aging. Solo lectura; anulación implícita "
                 + "(status anulado/sin_movimientos tras reversiones netas a cero). Sin DELETE. "
-                + "abonosNumber ≠ paymentNumber del detalle (secuencia ABN compartida)."
+                + "abonosNumber ABN ≠ paymentNumber LIQ del detalle (series separadas)."
 )
 @SecurityRequirement(name = "bearerAuth")
 public class ClientAccountsReceivableController {
@@ -57,7 +57,7 @@ public class ClientAccountsReceivableController {
             description = "Retorna las OP con movimientos en accounts_receivable "
                     + "(cada una con accountsReceivableId + cxcNumber + abonosNumber ABN-n) "
                     + "y los totales agregados del cliente autenticado. "
-                    + "abonosNumber es el id del agregado de Abonos (≠ paymentNumber ABN)."
+                    + "abonosNumber es el id del agregado de Abonos (≠ paymentNumber LIQ)."
     )
     @ApiResponse(
             responseCode = "200",

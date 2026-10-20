@@ -1,6 +1,5 @@
 package com.inkcore.application.order.usecase;
 
-import com.inkcore.application.order.AbonosBalance;
 import com.inkcore.application.order.OrderSupport;
 import com.inkcore.domain.client.model.Client;
 import com.inkcore.domain.client.ports.out.ClientRepositoryPort;
@@ -59,6 +58,8 @@ public class ListAccountsReceivableUseCase {
             Authentication authentication
     ) {
         String companyId = support.companyId(authentication);
+        // No abrir cuentas aquí: este use case es @Transactional(readOnly=true).
+        // Shells ABN nacen en el trigger de customer_orders (V71) / backfill V68.
         PageQuery query = pageQuery == null ? PageQuery.of(0, PageQuery.DEFAULT_SIZE) : pageQuery;
         LocalDate today = LocalDate.now();
 
@@ -73,22 +74,24 @@ public class ListAccountsReceivableUseCase {
         List<String> productionOrderIds = page.content().stream()
                 .map(AccountsReceivable::getProductionOrderId)
                 .toList();
-        Map<String, String> odpByProductionOrderId = support.customerOrderRepository()
+        Map<String, CustomerOrder> customerOrderByProductionOrderId = support.customerOrderRepository()
                 .findByProductionOrderIds(companyId, productionOrderIds)
                 .stream()
                 .collect(Collectors.toMap(
                         CustomerOrder::getProductionOrderId,
-                        CustomerOrder::getOdpNumber,
+                        co -> co,
                         (a, b) -> a
                 ));
 
         List<AccountsReceivableRow> rows = new ArrayList<>();
         for (AccountsReceivable summary : page.content()) {
+            CustomerOrder customerOrder = customerOrderByProductionOrderId.get(summary.getProductionOrderId());
             rows.add(toRow(
                     companyId,
                     summary,
                     today,
-                    odpByProductionOrderId.get(summary.getProductionOrderId())
+                    customerOrder == null ? null : customerOrder.getOdpNumber(),
+                    customerOrder == null ? null : customerOrder.getCreatedAt()
             ));
         }
 
@@ -130,7 +133,8 @@ public class ListAccountsReceivableUseCase {
             String companyId,
             AccountsReceivable summary,
             LocalDate today,
-            String odpNumber
+            String odpNumber,
+            LocalDateTime accountCreatedAt
     ) {
         ProductionOrder order = support.productionOrderRepository()
                 .findById(summary.getProductionOrderId())
@@ -139,7 +143,8 @@ public class ListAccountsReceivableUseCase {
         String clientName = clientRepository.findById(summary.getClientId())
                 .map(Client::getName)
                 .orElse(null);
-        AbonosBalance.applyTo(summary, order);
+        // Listado compartido CxC + Abonos: devolver totales persistidos (cartera por entregas).
+        // Abonos recalcula amountToCollect en FE; Get*/Create* sí aplican AbonosBalance.
         AccountsReceivableAging.AgingSnapshot aging = AccountsReceivableAging.of(summary, today);
         return new AccountsReceivableRow(
                 summary.getAccountsReceivableId(),
@@ -153,13 +158,16 @@ public class ListAccountsReceivableUseCase {
                 summary.getTotalUnits(),
                 summary.getDeliveredUnits(),
                 summary.getPendingUnits(),
-                summary.getTotalOwed(),
+                nullToZero(summary.getTotalOwed()),
                 nullToZero(summary.getTotalPaid()),
-                summary.getTotalRemaining(),
+                summary.getTotalRemaining() == null
+                        ? nullToZero(summary.getTotalOwed()).subtract(nullToZero(summary.getTotalPaid()))
+                        : summary.getTotalRemaining(),
                 nullToZero(summary.getTotalCashPaid()),
                 nullToZero(summary.getTotalWithheld()),
                 nullToZero(summary.getTotalAdvancePaid()),
                 summary.getStatus() == null ? null : summary.getStatus().getDbValue(),
+                accountCreatedAt,
                 summary.getOpenedAt(),
                 summary.getDueDate(),
                 summary.getPaymentTermDays(),
@@ -212,6 +220,9 @@ public class ListAccountsReceivableUseCase {
             BigDecimal totalWithheld,
             BigDecimal totalAdvancePaid,
             String status,
+            /** customer_orders.created_at — creación pedido/cuenta ABN (dashboard Abonos). */
+            LocalDateTime createdAt,
+            /** 1ª entrega — apertura CxC (dashboard CxC). */
             LocalDateTime openedAt,
             LocalDate dueDate,
             int paymentTermDays,

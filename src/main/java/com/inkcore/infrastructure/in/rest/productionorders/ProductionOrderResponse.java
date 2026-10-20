@@ -31,9 +31,10 @@ import java.util.Map;
 @Schema(
         name = "ProductionOrderResponse",
         description = "Agregado completo de Orden de Producción (planta). "
-                + "Incluye totalToCharge (total a cobrar del panel Cobro; null si aún no hay costos). "
-                + "customerOrderId/odpNumber son del pedido comercial (customer_orders), no de la OP; "
-                + "null mientras la OP no haya entrado a un estado IN_PROGRESS*."
+                + "Incluye totalToCharge (panel Cobro; null si aún no hay costos), "
+                + "negotiatedAdditionsTotal (ADN vigentes) y amountToCollect (cobro + adicionales). "
+                + "customerOrderId/odpNumber son del pedido comercial (customer_orders); "
+                + "abonosNumber (ABN-{n}) nace con el pedido. null mientras no haya IN_PROGRESS*."
 )
 public record ProductionOrderResponse(
         @Schema(example = "a1b2c3d4-e5f6-7890-abcd-ef1234567890")
@@ -65,6 +66,14 @@ public record ProductionOrderResponse(
                 nullable = true
         )
         String odpNumber,
+        @Schema(
+                description = "Id del agregado de Abonos (accounts_receivable.abonos_number = ABN-{n}). "
+                        + "Se crea junto con el pedido al pasar a IN_PROGRESS*. Distinto de paymentNumber (LIQ-{n}).",
+                example = "ABN-7",
+                pattern = "^ABN-[0-9]+$",
+                nullable = true
+        )
+        String abonosNumber,
         @Schema(description = "Versión optimista", example = "0")
         Long version,
         String clientId,
@@ -73,12 +82,24 @@ public record ProductionOrderResponse(
         LocalDate orderDate,
         Integer requestedQuantity,
         @Schema(
-                description = "Total a cobrar de la OP (panel Cobro): suma de etapas menos descuentos de cobro. "
-                        + "Mismo criterio que el PDF de cobro. null si aún no hay costos calculados.",
+                description = "Total del panel Cobro: suma de etapas menos descuentos. "
+                        + "No incluye adicionales negociados. null si aún no hay costos.",
                 example = "1500000.00",
                 nullable = true
         )
         BigDecimal totalToCharge,
+        @Schema(
+                description = "Suma vigente de adicionales negociados (ADN). 0.00 si no hay.",
+                example = "180000.00"
+        )
+        BigDecimal negotiatedAdditionsTotal,
+        @Schema(
+                description = "Lo que el cliente paga: totalToCharge + negotiatedAdditionsTotal. "
+                        + "null solo si no hay costeo ni adicionales. Es la base de Abonos.",
+                example = "1680000.00",
+                nullable = true
+        )
+        BigDecimal amountToCollect,
         @Schema(
                 description = "Unidades liberadas por planta (station_order_progress.cantidad_disponible); "
                         + "base para disponibilidad comercial. 0 si no hay fila de progreso.",
@@ -143,11 +164,11 @@ public record ProductionOrderResponse(
         BigDecimal estimatedWasteCost
 ) {
     public static ProductionOrderResponse from(ProductionOrder order) {
-        return from(order, 0, null, null);
+        return from(order, 0, null, null, null);
     }
 
     public static ProductionOrderResponse from(ProductionOrder order, int cantidadDisponible) {
-        return from(order, cantidadDisponible, null, null);
+        return from(order, cantidadDisponible, null, null, null);
     }
 
     public static ProductionOrderResponse from(
@@ -156,12 +177,23 @@ public record ProductionOrderResponse(
             String customerOrderId,
             String odpNumber
     ) {
+        return from(order, cantidadDisponible, customerOrderId, odpNumber, null);
+    }
+
+    public static ProductionOrderResponse from(
+            ProductionOrder order,
+            int cantidadDisponible,
+            String customerOrderId,
+            String odpNumber,
+            String abonosNumber
+    ) {
         return new ProductionOrderResponse(
                 order.getProductionOrderId(),
                 order.getCompanyId(),
                 order.getOrderNumber(),
                 customerOrderId,
                 odpNumber,
+                abonosNumber,
                 order.getVersion(),
                 order.getClientId(),
                 order.getWorkName(),
@@ -169,6 +201,8 @@ public record ProductionOrderResponse(
                 order.getOrderDate(),
                 order.getRequestedQuantity(),
                 ProductionOrderCalculator.calculateTotalToCharge(order),
+                order.getNegotiatedAdditionsTotal(),
+                ProductionOrderCalculator.calculateAmountToCollect(order),
                 cantidadDisponible,
                 order.getProposalQuantity1(),
                 order.getProposalQuantity2(),

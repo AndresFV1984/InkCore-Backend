@@ -33,7 +33,7 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("InkCore API")
                         .description("")
-                        .version("0.0.73")
+                        .version("0.0.77")
                         .contact(new Contact().name("InkCore").email("admin@indicolors.com")))
                 .servers(List.of(
                         new Server().url(basePath).description("Context path local")
@@ -59,23 +59,27 @@ public class OpenApiConfig {
                         new Tag().name("Máquinas").description("Catálogo de máquinas y costo por hora"),
                         new Tag().name("Mermas").description("Rangos sugeridos de merma por compañía"),
                         new Tag().name("Órdenes de producción").description(
-                                "Wizard OP (OP-{n}). Listado/detalle incluyen totalToCharge (panel Cobro; null sin costos). "
-                                        + "Al pasar a IN_PROGRESS* crea customer_orders (customerOrderId + odpNumber ODP-{n}). "
-                                        + "ANULADA reemplaza CANCELLED."),
+                                "Wizard OP (OP-{n}). Listado/detalle incluyen totalToCharge (panel Cobro), "
+                                        + "negotiatedAdditionsTotal y amountToCollect (cobro + ADN vigentes). "
+                                        + "Al pasar a IN_PROGRESS* crea customer_orders (customerOrderId + odpNumber ODP-{n}) "
+                                        + "y cuenta Abonos (abonosNumber ABN-{n}). ANULADA reemplaza CANCELLED."),
                         new Tag().name("Estación").description(
                                 "Bitácora de planta: inbox, eventos (inicio/pausa/avance), intervalos y reportes. Roles OPERADOR|ADMINISTRADOR. occurredAt sin zona (sin Z)."),
                         new Tag().name("Reportes").description("Rentabilidad real de órdenes de producción"),
                         new Tag().name("Pedidos").description(
-                                "Ledgers comerciales sobre OP: entregas (deliveryNumber ODP-{n}) y liquidaciones "
-                                        + "ABN-{n} (abono|anticipo|retencion|reversion); append-only. "
-                                        + "Abonos sobre totalToCharge de la OP (totalOwed/totalRemaining en lectura; "
+                                "Ledgers comerciales sobre OP: entregas ODP-{n} y liquidaciones LIQ-{n} "
+                                        + "(append-only); adicionales negociados ADN-{n} (crear/editar; "
+                                        + "anular = voidedAt en la misma fila). "
+                                        + "Abonos sobre amountToCollect (totalToCharge + ADN vigentes; "
                                         + "saldo puede ser negativo). CxC por entregas: unidades + ledger. "
-                                        + "cxcNumber/abonosNumber solo en el primer INSERT; secuencia ABN compartida."),
+                                        + "abonosNumber ABN al crear pedido; cxcNumber en 1ª entrega; "
+                                        + "series ABN (cuenta) y LIQ (movimiento) separadas."),
                         new Tag().name("Cuentas por cobrar").description(
-                                "Dashboard CxC/Abonos (1:1 por OP): totalOwed=totalToCharge, "
+                                "Dashboard CxC/Abonos (1:1 por OP): totalOwed=amountToCollect "
+                                        + "(totalToCharge + adicionales negociados vigentes), "
                                         + "totalRemaining=totalOwed−totalPaid (puede ser negativo). "
                                         + "cxcNumber, abonosNumber (ABN-n), odpNumber, aging, withBalance. "
-                                        + "Solo lectura; abonosNumber ≠ paymentNumber del detalle."),
+                                        + "Solo lectura; abonosNumber ABN ≠ paymentNumber LIQ del detalle."),
                         new Tag().name("Conversión de color").description("Conversión RGB→CMYK (ICC / LittleCMS)"),
                         new Tag().name("Estimación de tinta").description("Estimación de consumo de tinta CMYK/spot"),
                         new Tag().name("Archivos estimación tinta").description(

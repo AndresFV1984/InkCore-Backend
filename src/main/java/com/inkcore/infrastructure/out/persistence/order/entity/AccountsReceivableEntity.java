@@ -20,7 +20,8 @@ public class AccountsReceivableEntity {
     @Column(name = "company_id", nullable = false, length = 64)
     private String companyId;
 
-    @Column(name = "cxc_number", nullable = false, length = 32)
+    /** Null hasta la 1ª entrega; la cuenta ABN puede existir antes (pedido). */
+    @Column(name = "cxc_number", length = 32)
     private String cxcNumber;
 
     @Column(name = "abonos_number", nullable = false, length = 32)

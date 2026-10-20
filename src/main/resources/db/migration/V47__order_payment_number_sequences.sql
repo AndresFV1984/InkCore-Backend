@@ -1,4 +1,5 @@
--- Consecutivo atómico ABN por empresa (payment_number = ABN-{n}).
+-- Consecutivo atómico ABN por empresa (abonos_number = ABN-{n}).
+-- Serie propia de cuentas; distinta de order_liq_number_sequences (LIQ de movimientos).
 
 CREATE TABLE IF NOT EXISTS indicolors.order_payment_number_sequences (
     company_id  CHARACTER VARYING(64) NOT NULL,
@@ -10,12 +11,12 @@ CREATE TABLE IF NOT EXISTS indicolors.order_payment_number_sequences (
 );
 
 COMMENT ON TABLE indicolors.order_payment_number_sequences IS
-    'Consecutivo ABN-{n} por compañía: payment_number (movimientos) y abonos_number (id del agregado de Abonos). '
-    'Compartido para que el id del agregado nunca coincida con un payment_number.';
+    'Consecutivo ABN-{n} por compañía para abonos_number (id del agregado de Abonos). '
+    'Serie propia; distinta de order_liq_number_sequences (LIQ de movimientos).';
 COMMENT ON COLUMN indicolors.order_payment_number_sequences.company_id IS
     'Identificador de la empresa dueña del contador';
 COMMENT ON COLUMN indicolors.order_payment_number_sequences.last_value IS
-    'Último ABN asignado (payment_number o abonos_number = ABN-{last_value})';
+    'Último ABN asignado (abonos_number = ABN-{last_value})';
 
 GRANT ALL PRIVILEGES ON TABLE indicolors.order_payment_number_sequences TO indicolors_owner;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.order_payment_number_sequences TO indicolors_app;

@@ -9,8 +9,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 /**
- * Totales del módulo Abonos: base = {@code totalToCharge} de la OP (panel Cobro),
- * no el valor acumulado de entregas (CxC).
+ * Totales del módulo Abonos: base = total a cobrar de la OP
+ * ({@link ProductionOrderCalculator#calculateAmountToCollect}: panel Cobro + adicionales negociados vigentes).
+ * No es el valor acumulado de entregas (CxC).
  * <p>
  * {@code totalRemaining} puede ser negativo (saldo a favor).
  */
@@ -23,11 +24,11 @@ public final class AbonosBalance {
     }
 
     /**
-     * @param order     OP con agregado de costos (para {@link ProductionOrderCalculator#calculateTotalToCharge})
+     * @param order     OP con agregado de costos y {@code negotiatedAdditionsTotal} hidratado
      * @param totalPaid suma de abonos/anticipos/retenciones vigentes; null → 0
      */
     public static Snapshot of(ProductionOrder order, BigDecimal totalPaid) {
-        BigDecimal owed = ProductionOrderCalculator.calculateTotalToCharge(order);
+        BigDecimal owed = ProductionOrderCalculator.calculateAmountToCollect(order);
         if (owed == null) {
             owed = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         } else {

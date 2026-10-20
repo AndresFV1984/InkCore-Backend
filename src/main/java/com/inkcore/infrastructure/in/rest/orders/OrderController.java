@@ -1,13 +1,18 @@
 package com.inkcore.infrastructure.in.rest.orders;
 
+import com.inkcore.application.order.usecase.CreateNegotiatedAdditionUseCase;
 import com.inkcore.application.order.usecase.CreateOrderDeliveryUseCase;
 import com.inkcore.application.order.usecase.CreateOrderPaymentUseCase;
 import com.inkcore.application.order.usecase.GetOrderAccountsReceivableUseCase;
 import com.inkcore.application.order.usecase.GetOrderAvailabilityUseCase;
+import com.inkcore.application.order.usecase.ListNegotiatedAdditionsUseCase;
 import com.inkcore.application.order.usecase.ListOrderDeliveriesUseCase;
 import com.inkcore.application.order.usecase.ListOrderPaymentsUseCase;
+import com.inkcore.application.order.usecase.ReverseNegotiatedAdditionUseCase;
+import com.inkcore.application.order.usecase.UpdateNegotiatedAdditionUseCase;
 import com.inkcore.application.order.usecase.ReverseOrderDeliveryUseCase;
 import com.inkcore.application.order.usecase.ReverseOrderPaymentUseCase;
+import com.inkcore.domain.order.model.NegotiatedAddition;
 import com.inkcore.domain.order.model.OrderDelivery;
 import com.inkcore.domain.order.model.OrderPayment;
 import com.inkcore.infrastructure.in.rest.envelope.ApiResponseFactory;
@@ -18,8 +23,10 @@ import com.inkcore.infrastructure.in.rest.openapi.ApiSecuredErrorResponses;
 import com.inkcore.infrastructure.in.rest.openapi.OrderAvailabilitySuccessEnvelope;
 import com.inkcore.infrastructure.in.rest.openapi.OrderAccountsReceivableSuccessEnvelope;
 import com.inkcore.infrastructure.in.rest.openapi.OrderCreateDeliverySuccessEnvelope;
+import com.inkcore.infrastructure.in.rest.openapi.OrderCreateNegotiatedAdditionSuccessEnvelope;
 import com.inkcore.infrastructure.in.rest.openapi.OrderCreatePaymentSuccessEnvelope;
 import com.inkcore.infrastructure.in.rest.openapi.OrderDeliveryListSuccessEnvelope;
+import com.inkcore.infrastructure.in.rest.openapi.OrderNegotiatedAdditionListSuccessEnvelope;
 import com.inkcore.infrastructure.in.rest.openapi.OrderPaymentListSuccessEnvelope;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -35,6 +42,7 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -44,6 +52,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -57,9 +66,11 @@ import java.util.List;
 @Tag(
         name = "Pedidos",
         description = "Ledgers comerciales sobre OP: entregas (deliveryNumber ODP-{n}, distinto del odpNumber del pedido) "
-                + "y liquidaciones ABN-{n}; append-only con reversión. "
-                + "Agregado CxC/Abonos: cxcNumber (CXC-n) + abonosNumber (ABN-n, inmutable; ≠ paymentNumber del detalle; "
-                + "secuencia ABN compartida)."
+                + "y liquidaciones LIQ-{n} append-only; adicionales negociados ADN-{n} (crear/editar; "
+                + "anular = voidedAt en la misma fila, sin otro consecutivo). "
+                + "amountToCollect = totalToCharge + ADN vigentes; Abonos usa esa base. "
+                + "Agregado CxC/Abonos: abonosNumber ABN al crear pedido; cxcNumber en 1ª entrega; "
+                + "series ABN (cuenta) y LIQ (movimiento) separadas."
 )
 @SecurityRequirement(name = "bearerAuth")
 public class OrderController {
@@ -72,6 +83,10 @@ public class OrderController {
     private final CreateOrderPaymentUseCase createPaymentUseCase;
     private final ReverseOrderPaymentUseCase reversePaymentUseCase;
     private final ListOrderPaymentsUseCase listPaymentsUseCase;
+    private final CreateNegotiatedAdditionUseCase createNegotiatedAdditionUseCase;
+    private final ReverseNegotiatedAdditionUseCase reverseNegotiatedAdditionUseCase;
+    private final UpdateNegotiatedAdditionUseCase updateNegotiatedAdditionUseCase;
+    private final ListNegotiatedAdditionsUseCase listNegotiatedAdditionsUseCase;
     private final ApiResponseFactory responseFactory;
 
     public OrderController(
@@ -83,6 +98,10 @@ public class OrderController {
             CreateOrderPaymentUseCase createPaymentUseCase,
             ReverseOrderPaymentUseCase reversePaymentUseCase,
             ListOrderPaymentsUseCase listPaymentsUseCase,
+            CreateNegotiatedAdditionUseCase createNegotiatedAdditionUseCase,
+            ReverseNegotiatedAdditionUseCase reverseNegotiatedAdditionUseCase,
+            UpdateNegotiatedAdditionUseCase updateNegotiatedAdditionUseCase,
+            ListNegotiatedAdditionsUseCase listNegotiatedAdditionsUseCase,
             ApiResponseFactory responseFactory
     ) {
         this.createDeliveryUseCase = createDeliveryUseCase;
@@ -93,6 +112,10 @@ public class OrderController {
         this.createPaymentUseCase = createPaymentUseCase;
         this.reversePaymentUseCase = reversePaymentUseCase;
         this.listPaymentsUseCase = listPaymentsUseCase;
+        this.createNegotiatedAdditionUseCase = createNegotiatedAdditionUseCase;
+        this.reverseNegotiatedAdditionUseCase = reverseNegotiatedAdditionUseCase;
+        this.updateNegotiatedAdditionUseCase = updateNegotiatedAdditionUseCase;
+        this.listNegotiatedAdditionsUseCase = listNegotiatedAdditionsUseCase;
         this.responseFactory = responseFactory;
     }
 
@@ -104,11 +127,10 @@ public class OrderController {
             description = "Inserta en order_deliveries (append-only). Asigna deliveryNumber=ODP-{n} por empresa "
                     + "(secuencia propia de entregas; no es customer_orders.odpNumber del pedido comercial). "
                     + "totalValue = quantityDelivered × unitPrice. La disponibilidad la valida el trigger de BD; "
-                    + "422 si no alcanza. Si es la primera entrega, el trigger materializa accounts_receivable con "
-                    + "accountsReceivableId + cxcNumber=CXC-{n} + abonosNumber=ABN-{n} "
-                    + "(id agregado Abonos ≠ paymentNumber ABN) y openedAt=deliveredAt de esa entrega. "
+                    + "422 si no alcanza. abonosNumber=ABN-{n} nace con el pedido; en la 1ª entrega el trigger "
+                    + "asigna cxcNumber=CXC-{n} y openedAt=deliveredAt (si la cuenta shell aún no tenía CXC). "
                     + "Entregas posteriores actualizan lastDeliveryAt pero no reescriben openedAt ni abonosNumber. "
-                    + "Devuelve accounts_receivable actualizado (sin regenerar CxC/Abonos)."
+                    + "Devuelve accounts_receivable actualizado (sin regenerar abonosNumber)."
     )
     @ApiResponse(
             responseCode = "201",
@@ -312,9 +334,10 @@ public class OrderController {
             operationId = "getOrderAccountsReceivable",
             summary = "Consultar cartera de una OP",
             description = "Lee accounts_receivable (cxcNumber + abonosNumber ABN-n + odpNumber + openedAt + lastPaymentNumber). "
-                    + "Abonos: totalOwed = totalToCharge de la OP; totalRemaining = totalOwed − totalPaid (puede ser negativo). "
-                    + "Sin movimientos aún, totalOwed ya refleja totalToCharge si la OP tiene costos. "
-                    + "abonosNumber es el id del agregado de Abonos (≠ paymentNumber; misma familia ABN-, secuencia compartida); "
+                    + "Abonos: totalOwed = amountToCollect (totalToCharge + ADN vigentes); "
+                    + "totalRemaining = totalOwed − totalPaid (puede ser negativo). "
+                    + "Sin movimientos aún, totalOwed ya refleja amountToCollect si la OP tiene costos o ADN. "
+                    + "abonosNumber es el id del agregado de Abonos (ABN-n; ≠ paymentNumber LIQ-n; series separadas); "
                     + "se asigna en el primer INSERT del trigger y no se regenera. "
                     + "Si no hay movimientos, status=sin_movimientos (ids de cuenta nulos; odpNumber puede existir)."
     )
@@ -356,15 +379,16 @@ public class OrderController {
     @Operation(
             operationId = "createOrderPayment",
             summary = "Registrar liquidación (abono, anticipo o retención)",
-            description = "Inserta order_payments (append-only) con paymentNumber=ABN-{n} (consecutivo por empresa). "
+            description = "Inserta order_payments (append-only) con paymentNumber=LIQ-{n} (consecutivo por empresa). "
                     + "paymentType: abono|anticipo|retencion (default abono). "
-                    + "Los abonos se aplican sobre totalToCharge de la OP (no solo valor entregado): "
-                    + "se puede registrar abono sin entregas / CxC en cero; anticipo válido sin totalToCharge. "
+                    + "Los abonos se aplican sobre amountToCollect de la OP (totalToCharge + ADN vigentes; "
+                    + "no solo valor entregado): se puede registrar abono sin entregas / CxC en cero; "
+                    + "anticipo válido sin totalToCharge. "
                     + "totalRemaining puede quedar negativo (saldo a favor). "
                     + "Retención exige withholdingType y paymentMethod=retencion. "
                     + "Actualiza el agregado CxC/Abonos existente (sin regenerar abonosNumber): "
                     + "totalPaid/buckets, lastPaymentNumber=ABN del movimiento y lastPaymentAt=paidAt. "
-                    + "Devuelve accounts_receivable con totalOwed=totalToCharge y totalRemaining recalculados."
+                    + "Devuelve accounts_receivable con totalOwed=amountToCollect y totalRemaining recalculados."
     )
     @ApiResponse(
             responseCode = "201",
@@ -427,7 +451,7 @@ public class OrderController {
             operationId = "reverseOrderPayment",
             summary = "Anular un abono (append-only)",
             description = "No borra el abono: inserta paymentType=reversion con el mismo monto y nuevo "
-                    + "paymentNumber=ABN-{n}. Recalcula totales CxC y lastPaymentNumber/lastPaymentAt "
+                    + "paymentNumber=LIQ-{n}. Recalcula totales CxC y lastPaymentNumber/lastPaymentAt "
                     + "al último abono vigente (o null). abonosNumber (ABN) no cambia. 409 si ya fue anulado."
     )
     @ApiResponse(
@@ -476,10 +500,10 @@ public class OrderController {
     @Operation(
             operationId = "listOrderPayments",
             summary = "Listar liquidaciones de una OP",
-            description = "Historial de liquidaciones (movimientos ABN) append-only ordenado por paidAt DESC. "
-                    + "Incluye abono|anticipo|retencion|reversion con paymentNumber (ABN-{n}). "
+            description = "Historial de liquidaciones (movimientos LIQ) append-only ordenado por paidAt DESC. "
+                    + "Incluye abono|anticipo|retencion|reversion con paymentNumber (LIQ-{n}). "
                     + "El id del agregado de Abonos es abonosNumber (ABN-{n}) en GET accounts-receivable; "
-                    + "no confundir con paymentNumber."
+                    + "series ABN (cuenta) y LIQ (movimiento) separadas."
     )
     @ApiResponse(
             responseCode = "200",
@@ -502,6 +526,229 @@ public class OrderController {
         return responseFactory.okStandard(
                 httpRequest,
                 payments.stream().map(OrderResponses.PaymentResponse::from).toList()
+        );
+    }
+
+    @PostMapping("/{productionOrderId}/negotiated-additions")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
+    @Operation(
+            operationId = "createNegotiatedAddition",
+            summary = "Registrar adicional negociado",
+            description = "Cambio de alcance que el cliente aprueba y paga. No modifica el costeo de planta "
+                    + "(totalToCharge / PDF de cobro). Inserta order_negotiated_additions "
+                    + "con additionNumber=ADN-{n}. amountToCollect = totalToCharge + suma vigente de ADN. "
+                    + "La lectura de Abonos usa amountToCollect como totalOwed. "
+                    + "Obligatorios: concept, changeReason, amount > 0, approvedByClientName, approvalChannel."
+    )
+    @ApiResponse(
+            responseCode = "201",
+            description = "Adicional registrado",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    schema = @Schema(implementation = OrderCreateNegotiatedAdditionSuccessEnvelope.class),
+                    examples = @ExampleObject(
+                            name = "AdicionalCreado",
+                            value = OrderSwaggerExamples.CREATE_NEGOTIATED_ADDITION_RESPONSE
+                    )
+            )
+    )
+    @ApiErrorResponses
+    @ApiSecuredErrorResponses
+    public ResponseEntity<ApiSuccessEnvelope<OrderResponses.CreateNegotiatedAdditionResponse>> createNegotiatedAddition(
+            @Parameter(description = "ID de la OP", required = true, example = OrderSwaggerExamples.ORDER_ID)
+            @PathVariable String productionOrderId,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    description = "Datos del adicional negociado",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = CreateNegotiatedAdditionRequest.class),
+                            examples = @ExampleObject(
+                                    name = "Troquel",
+                                    value = OrderSwaggerExamples.CREATE_NEGOTIATED_ADDITION_REQUEST
+                            )
+                    )
+            )
+            @Valid @RequestBody CreateNegotiatedAdditionRequest request,
+            Authentication authentication,
+            HttpServletRequest httpRequest
+    ) {
+        CreateNegotiatedAdditionUseCase.NegotiatedAdditionResult result = createNegotiatedAdditionUseCase.execute(
+                new CreateNegotiatedAdditionUseCase.CreateNegotiatedAdditionCommand(
+                        productionOrderId,
+                        request.concept(),
+                        request.changeReason(),
+                        request.amount(),
+                        request.scheduleImpactDays(),
+                        request.approvedByClientName(),
+                        request.approvalChannel(),
+                        request.approvalReference(),
+                        request.approvedAt(),
+                        request.notes()
+                ),
+                authentication
+        );
+        return responseFactory.success(
+                httpRequest,
+                HttpStatus.CREATED,
+                OrderResponses.CreateNegotiatedAdditionResponse.from(result)
+        );
+    }
+
+    @PutMapping("/{productionOrderId}/negotiated-additions/{additionId}")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
+    @Operation(
+            operationId = "updateNegotiatedAddition",
+            summary = "Editar un adicional negociado",
+            description = "Actualiza el mismo registro ADN vigente. No crea otro número. "
+                    + "409 si ya fue anulado. Recalcula amountToCollect y totalOwed de Abonos."
+    )
+    @ApiResponse(
+            responseCode = "200",
+            description = "Adicional actualizado",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    schema = @Schema(implementation = OrderCreateNegotiatedAdditionSuccessEnvelope.class),
+                    examples = @ExampleObject(
+                            name = "AdicionalActualizado",
+                            value = OrderSwaggerExamples.CREATE_NEGOTIATED_ADDITION_RESPONSE
+                    )
+            )
+    )
+    @ApiErrorResponses
+    @ApiSecuredErrorResponses
+    public ResponseEntity<ApiSuccessEnvelope<OrderResponses.CreateNegotiatedAdditionResponse>> updateNegotiatedAddition(
+            @Parameter(description = "ID de la OP", required = true, example = OrderSwaggerExamples.ORDER_ID)
+            @PathVariable String productionOrderId,
+            @Parameter(description = "ID del adicional", required = true, example = OrderSwaggerExamples.ADDITION_ID)
+            @PathVariable String additionId,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    description = "Datos actualizados del adicional",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = CreateNegotiatedAdditionRequest.class),
+                            examples = @ExampleObject(
+                                    name = "Troquel",
+                                    value = OrderSwaggerExamples.CREATE_NEGOTIATED_ADDITION_REQUEST
+                            )
+                    )
+            )
+            @Valid @RequestBody CreateNegotiatedAdditionRequest request,
+            Authentication authentication,
+            HttpServletRequest httpRequest
+    ) {
+        CreateNegotiatedAdditionUseCase.NegotiatedAdditionResult result = updateNegotiatedAdditionUseCase.execute(
+                productionOrderId,
+                additionId,
+                new CreateNegotiatedAdditionUseCase.CreateNegotiatedAdditionCommand(
+                        productionOrderId,
+                        request.concept(),
+                        request.changeReason(),
+                        request.amount(),
+                        request.scheduleImpactDays(),
+                        request.approvedByClientName(),
+                        request.approvalChannel(),
+                        request.approvalReference(),
+                        request.approvedAt(),
+                        request.notes()
+                ),
+                authentication
+        );
+        return responseFactory.okStandard(
+                httpRequest,
+                OrderResponses.CreateNegotiatedAdditionResponse.from(result)
+        );
+    }
+
+    @PostMapping("/{productionOrderId}/negotiated-additions/{additionId}/reverse")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
+    @Operation(
+            operationId = "reverseNegotiatedAddition",
+            summary = "Anular un adicional negociado",
+            description = "Marca el mismo ADN como anulado (voidedAt/voidedBy). No asigna otro consecutivo. "
+                    + "409 si ya fue anulado. amountToCollect y totalOwed de Abonos dejan de incluir ese monto."
+    )
+    @ApiResponse(
+            responseCode = "200",
+            description = "Adicional anulado",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    schema = @Schema(implementation = OrderCreateNegotiatedAdditionSuccessEnvelope.class),
+                    examples = @ExampleObject(
+                            name = "AdicionalAnulado",
+                            value = OrderSwaggerExamples.REVERSE_NEGOTIATED_ADDITION_RESPONSE
+                    )
+            )
+    )
+    @ApiErrorResponses
+    @ApiSecuredErrorResponses
+    public ResponseEntity<ApiSuccessEnvelope<OrderResponses.CreateNegotiatedAdditionResponse>> reverseNegotiatedAddition(
+            @Parameter(description = "ID de la OP", required = true, example = OrderSwaggerExamples.ORDER_ID)
+            @PathVariable String productionOrderId,
+            @Parameter(description = "ID del adicional", required = true, example = OrderSwaggerExamples.ADDITION_ID)
+            @PathVariable String additionId,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = false,
+                    description = "Motivo opcional de anulación",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ReverseNegotiatedAdditionRequest.class),
+                            examples = @ExampleObject(
+                                    name = "Anular",
+                                    value = OrderSwaggerExamples.REVERSE_NEGOTIATED_ADDITION_REQUEST
+                            )
+                    )
+            )
+            @Valid @RequestBody(required = false) ReverseNegotiatedAdditionRequest request,
+            Authentication authentication,
+            HttpServletRequest httpRequest
+    ) {
+        CreateNegotiatedAdditionUseCase.NegotiatedAdditionResult result = reverseNegotiatedAdditionUseCase.execute(
+                productionOrderId,
+                additionId,
+                request == null ? null : request.reason(),
+                authentication
+        );
+        return responseFactory.success(
+                httpRequest,
+                HttpStatus.OK,
+                OrderResponses.CreateNegotiatedAdditionResponse.from(result)
+        );
+    }
+
+    @GetMapping("/{productionOrderId}/negotiated-additions")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
+    @Operation(
+            operationId = "listNegotiatedAdditions",
+            summary = "Listar adicionales negociados de una OP",
+            description = "Adicionales de la OP, vigentes y anulados, ordenados por approvedAt DESC. "
+                    + "additionNumber=ADN-{n}. Un anulado conserva su número (voidedAt no nulo)."
+    )
+    @ApiResponse(
+            responseCode = "200",
+            description = "Adicionales",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    schema = @Schema(implementation = OrderNegotiatedAdditionListSuccessEnvelope.class),
+                    examples = @ExampleObject(
+                            name = "ListadoAdicionales",
+                            value = OrderSwaggerExamples.NEGOTIATED_ADDITION_LIST_RESPONSE
+                    )
+            )
+    )
+    @ApiErrorResponses
+    @ApiSecuredErrorResponses
+    public ResponseEntity<ApiSuccessEnvelope<List<OrderResponses.NegotiatedAdditionResponse>>> listNegotiatedAdditions(
+            @Parameter(description = "ID de la OP", required = true, example = OrderSwaggerExamples.ORDER_ID)
+            @PathVariable String productionOrderId,
+            Authentication authentication,
+            HttpServletRequest httpRequest
+    ) {
+        List<NegotiatedAddition> additions = listNegotiatedAdditionsUseCase.execute(productionOrderId, authentication);
+        return responseFactory.okStandard(
+                httpRequest,
+                additions.stream().map(OrderResponses.NegotiatedAdditionResponse::from).toList()
         );
     }
 
@@ -530,7 +777,7 @@ public class OrderController {
     @Schema(
             name = "OrderCreatePaymentRequest",
             description = "Payload para registrar abono, anticipo o retención. No enviar paymentNumber/ABN: "
-                    + "registeredBy y ABN-{n} se determinan en el servidor. paymentType default=abono."
+                    + "registeredBy y LIQ-{n} se determinan en el servidor. paymentType default=abono."
     )
     public record CreatePaymentRequest(
             @Schema(example = "200000.00", requiredMode = Schema.RequiredMode.REQUIRED)
@@ -565,6 +812,47 @@ public class OrderController {
     @Schema(name = "OrderReverseDeliveryRequest", description = "Motivo opcional de anulación de entrega")
     public record ReverseDeliveryRequest(
             @Schema(example = "Entrega duplicada")
+            String reason
+    ) {
+    }
+
+    @Schema(
+            name = "CreateNegotiatedAdditionRequest",
+            description = "Cambio de alcance aprobado por el cliente. No enviar additionNumber: el servidor asigna ADN-{n}."
+    )
+    public record CreateNegotiatedAdditionRequest(
+            @Schema(example = "Troquel adicional en la tapa", requiredMode = Schema.RequiredMode.REQUIRED, maxLength = 200)
+            @NotBlank @Size(max = 200) String concept,
+            @Schema(
+                    allowableValues = {"solicitud_cliente", "condicion_no_prevista", "ajuste_planta", "otro"},
+                    example = "solicitud_cliente",
+                    requiredMode = Schema.RequiredMode.REQUIRED
+            )
+            @NotBlank String changeReason,
+            @Schema(example = "180000.00", requiredMode = Schema.RequiredMode.REQUIRED)
+            @NotNull @DecimalMin("0.01") BigDecimal amount,
+            @Schema(description = "Días que se suman a la entrega. 0 si el plazo no cambia.", example = "0")
+            @jakarta.validation.constraints.Min(0) Integer scheduleImpactDays,
+            @Schema(example = "María Gómez", requiredMode = Schema.RequiredMode.REQUIRED, maxLength = 150)
+            @NotBlank @Size(max = 150) String approvedByClientName,
+            @Schema(
+                    allowableValues = {"correo", "whatsapp", "firma", "otro"},
+                    example = "correo",
+                    requiredMode = Schema.RequiredMode.REQUIRED
+            )
+            @NotBlank String approvalChannel,
+            @Schema(description = "Asunto, chat o documento de la aprobación", example = "Correo 19/10 asunto Troquel", maxLength = 120)
+            @Size(max = 120) String approvalReference,
+            @Schema(description = "Fecha/hora de aprobación del cliente (sin Z)", example = "2026-10-19T11:30:00")
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime approvedAt,
+            @Schema(example = "Aprobado por correo el 19/10")
+            String notes
+    ) {
+    }
+
+    @Schema(name = "ReverseNegotiatedAdditionRequest", description = "Motivo opcional de anulación del adicional")
+    public record ReverseNegotiatedAdditionRequest(
+            @Schema(example = "El cliente desistió del troquel")
             String reason
     ) {
     }

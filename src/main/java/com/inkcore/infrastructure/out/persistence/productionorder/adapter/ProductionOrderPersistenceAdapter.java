@@ -15,6 +15,7 @@ import com.inkcore.domain.productionorder.ports.out.ProductionOrderRepositoryPor
 import com.inkcore.domain.shared.PageQuery;
 import com.inkcore.domain.shared.PageResult;
 import com.inkcore.domain.productionorder.ports.out.WasteRecordRepositoryPort;
+import com.inkcore.domain.order.ports.out.NegotiatedAdditionRepositoryPort;
 import com.inkcore.infrastructure.out.persistence.productionorder.entity.ProductionOrderBillingDetailsEntity;
 import com.inkcore.infrastructure.out.persistence.productionorder.entity.ProductionOrderEntity;
 import com.inkcore.infrastructure.out.persistence.productionorder.entity.ProductionOrderPostpressLineEntity;
@@ -76,6 +77,7 @@ public class ProductionOrderPersistenceAdapter implements ProductionOrderReposit
     private final JpaProductionOrderPostpressLineRepository postpressLineRepository;
     private final MachineUsageRepositoryPort machineUsageRepository;
     private final WasteRecordRepositoryPort wasteRecordRepository;
+    private final NegotiatedAdditionRepositoryPort negotiatedAdditionRepository;
     private final ProductionOrderPersistenceMapper mapper;
     private final Clock clock;
 
@@ -96,6 +98,7 @@ public class ProductionOrderPersistenceAdapter implements ProductionOrderReposit
             JpaProductionOrderPostpressLineRepository postpressLineRepository,
             MachineUsageRepositoryPort machineUsageRepository,
             WasteRecordRepositoryPort wasteRecordRepository,
+            NegotiatedAdditionRepositoryPort negotiatedAdditionRepository,
             ProductionOrderPersistenceMapper mapper,
             Clock clock
     ) {
@@ -112,6 +115,7 @@ public class ProductionOrderPersistenceAdapter implements ProductionOrderReposit
         this.postpressLineRepository = postpressLineRepository;
         this.machineUsageRepository = machineUsageRepository;
         this.wasteRecordRepository = wasteRecordRepository;
+        this.negotiatedAdditionRepository = negotiatedAdditionRepository;
         this.mapper = mapper;
         this.clock = clock;
     }
@@ -335,6 +339,9 @@ public class ProductionOrderPersistenceAdapter implements ProductionOrderReposit
         order.setPostpressRecords(loadPostpressRecords(orderId));
         order.setMachineUsages(machineUsageRepository.findByProductionOrderId(rootEntity.getCompanyId(), orderId));
         order.setWasteRecords(wasteRecordRepository.findByProductionOrderId(rootEntity.getCompanyId(), orderId));
+        order.setNegotiatedAdditionsTotal(
+                negotiatedAdditionRepository.sumNetAmount(rootEntity.getCompanyId(), orderId)
+        );
         WasteMakeready.restore(order);
         return order;
     }

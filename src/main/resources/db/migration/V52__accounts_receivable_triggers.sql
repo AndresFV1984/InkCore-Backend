@@ -1,13 +1,10 @@
 -- Triggers del módulo Pedidos / CxC / Abonos (sin CREATE TABLE).
--- Estrategia CXC/Abonos: el trigger asigna accounts_receivable_id (DEFAULT) + cxc_number vía fn_next_cxc_number
--- y abonos_number vía fn_next_abonos_number (ABN-{n}; misma secuencia que payment_number → ≠ movimiento)
--- solo en el primer INSERT; los UPDATE posteriores nunca regeneran esos campos.
--- due_date / payment_term_days se fijan al abrir deuda (1ª entrega) desde clients.credit_days.
--- API Abonos: totalOwed/totalRemaining se calculan en lectura como totalToCharge(OP) − totalPaid
--- (DB total_owed sigue siendo valor acumulado de entregas para cartera CxC por entregas).
+-- ABN al crear pedido (customer_orders); CXC solo en 1ª entrega; LIQ en last_payment.
+-- API Abonos: totalOwed/totalRemaining = amountToCollect(OP) − totalPaid
+-- (amountToCollect = totalToCharge + ADN vigentes; DB total_owed = valor entregado CxC).
 -- Depende de: order_deliveries, order_payments, accounts_receivable, station_order_progress,
--- clients, accounts_receivable_number_sequences / fn_next_cxc_number,
--- order_payment_number_sequences / fn_next_abonos_number (V52).
+-- clients, customer_orders, accounts_receivable_number_sequences / fn_next_cxc_number,
+-- order_payment_number_sequences / fn_next_abonos_number.
 
 CREATE OR REPLACE FUNCTION indicolors.fn_validate_delivery()
 RETURNS TRIGGER AS $$
@@ -66,7 +63,7 @@ BEGIN
                 v_orig.quantity_delivered, v_orig.total_value;
         END IF;
 
-        -- Abonos se aplican sobre totalToCharge de la OP (API), no sobre valor entregado:
+        -- Abonos se aplican sobre amountToCollect de la OP (API), no sobre valor entregado:
         -- no se valida total_paid vs total_owed de entregas al anular.
 
         SELECT cantidad_disponible INTO v_processed
@@ -91,8 +88,75 @@ CREATE TRIGGER trg_deliveries_validate
     EXECUTE FUNCTION indicolors.fn_validate_delivery();
 
 COMMENT ON FUNCTION indicolors.fn_validate_delivery() IS
-    'entrega: calcula available_before y rechaza si quantity_delivered supera lo disponible. reversion: valida entrega original (Abonos usa totalToCharge OP, no bloquea por total_paid vs valor entregado)';
+    'entrega: calcula available_before y rechaza si quantity_delivered supera lo disponible. reversion: valida entrega original (Abonos usa amountToCollect OP, no bloquea por total_paid vs valor entregado)';
 
+-- ---------------------------------------------------------------------------
+-- Al INSERT en customer_orders: shell accounts_receivable con ABN (cxc null).
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION indicolors.fn_ensure_abonos_account_on_customer_order()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_exists      BOOLEAN;
+    v_term_days   INTEGER;
+    v_total_units INTEGER;
+BEGIN
+    SELECT EXISTS (
+        SELECT 1 FROM indicolors.accounts_receivable
+        WHERE production_order_id = NEW.production_order_id
+    ) INTO v_exists;
+
+    IF v_exists THEN
+        RETURN NEW;
+    END IF;
+
+    SELECT COALESCE(credit_days, 0) INTO v_term_days
+    FROM indicolors.clients
+    WHERE client_id = NEW.client_id;
+
+    SELECT COALESCE(requested_quantity, 0) INTO v_total_units
+    FROM indicolors.production_orders
+    WHERE production_order_id = NEW.production_order_id;
+
+    INSERT INTO indicolors.accounts_receivable (
+        cxc_number, abonos_number, company_id, production_order_id, client_id,
+        total_units, delivered_units, pending_units,
+        total_owed, total_paid, total_remaining,
+        total_cash_paid, total_withheld, total_advance_paid,
+        opened_at, due_date, payment_term_days,
+        status, updated_at
+    )
+    VALUES (
+        NULL,
+        indicolors.fn_next_abonos_number(NEW.company_id),
+        NEW.company_id,
+        NEW.production_order_id,
+        NEW.client_id,
+        COALESCE(v_total_units, 0),
+        0,
+        GREATEST(COALESCE(v_total_units, 0), 0),
+        0, 0, 0,
+        0, 0, 0,
+        NULL, NULL, COALESCE(v_term_days, 0),
+        'pendiente', now()
+    );
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_customer_orders_ensure_abonos_account ON indicolors.customer_orders;
+CREATE TRIGGER trg_customer_orders_ensure_abonos_account
+    AFTER INSERT ON indicolors.customer_orders
+    FOR EACH ROW
+    EXECUTE FUNCTION indicolors.fn_ensure_abonos_account_on_customer_order();
+
+COMMENT ON FUNCTION indicolors.fn_ensure_abonos_account_on_customer_order() IS
+    'Tras crear pedido comercial: inserta shell accounts_receivable con abonos_number=ABN-{n} '
+    '(cxc_number null hasta la 1ª entrega). Idempotente por production_order_id.';
+
+-- ---------------------------------------------------------------------------
+-- Sync entrega: asigna CXC si la cuenta shell aún no tiene; no regenera ABN.
+-- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION indicolors.fn_sync_accounts_receivable_delivery()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -140,6 +204,11 @@ BEGIN
         );
     ELSE
         UPDATE indicolors.accounts_receivable SET
+            cxc_number = CASE
+                WHEN cxc_number IS NULL AND NEW.movement_type = 'entrega'
+                    THEN indicolors.fn_next_cxc_number(NEW.company_id)
+                ELSE cxc_number
+            END,
             delivered_units  = delivered_units + v_sign * NEW.quantity_delivered,
             pending_units    = GREATEST(total_units - (delivered_units + v_sign * NEW.quantity_delivered), 0),
             total_owed       = total_owed + v_sign * NEW.total_value,
@@ -178,8 +247,12 @@ CREATE TRIGGER trg_deliveries_sync_accounts_receivable
     EXECUTE FUNCTION indicolors.fn_sync_accounts_receivable_delivery();
 
 COMMENT ON FUNCTION indicolors.fn_sync_accounts_receivable_delivery() IS
-    'Upsert CxC tras entrega/reversión; fija opened_at/due_date/payment_term_days solo en apertura (opened_at nunca se reescribe ni se limpia)';
+    'Upsert CxC tras entrega/reversión; asigna cxc_number en apertura si la cuenta ABN ya existía sin CXC; '
+    'opened_at/due_date solo en apertura; nunca regenera abonos_number';
 
+-- ---------------------------------------------------------------------------
+-- Sync pago: no crea CXC; usa ABN existente o crea shell con cxc null.
+-- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION indicolors.fn_sync_accounts_receivable_payment()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -193,6 +266,7 @@ DECLARE
     v_term_days             INTEGER;
     v_last_payment_number   CHARACTER VARYING(32);
     v_last_payment_at       TIMESTAMP WITHOUT TIME ZONE;
+    v_total_units           INTEGER;
 BEGIN
     v_signed_amount := CASE WHEN NEW.payment_type = 'reversion' THEN -NEW.amount ELSE NEW.amount END;
 
@@ -238,6 +312,10 @@ BEGIN
         FROM indicolors.clients
         WHERE client_id = NEW.client_id;
 
+        SELECT COALESCE(requested_quantity, 0) INTO v_total_units
+        FROM indicolors.production_orders
+        WHERE production_order_id = NEW.production_order_id;
+
         INSERT INTO indicolors.accounts_receivable (
             cxc_number, abonos_number, company_id, production_order_id, client_id,
             total_units, delivered_units, pending_units,
@@ -247,10 +325,11 @@ BEGIN
             status, last_payment_number, last_payment_at, updated_at
         )
         VALUES (
-            indicolors.fn_next_cxc_number(NEW.company_id),
+            NULL,
             indicolors.fn_next_abonos_number(NEW.company_id),
             NEW.company_id, NEW.production_order_id, NEW.client_id,
-            0, 0, 0, 0, v_signed_amount, -v_signed_amount,
+            COALESCE(v_total_units, 0), 0, GREATEST(COALESCE(v_total_units, 0), 0),
+            0, v_signed_amount, -v_signed_amount,
             v_cash_delta, v_withheld_delta, v_advance_delta,
             NULL, NULL, COALESCE(v_term_days, 0),
             'pendiente', v_last_payment_number, v_last_payment_at, now()
@@ -287,80 +366,5 @@ CREATE TRIGGER trg_payments_sync_accounts_receivable
     EXECUTE FUNCTION indicolors.fn_sync_accounts_receivable_payment();
 
 COMMENT ON FUNCTION indicolors.fn_sync_accounts_receivable_payment() IS
-    'Upsert CxC tras abono/anticipo/retencion/reversion; actualiza total_paid, desglose y last_payment_* del último vigente';
-
--- Backfills defensivos (idempotentes) del agregado CxC; viven aquí (no en V46) para no mezclar DML con el DDL de la tabla.
-UPDATE indicolors.accounts_receivable ar
-SET opened_at = src.first_delivered_at
-FROM (
-    SELECT
-        d.production_order_id,
-        MIN(d.delivered_at) AS first_delivered_at
-    FROM indicolors.order_deliveries d
-    WHERE d.movement_type = 'entrega'
-      AND NOT EXISTS (
-          SELECT 1
-          FROM indicolors.order_deliveries r
-          WHERE r.reversed_delivery_id = d.order_delivery_id
-            AND r.movement_type = 'reversion'
-      )
-    GROUP BY d.production_order_id
-) src
-WHERE ar.production_order_id = src.production_order_id
-  AND ar.opened_at IS NULL;
-
-UPDATE indicolors.accounts_receivable ar
-SET
-    last_payment_number = src.payment_number,
-    last_payment_at     = src.paid_at
-FROM (
-    SELECT DISTINCT ON (p.production_order_id)
-        p.production_order_id,
-        p.payment_number,
-        p.paid_at
-    FROM indicolors.order_payments p
-    WHERE p.payment_type <> 'reversion'
-      AND NOT EXISTS (
-          SELECT 1
-          FROM indicolors.order_payments r
-          WHERE r.reversed_payment_id = p.order_payment_id
-            AND r.payment_type = 'reversion'
-      )
-    ORDER BY p.production_order_id, p.paid_at DESC, p.created_at DESC
-) src
-WHERE ar.production_order_id = src.production_order_id;
-
-UPDATE indicolors.accounts_receivable ar
-SET
-    last_payment_number = NULL,
-    last_payment_at     = NULL
-WHERE NOT EXISTS (
-    SELECT 1
-    FROM indicolors.order_payments p
-    WHERE p.production_order_id = ar.production_order_id
-      AND p.payment_type <> 'reversion'
-      AND NOT EXISTS (
-          SELECT 1
-          FROM indicolors.order_payments r
-          WHERE r.reversed_payment_id = p.order_payment_id
-            AND r.payment_type = 'reversion'
-      )
-);
-
--- Backfill abonos_number (ABN-{n}) para filas históricas sin cuenta de Abonos.
-DO $$
-DECLARE
-    r RECORD;
-BEGIN
-    FOR r IN
-        SELECT accounts_receivable_id, company_id
-        FROM indicolors.accounts_receivable
-        WHERE abonos_number IS NULL
-           OR abonos_number = ''
-        ORDER BY company_id, opened_at NULLS LAST, accounts_receivable_id
-    LOOP
-        UPDATE indicolors.accounts_receivable
-        SET abonos_number = indicolors.fn_next_abonos_number(r.company_id)
-        WHERE accounts_receivable_id = r.accounts_receivable_id;
-    END LOOP;
-END $$;
+    'Upsert CxC/Abonos tras liquidación LIQ; no asigna cxc_number (queda null hasta 1ª entrega); '
+    'actualiza last_payment_* y no regenera abonos_number';
