@@ -43,4 +43,15 @@ public interface JpaStationOperationIntervalRepository extends JpaRepository<Sta
             String productionOrderId,
             String processKey
     );
+
+    List<StationOperationIntervalEntity> findAllByCompanyIdAndProductionOrderIdAndProcessKeyAndOpenTrue(
+            String companyId,
+            String productionOrderId,
+            String processKey
+    );
+
+    List<StationOperationIntervalEntity> findAllByCompanyIdAndProductionOrderIdAndOpenTrue(
+            String companyId,
+            String productionOrderId
+    );
 }

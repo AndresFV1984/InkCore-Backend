@@ -5,6 +5,7 @@ import com.inkcore.application.station.StationOrderProgressService;
 import com.inkcore.domain.client.model.Client;
 import com.inkcore.domain.client.ports.out.ClientRepositoryPort;
 import com.inkcore.domain.productionorder.model.ProductionOrder;
+import com.inkcore.domain.productionorder.model.ProductionOrderStatus;
 import com.inkcore.domain.shared.PageQuery;
 import com.inkcore.domain.shared.PageResult;
 import com.inkcore.domain.station.model.StationProcessProgress;
@@ -65,6 +66,14 @@ public class ListStationInboxUseCase {
         for (String orderId : orderIds) {
             ProductionOrder order = support.productionOrderRepository().findSummaryById(orderId).orElse(null);
             if (order == null || !order.isState()) {
+                continue;
+            }
+            // Finalizada / anulada: ya no aparecen en la cola del operario.
+            String orderStatus = order.getStatus();
+            if (orderStatus != null && (
+                    ProductionOrderStatus.COMPLETED.getWireValue().equalsIgnoreCase(orderStatus)
+                            || ProductionOrderStatus.isAnuladaAlias(orderStatus)
+            )) {
                 continue;
             }
             if (clientId != null && !clientId.isBlank() && !clientId.equals(order.getClientId())) {

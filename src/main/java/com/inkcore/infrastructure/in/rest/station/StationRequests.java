@@ -15,6 +15,19 @@ public final class StationRequests {
     }
 
     @Schema(
+            name = "AdminCloseOrderStagesRequest",
+            description = "Cierre administrativo de todas las etapas incompletas de una OP. Solo ADMINISTRADOR."
+    )
+    public record AdminCloseOrderStagesRequest(
+            @Schema(
+                    description = "Nota obligatoria del administrador que justifica el cierre.",
+                    example = "Cliente retiró material; se completa cupo en planta."
+            )
+            @NotBlank String note
+    ) {
+    }
+
+    @Schema(
             name = "StationEventRequest",
             description = """
                     Cuerpo para registrar eventos de estación.

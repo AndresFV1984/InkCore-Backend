@@ -31,9 +31,43 @@ public class StationValidationService {
             boolean shiftEvent,
             List<StationOperationEvent> existingEvents
     ) {
+        validateEventRegistration(
+                order,
+                operatorUserId,
+                phase,
+                resolved,
+                eventType,
+                units,
+                pauseReason,
+                note,
+                shiftEvent,
+                existingEvents,
+                false
+        );
+    }
+
+    /**
+     * @param actorIsAdministrator si true, no exige que {@code operatorUserId} esté asignado a la fase
+     *                             (el administrador puede cerrar/avanzar etapas ajenas).
+     */
+    public void validateEventRegistration(
+            ProductionOrder order,
+            String operatorUserId,
+            StationPhase phase,
+            StationProcessKeyResolver.ResolvedProcessKey resolved,
+            StationEventType eventType,
+            Integer units,
+            String pauseReason,
+            String note,
+            boolean shiftEvent,
+            List<StationOperationEvent> existingEvents,
+            boolean actorIsAdministrator
+    ) {
         if (!shiftEvent) {
             requireExecutionAllowed(order);
-            requireOperatorAssigned(order, operatorUserId, phase);
+            if (!actorIsAdministrator) {
+                requireOperatorAssigned(order, operatorUserId, phase);
+            }
             validatePhaseSequence(order, phase, existingEvents);
         }
 

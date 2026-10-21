@@ -50,6 +50,8 @@ public class CreateProductionOrderUseCase {
                 support.now()
         );
         order.assignPriorityRank(support.repository().allocateNextPriorityRank(companyId));
+        // Cobro queda fijo en quien crea la OP (administrador del JWT).
+        order.upsertOperator(ProductionOrderStage.BILLING, userId);
         if (command.operatorUserId() != null && !command.operatorUserId().isBlank()) {
             order.upsertOperator(ProductionOrderStage.PREPRESS, command.operatorUserId());
         }

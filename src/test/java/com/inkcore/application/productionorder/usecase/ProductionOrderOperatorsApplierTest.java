@@ -112,6 +112,35 @@ class ProductionOrderOperatorsApplierTest {
         ));
     }
 
+    @Test
+    void apply_forcesBillingToOrderCreator() {
+        order.setCreatedBy("creator-admin");
+        when(userRepository.findById("user-a")).thenReturn(Optional.of(sampleUser("user-a", "company-1")));
+        when(userRepository.findById("other-user")).thenReturn(Optional.of(sampleUser("other-user", "company-1")));
+
+        applier.apply(
+                order,
+                "company-1",
+                List.of(
+                        new OperatorAssignmentCommand("PREPRESS", "user-a", null),
+                        new OperatorAssignmentCommand("BILLING", "other-user", null)
+                ),
+                null,
+                ProductionOrderStage.PREPRESS
+        );
+
+        assertEquals("user-a", findUser(ProductionOrderStage.PREPRESS));
+        assertEquals("creator-admin", findUser(ProductionOrderStage.BILLING));
+    }
+
+    @Test
+    void apply_keepsBillingCreatorWhenClearingOperators() {
+        order.setCreatedBy("creator-admin");
+        applier.apply(order, "company-1", List.of(), null, ProductionOrderStage.PREPRESS);
+        assertEquals(1, order.getOperators().size());
+        assertEquals("creator-admin", findUser(ProductionOrderStage.BILLING));
+    }
+
     private String findUser(ProductionOrderStage stage) {
         return order.getOperators().stream()
                 .filter(o -> o.getStage() == stage)

@@ -70,15 +70,19 @@ public class ListStationOrderProcessesUseCase {
             rows.add(buildBaseRow(order, phase, events, stored, intervalRepository, intervalService));
         }
 
+        boolean hasFinishedProductLines = false;
+        boolean hasFinishingProcessLines = false;
         for (PostpressRecord record : order.getPostpressRecords()) {
             if (record.getType() == PostpressType.FINISHED_PRODUCT) {
                 for (PostpressLine line : record.getLines()) {
+                    hasFinishedProductLines = true;
                     String processKey = "terminado:" + line.getCatalogItemId();
                     rows.add(buildCatalogRow(order, StationPhase.TERMINADOS, processKey, line, events, stored,
                             intervalRepository, intervalService));
                 }
             } else if (record.getType() == PostpressType.FINISHING_PROCESS) {
                 for (PostpressLine line : record.getLines()) {
+                    hasFinishingProcessLines = true;
                     String processKey = "acabado:" + line.getCatalogItemId();
                     rows.add(buildCatalogRow(order, StationPhase.ACABADOS, processKey, line, events, stored,
                             intervalRepository, intervalService));
@@ -86,14 +90,20 @@ public class ListStationOrderProcessesUseCase {
             }
         }
 
-        if (order.getPostpressRecords().stream().noneMatch(r -> r.getType() == PostpressType.FINISHED_PRODUCT)) {
+        // Igual que el FE: Terminados/Acabados solo si la OP los tiene (líneas o operador).
+        // No inventar etapas vacías con cupo completo: bloqueaban el paso a Finalizada.
+        if (!hasFinishedProductLines && hasOperatorForStage(order, ProductionOrderStage.FINISHED_PRODUCTS)) {
             rows.add(buildBaseRow(order, StationPhase.TERMINADOS, events, stored, intervalRepository, intervalService));
         }
-        if (order.getPostpressRecords().stream().noneMatch(r -> r.getType() == PostpressType.FINISHING_PROCESS)) {
+        if (!hasFinishingProcessLines && hasOperatorForStage(order, ProductionOrderStage.FINISHING_PROCESSES)) {
             rows.add(buildBaseRow(order, StationPhase.ACABADOS, events, stored, intervalRepository, intervalService));
         }
 
         return rows;
+    }
+
+    private static boolean hasOperatorForStage(ProductionOrder order, ProductionOrderStage stage) {
+        return order.getOperators().stream().anyMatch(op -> op.getStage() == stage);
     }
 
     private static StationProcessRow buildBaseRow(

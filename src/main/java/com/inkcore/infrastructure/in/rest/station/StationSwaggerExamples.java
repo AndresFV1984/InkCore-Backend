@@ -354,4 +354,55 @@ final class StationSwaggerExamples {
               }
             }
             """;
+
+    static final String ADMIN_CLOSE_STAGES_REQUEST = """
+            {
+              "note": "Cliente retiró material; se completa cupo en planta."
+            }
+            """;
+
+    static final String ADMIN_CLOSE_STAGES_RESPONSE = """
+            {
+              "headers": {
+                "correlationId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "statusCode": 200,
+                "code": "OK",
+                "description": "Success"
+              },
+              "timestamp": "2026-10-20T16:05:00Z",
+              "data": {
+                "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
+                "note": "Cliente retiró material; se completa cupo en planta.",
+                "closedStages": [
+                  {
+                    "phase": "terminados",
+                    "processKey": "terminados:rec-barniz-001",
+                    "catalogItemLabel": "Barniz UV"
+                  },
+                  {
+                    "phase": "acabados",
+                    "processKey": "acabados:fin-plastificado-001",
+                    "catalogItemLabel": "Plastificado mate"
+                  }
+                ]
+              }
+            }
+            """;
+
+    static final String COMPLETE_IF_READY_RESPONSE = """
+            {
+              "headers": {
+                "correlationId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "statusCode": 200,
+                "code": "OK",
+                "description": "Success"
+              },
+              "timestamp": "2026-10-20T16:00:00Z",
+              "data": {
+                "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
+                "status": "COMPLETED",
+                "completed": true
+              }
+            }
+            """;
 }

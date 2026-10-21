@@ -39,6 +39,16 @@ public interface StationOperationIntervalRepositoryPort {
             String processKey
     );
 
+    /** Intervalos abiertos de un proceso de la OP (cualquier operario / tipo salvo filtros en servicio). */
+    List<StationOperationInterval> findOpenByProductionOrderIdAndProcessKey(
+            String companyId,
+            String productionOrderId,
+            String processKey
+    );
+
+    /** Todos los intervalos abiertos de la OP. */
+    List<StationOperationInterval> findOpenByProductionOrderId(String companyId, String productionOrderId);
+
     List<StationOperationInterval> findOpenIntervalsByUser(String companyId, String userId, StationIntervalKind kind);
 
     Optional<StationOperationInterval> findOpenShiftInterval(String companyId, String userId);

@@ -39,13 +39,57 @@ public class ProductionOrderOperatorsApplier {
             ProductionOrderStage legacyStage
     ) {
         if (operators != null) {
-            order.replaceOperators(toAssignments(order, companyId, operators));
+            order.replaceOperators(lockBillingToCreator(order, companyId, toAssignments(order, companyId, operators)));
             return;
         }
         if (legacyOperatorUserId != null && !legacyOperatorUserId.isBlank()) {
+            if (legacyStage == ProductionOrderStage.BILLING) {
+                // Cobro no se reasigna: siempre el creador de la OP.
+                ensureBillingLockedToCreator(order, companyId);
+                return;
+            }
             requireUserInCompany(legacyOperatorUserId.trim(), companyId);
             order.upsertOperator(legacyStage, legacyOperatorUserId.trim());
         }
+        ensureBillingLockedToCreator(order, companyId);
+    }
+
+    /**
+     * Cobro (BILLING) es inmutable: siempre el usuario que creó la OP.
+     * Se ignora cualquier valor distinto enviado por el cliente.
+     */
+    private List<OperatorAssignment> lockBillingToCreator(
+            ProductionOrder order,
+            String companyId,
+            List<OperatorAssignment> assignments
+    ) {
+        String creatorId = order.getCreatedBy();
+        if (creatorId == null || creatorId.isBlank()) {
+            return assignments;
+        }
+        List<OperatorAssignment> next = new ArrayList<>();
+        for (OperatorAssignment assignment : assignments) {
+            if (assignment.getStage() == ProductionOrderStage.BILLING) {
+                continue;
+            }
+            next.add(assignment);
+        }
+        next.add(OperatorAssignment.of(
+                companyId,
+                order.getProductionOrderId(),
+                ProductionOrderStage.BILLING,
+                creatorId.trim(),
+                null
+        ));
+        return next;
+    }
+
+    private void ensureBillingLockedToCreator(ProductionOrder order, String companyId) {
+        String creatorId = order.getCreatedBy();
+        if (creatorId == null || creatorId.isBlank()) {
+            return;
+        }
+        order.upsertOperator(ProductionOrderStage.BILLING, creatorId.trim());
     }
 
     private List<OperatorAssignment> toAssignments(

@@ -33,7 +33,7 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("InkCore API")
                         .description("")
-                        .version("0.0.77")
+                        .version("0.0.78")
                         .contact(new Contact().name("InkCore").email("admin@indicolors.com")))
                 .servers(List.of(
                         new Server().url(basePath).description("Context path local")
@@ -64,7 +64,9 @@ public class OpenApiConfig {
                                         + "Al pasar a IN_PROGRESS* crea customer_orders (customerOrderId + odpNumber ODP-{n}) "
                                         + "y cuenta Abonos (abonosNumber ABN-{n}). ANULADA reemplaza CANCELLED."),
                         new Tag().name("Estación").description(
-                                "Bitácora de planta: inbox, eventos (inicio/pausa/avance), intervalos y reportes. Roles OPERADOR|ADMINISTRADOR. occurredAt sin zona (sin Z)."),
+                                "Bitácora de planta: inbox, eventos (inicio/pausa/avance), intervalos y reportes. "
+                                        + "complete-if-ready → COMPLETED; admin-close-stages (solo ADMIN). "
+                                        + "Roles OPERADOR|ADMINISTRADOR. occurredAt sin zona (sin Z)."),
                         new Tag().name("Reportes").description("Rentabilidad real de órdenes de producción"),
                         new Tag().name("Pedidos").description(
                                 "Ledgers comerciales sobre OP: entregas ODP-{n} y liquidaciones LIQ-{n} "

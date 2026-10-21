@@ -4,6 +4,7 @@ import com.inkcore.application.shared.AuthenticatedCompanyResolver;
 import com.inkcore.domain.client.model.Client;
 import com.inkcore.domain.client.ports.out.ClientRepositoryPort;
 import com.inkcore.domain.productionorder.model.ProductionOrder;
+import com.inkcore.domain.productionorder.model.ProductionOrderStage;
 import com.inkcore.domain.productionorder.ports.out.ProductionOrderRepositoryPort;
 import com.inkcore.domain.seller.ports.out.SellerRepositoryPort;
 import org.junit.jupiter.api.BeforeEach;
@@ -75,5 +76,14 @@ class CreateProductionOrderUseCaseTest {
         assertEquals("OP-42", created.getOrderNumber());
         assertEquals(3, created.getPriorityRank());
         assertNull(created.getVersion());
+        assertEquals(1, created.getOperators().size());
+        assertEquals(
+                "user-1",
+                created.getOperators().stream()
+                        .filter(op -> op.getStage() == ProductionOrderStage.BILLING)
+                        .map(op -> op.getUserId())
+                        .findFirst()
+                        .orElse(null)
+        );
     }
 }

@@ -31,7 +31,12 @@ public class StationIntervalService {
                 closeOpenInterval(event, StationIntervalKind.LABOR);
                 openInterval(event, resolved, StationIntervalKind.LABOR);
             }
-            case FIN_FASE -> closeOpenInterval(event, StationIntervalKind.LABOR);
+            case FIN_FASE -> {
+                // Cierra labor/pausa de cualquier operario en el proceso: el admin puede
+                // finalizar con otro userId y no debe dejar el reloj abierto.
+                closeOpenIntervalsForProcess(event, StationIntervalKind.LABOR);
+                closeOpenIntervalsForProcess(event, StationIntervalKind.PAUSE);
+            }
             case PARO -> {
                 closeOpenInterval(event, StationIntervalKind.LABOR);
                 openInterval(event, resolved, StationIntervalKind.PAUSE);
@@ -91,6 +96,41 @@ public class StationIntervalService {
         );
         for (StationOperationInterval open : openIntervals) {
             closeInterval(open, event);
+        }
+    }
+
+    private void closeOpenIntervalsForProcess(StationOperationEvent event, StationIntervalKind kind) {
+        if (event.getProductionOrderId() == null || event.getProcessKey() == null) {
+            return;
+        }
+        List<StationOperationInterval> openIntervals = intervalRepository
+                .findOpenByProductionOrderIdAndProcessKey(
+                        event.getCompanyId(),
+                        event.getProductionOrderId(),
+                        event.getProcessKey()
+                );
+        for (StationOperationInterval open : openIntervals) {
+            if (open.getIntervalKind() != kind) {
+                continue;
+            }
+            closeInterval(open, event);
+        }
+    }
+
+    /** Cierra labor/pausa abiertos de toda la OP (p. ej. tras cierre admin / Finalizada). */
+    public void closeAllOpenWorkIntervalsForOrder(StationOperationEvent closingEvent) {
+        if (closingEvent.getProductionOrderId() == null) {
+            return;
+        }
+        List<StationOperationInterval> openIntervals = intervalRepository.findOpenByProductionOrderId(
+                closingEvent.getCompanyId(),
+                closingEvent.getProductionOrderId()
+        );
+        for (StationOperationInterval open : openIntervals) {
+            if (open.getIntervalKind() == StationIntervalKind.SHIFT) {
+                continue;
+            }
+            closeInterval(open, closingEvent);
         }
     }
 

@@ -1339,7 +1339,11 @@ COMMENT ON COLUMN indicolors.production_orders.finishing_processes_completed_at 
 COMMENT ON COLUMN indicolors.production_orders.client_supplies_paper_default IS 'Valor por defecto del paso Corte de papel: True=el cliente suministra el papel';
 COMMENT ON COLUMN indicolors.production_orders.rounding_margin IS 'Margen de redondeo aplicado en los cálculos del paso de Corte de papel';
 COMMENT ON COLUMN indicolors.production_orders.priority_rank IS 'Posición de trabajo de la orden completa. 1 es la siguiente en todas las etapas. La define el administrador; el operador la consulta.';
-COMMENT ON COLUMN indicolors.production_orders.status IS 'Estado de planta. ANULADA es el cierre/anulación de la OP (antes CANCELLED). Aliases de entrada temporal en API: CANCELLED, CANCELED, CANCELADA, ANULADO → ANULADA.';
+COMMENT ON COLUMN indicolors.production_orders.status IS
+    'Estado de planta. COMPLETED (Finalizada) cuando Estación cumple el cupo de todas las etapas '
+    '(evento de planta, complete-if-ready o cierre administrativo). '
+    'ANULADA es el cierre/anulación de la OP (antes CANCELLED). '
+    'Aliases de entrada temporal en API: CANCELLED, CANCELED, CANCELADA, ANULADO → ANULADA.';
 COMMENT ON COLUMN indicolors.production_orders.state IS 'True=Activa, False=Borrador eliminado (baja lógica)';
 COMMENT ON COLUMN indicolors.production_orders.created_at IS 'Fecha y hora de creación del registro';
 COMMENT ON COLUMN indicolors.production_orders.updated_at IS 'Fecha y hora de la última actualización del registro';

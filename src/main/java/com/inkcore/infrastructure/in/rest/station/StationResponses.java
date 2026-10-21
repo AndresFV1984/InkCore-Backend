@@ -1,6 +1,8 @@
 package com.inkcore.infrastructure.in.rest.station;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.inkcore.application.station.usecase.AdminCloseOrderStagesUseCase;
+import com.inkcore.application.station.usecase.CompleteStationOrderIfReadyUseCase;
 import com.inkcore.application.station.usecase.GetStationActiveSessionUseCase;
 import com.inkcore.application.station.usecase.GetStationBitacoraUseCase;
 import com.inkcore.application.station.usecase.GetStationOrderDetailUseCase;
@@ -199,6 +201,53 @@ public final class StationResponses {
         static PostpressLineResponse from(PostpressLine line) {
             return new PostpressLineResponse(line.getLineId(), line.getCatalogItemId(), line.getItemName());
         }
+    }
+
+    @Schema(name = "AdminCloseOrderStagesResponse", description = "Resultado del cierre administrativo de etapas incompletas")
+    public record AdminCloseOrderStagesResponse(
+            @Schema(example = "ef658d09-bf30-43de-ba7a-edd0f14a61bd") String productionOrderId,
+            @Schema(example = "Cliente retiró material; se completa cupo en planta.") String note,
+            List<ClosedStageResponse> closedStages
+    ) {
+        public static AdminCloseOrderStagesResponse from(AdminCloseOrderStagesUseCase.Result result) {
+            return new AdminCloseOrderStagesResponse(
+                    result.productionOrderId(),
+                    result.note(),
+                    result.closedStages().stream()
+                            .map(stage -> new ClosedStageResponse(
+                                    stage.phase(),
+                                    stage.processKey(),
+                                    stage.catalogItemLabel()
+                            ))
+                            .toList()
+            );
+        }
+    }
+
+    @Schema(
+            name = "CompleteStationOrderIfReadyResponse",
+            description = "Evaluación de cierre. completed=true si pasó (o ya estaba) COMPLETED."
+    )
+    public record CompleteStationOrderIfReadyResponse(
+            @Schema(example = "ef658d09-bf30-43de-ba7a-edd0f14a61bd") String productionOrderId,
+            @Schema(description = "Estado wire de la OP tras evaluar", example = "COMPLETED") String status,
+            @Schema(description = "true si la OP quedó Finalizada", example = "true") boolean completed
+    ) {
+        public static CompleteStationOrderIfReadyResponse from(CompleteStationOrderIfReadyUseCase.Result result) {
+            return new CompleteStationOrderIfReadyResponse(
+                    result.productionOrderId(),
+                    result.status(),
+                    result.completed()
+            );
+        }
+    }
+
+    @Schema(name = "AdminClosedStageResponse", description = "Etapa/proceso cerrado por el administrador")
+    public record ClosedStageResponse(
+            @Schema(example = "terminados") String phase,
+            @Schema(example = "terminados:rec-barniz-001") String processKey,
+            @Schema(example = "Barniz UV") String catalogItemLabel
+    ) {
     }
 
     @Schema(name = "StationProcessRowResponse", description = "Fila de proceso calculada para una OP")

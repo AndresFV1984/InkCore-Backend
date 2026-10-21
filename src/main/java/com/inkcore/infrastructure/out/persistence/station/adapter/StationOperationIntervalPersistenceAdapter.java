@@ -88,6 +88,30 @@ public class StationOperationIntervalPersistenceAdapter implements StationOperat
     }
 
     @Override
+    public List<StationOperationInterval> findOpenByProductionOrderIdAndProcessKey(
+            String companyId,
+            String productionOrderId,
+            String processKey
+    ) {
+        return repository.findAllByCompanyIdAndProductionOrderIdAndProcessKeyAndOpenTrue(
+                        companyId, productionOrderId, processKey)
+                .stream()
+                .map(StationPersistenceMapper::toDomain)
+                .toList();
+    }
+
+    @Override
+    public List<StationOperationInterval> findOpenByProductionOrderId(
+            String companyId,
+            String productionOrderId
+    ) {
+        return repository.findAllByCompanyIdAndProductionOrderIdAndOpenTrue(companyId, productionOrderId)
+                .stream()
+                .map(StationPersistenceMapper::toDomain)
+                .toList();
+    }
+
+    @Override
     public List<StationOperationInterval> findOpenIntervalsByUser(
             String companyId,
             String userId,

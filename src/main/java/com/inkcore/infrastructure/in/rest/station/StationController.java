@@ -1,5 +1,7 @@
 package com.inkcore.infrastructure.in.rest.station;
 
+import com.inkcore.application.station.usecase.AdminCloseOrderStagesUseCase;
+import com.inkcore.application.station.usecase.CompleteStationOrderIfReadyUseCase;
 import com.inkcore.application.station.usecase.GetStationActiveSessionUseCase;
 import com.inkcore.application.station.usecase.GetStationOrderDetailUseCase;
 import com.inkcore.application.station.usecase.ListStationInboxUseCase;
@@ -10,6 +12,8 @@ import com.inkcore.infrastructure.in.rest.envelope.ApiSuccessEnvelope;
 import com.inkcore.infrastructure.in.rest.openapi.ApiErrorResponses;
 import com.inkcore.infrastructure.in.rest.openapi.ApiSecuredErrorResponses;
 import com.inkcore.infrastructure.in.rest.openapi.StationActiveSessionSuccessEnvelope;
+import com.inkcore.infrastructure.in.rest.openapi.StationAdminCloseOrderStagesSuccessEnvelope;
+import com.inkcore.infrastructure.in.rest.openapi.StationCompleteOrderIfReadySuccessEnvelope;
 import com.inkcore.infrastructure.in.rest.openapi.StationInboxListSuccessEnvelope;
 import com.inkcore.infrastructure.in.rest.openapi.StationOrderDetailSuccessEnvelope;
 import com.inkcore.infrastructure.in.rest.openapi.StationProcessListSuccessEnvelope;
@@ -19,10 +23,12 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +36,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -39,7 +46,12 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/station")
-@Tag(name = "Estación", description = "Bitácora operativa de planta, inbox y sesiones de operario")
+@Tag(
+        name = "Estación",
+        description = "Bitácora de planta: inbox, eventos (inicio/pausa/avance), intervalos y reportes. "
+                + "complete-if-ready → COMPLETED; admin-close-stages (solo ADMIN). "
+                + "Roles OPERADOR|ADMINISTRADOR. occurredAt sin zona (sin Z)."
+)
 @SecurityRequirement(name = "bearerAuth")
 public class StationController {
 
@@ -47,6 +59,8 @@ public class StationController {
     private final GetStationOrderDetailUseCase orderDetailUseCase;
     private final ListStationOrderProcessesUseCase processesUseCase;
     private final GetStationActiveSessionUseCase activeSessionUseCase;
+    private final AdminCloseOrderStagesUseCase adminCloseOrderStagesUseCase;
+    private final CompleteStationOrderIfReadyUseCase completeOrderIfReadyUseCase;
     private final ApiResponseFactory responseFactory;
 
     public StationController(
@@ -54,12 +68,16 @@ public class StationController {
             GetStationOrderDetailUseCase orderDetailUseCase,
             ListStationOrderProcessesUseCase processesUseCase,
             GetStationActiveSessionUseCase activeSessionUseCase,
+            AdminCloseOrderStagesUseCase adminCloseOrderStagesUseCase,
+            CompleteStationOrderIfReadyUseCase completeOrderIfReadyUseCase,
             ApiResponseFactory responseFactory
     ) {
         this.inboxUseCase = inboxUseCase;
         this.orderDetailUseCase = orderDetailUseCase;
         this.processesUseCase = processesUseCase;
         this.activeSessionUseCase = activeSessionUseCase;
+        this.adminCloseOrderStagesUseCase = adminCloseOrderStagesUseCase;
+        this.completeOrderIfReadyUseCase = completeOrderIfReadyUseCase;
         this.responseFactory = responseFactory;
     }
 
@@ -129,6 +147,99 @@ public class StationController {
                 httpRequest,
                 HttpStatus.OK,
                 StationResponses.OrderDetailResponse.from(orderDetailUseCase.execute(productionOrderId, authentication))
+        );
+    }
+
+    @PostMapping("/orders/{productionOrderId}/complete-if-ready")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
+    @Operation(
+            operationId = "completeStationOrderIfReady",
+            summary = "Finalizar OP si todas las etapas están cumplidas",
+            description = """
+                    Si el cupo de cada etapa real de la OP ya está procesado o entregado,
+                    pasa el estado a COMPLETED (Finalizada). Idempotente: si ya estaba COMPLETED,
+                    completed=true y status=COMPLETED.
+                    """
+    )
+    @ApiResponse(
+            responseCode = "200",
+            description = "Evaluación de cierre",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    schema = @Schema(implementation = StationCompleteOrderIfReadySuccessEnvelope.class),
+                    examples = @ExampleObject(
+                            name = "OpFinalizada",
+                            value = StationSwaggerExamples.COMPLETE_IF_READY_RESPONSE
+                    )
+            )
+    )
+    @ApiErrorResponses
+    @ApiSecuredErrorResponses
+    public ResponseEntity<ApiSuccessEnvelope<StationResponses.CompleteStationOrderIfReadyResponse>> completeIfReady(
+            @Parameter(description = "ID de la orden de producción", required = true, example = "ef658d09-bf30-43de-ba7a-edd0f14a61bd")
+            @PathVariable String productionOrderId,
+            Authentication authentication,
+            HttpServletRequest httpRequest
+    ) {
+        return responseFactory.success(
+                httpRequest,
+                HttpStatus.OK,
+                StationResponses.CompleteStationOrderIfReadyResponse.from(
+                        completeOrderIfReadyUseCase.execute(productionOrderId, authentication)
+                )
+        );
+    }
+
+    @PostMapping("/orders/{productionOrderId}/admin-close-stages")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @Operation(
+            operationId = "adminCloseOrderStages",
+            summary = "Cerrar todas las etapas incompletas de una OP (administrador)",
+            description = """
+                    Completa el cupo pendiente (avance + entrega total) y registra fin_fase en cada
+                    proceso incompleto, con observación «Cerrado por administrador: {nota}».
+                    Independiente del operario asignado. Requiere nota obligatoria.
+                    Si tras el cierre todas las etapas quedan cumplidas, la OP puede pasar a COMPLETED.
+                    """
+    )
+    @ApiResponse(
+            responseCode = "200",
+            description = "Etapas cerradas",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    schema = @Schema(implementation = StationAdminCloseOrderStagesSuccessEnvelope.class),
+                    examples = @ExampleObject(
+                            name = "EtapasCerradas",
+                            value = StationSwaggerExamples.ADMIN_CLOSE_STAGES_RESPONSE
+                    )
+            )
+    )
+    @RequestBody(
+            required = true,
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    schema = @Schema(implementation = StationRequests.AdminCloseOrderStagesRequest.class),
+                    examples = @ExampleObject(
+                            name = "NotaAdmin",
+                            value = StationSwaggerExamples.ADMIN_CLOSE_STAGES_REQUEST
+                    )
+            )
+    )
+    @ApiErrorResponses
+    @ApiSecuredErrorResponses
+    public ResponseEntity<ApiSuccessEnvelope<StationResponses.AdminCloseOrderStagesResponse>> adminCloseStages(
+            @Parameter(description = "ID de la orden de producción", required = true, example = "ef658d09-bf30-43de-ba7a-edd0f14a61bd")
+            @PathVariable String productionOrderId,
+            @Valid @org.springframework.web.bind.annotation.RequestBody StationRequests.AdminCloseOrderStagesRequest request,
+            Authentication authentication,
+            HttpServletRequest httpRequest
+    ) {
+        return responseFactory.success(
+                httpRequest,
+                HttpStatus.OK,
+                StationResponses.AdminCloseOrderStagesResponse.from(
+                        adminCloseOrderStagesUseCase.execute(productionOrderId, request.note(), authentication)
+                )
         );
     }
 
