@@ -7,8 +7,10 @@ import com.inkcore.domain.client.ports.out.ClientRepositoryPort;
 import com.inkcore.domain.order.exception.InsufficientAvailabilityException;
 import com.inkcore.domain.order.exception.OrderBusinessRuleException;
 import com.inkcore.domain.order.model.AccountsReceivable;
+import com.inkcore.domain.order.model.CustomerOrder;
 import com.inkcore.domain.order.model.DeliveryMovementType;
 import com.inkcore.domain.order.model.DeliveryType;
+import com.inkcore.domain.order.model.OrderCxcDocument;
 import com.inkcore.domain.order.model.OrderDelivery;
 import com.inkcore.domain.order.ports.out.AccountsReceivableRepositoryPort;
 import com.inkcore.domain.order.ports.out.OrderDeliveryRepositoryPort;
@@ -37,17 +39,20 @@ public class CreateOrderDeliveryUseCase {
     private final OrderDeliveryRepositoryPort deliveryRepository;
     private final AccountsReceivableRepositoryPort accountsReceivableRepository;
     private final ClientRepositoryPort clientRepository;
+    private final OrderCxcDocumentService cxcDocumentService;
 
     public CreateOrderDeliveryUseCase(
             OrderSupport support,
             OrderDeliveryRepositoryPort deliveryRepository,
             AccountsReceivableRepositoryPort accountsReceivableRepository,
-            ClientRepositoryPort clientRepository
+            ClientRepositoryPort clientRepository,
+            OrderCxcDocumentService cxcDocumentService
     ) {
         this.support = support;
         this.deliveryRepository = deliveryRepository;
         this.accountsReceivableRepository = accountsReceivableRepository;
         this.clientRepository = clientRepository;
+        this.cxcDocumentService = cxcDocumentService;
     }
 
     @Transactional
@@ -104,12 +109,19 @@ public class CreateOrderDeliveryUseCase {
         }
 
         AccountsReceivable summary = accountsReceivableRepository
-                .findByProductionOrderId(companyId, order.getProductionOrderId())
+                .findByProductionOrderIdFresh(companyId, order.getProductionOrderId())
                 .orElseGet(AccountsReceivable::new);
         AbonosBalance.applyTo(summary, order);
 
+        CustomerOrder customerOrder = support.customerOrderRepository()
+                .findByProductionOrderId(companyId, order.getProductionOrderId())
+                .orElse(null);
+        // 1 ENT → 1 CxC (documento de cartera).
+        OrderCxcDocument cxcDocument = cxcDocumentService.createFromDelivery(
+                saved, summary, customerOrder, now);
+
         String odpNumber = support.resolveOdpNumber(companyId, order.getProductionOrderId());
-        return new CreateDeliveryResult(saved, summary, odpNumber);
+        return new CreateDeliveryResult(saved, summary, odpNumber, cxcDocument);
     }
 
     private static InsufficientAvailabilityException translateAvailabilityConflict(DataIntegrityViolationException ex) {
@@ -153,7 +165,15 @@ public class CreateOrderDeliveryUseCase {
     public record CreateDeliveryResult(
             OrderDelivery delivery,
             AccountsReceivable accountsReceivable,
-            String odpNumber
+            String odpNumber,
+            OrderCxcDocument cxcDocument
     ) {
+        public CreateDeliveryResult(
+                OrderDelivery delivery,
+                AccountsReceivable accountsReceivable,
+                String odpNumber
+        ) {
+            this(delivery, accountsReceivable, odpNumber, null);
+        }
     }
 }

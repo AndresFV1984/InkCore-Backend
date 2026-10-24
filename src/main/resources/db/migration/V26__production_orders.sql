@@ -89,8 +89,11 @@ COMMENT ON COLUMN indicolors.production_orders.client_supplies_paper_default IS 
 COMMENT ON COLUMN indicolors.production_orders.rounding_margin IS 'Margen de redondeo aplicado en los cálculos del paso de Corte de papel';
 COMMENT ON COLUMN indicolors.production_orders.priority_rank IS 'Posición de trabajo de la orden completa. 1 es la siguiente en todas las etapas. La define el administrador; el operador la consulta.';
 COMMENT ON COLUMN indicolors.production_orders.status IS
-    'Estado de planta. COMPLETED (Finalizada) cuando Estación cumple el cupo de todas las etapas '
+    'Estado de planta (wire canónico: PENDING|UNDER_REVIEW|PAUSED|IN_PROGRESS|IN_PROGRESS_*|COMPLETED|ANULADA). '
+    'COMPLETED (Finalizada) cuando Estación cumple el cupo de todas las etapas '
     '(evento de planta, complete-if-ready o cierre administrativo). '
+    'Aliases legacy en español (p. ej. «En Proceso Impresión») se aceptan en lectura de Estación '
+    'y admin-close-stages los reescribe a IN_PROGRESS_*. '
     'ANULADA es el cierre/anulación de la OP (antes CANCELLED). '
     'Aliases de entrada temporal en API: CANCELLED, CANCELED, CANCELADA, ANULADO → ANULADA.';
 COMMENT ON COLUMN indicolors.production_orders.state IS 'True=Activa, False=Borrador eliminado (baja lógica)';

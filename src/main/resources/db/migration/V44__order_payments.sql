@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS indicolors.order_payments (
     client_id             CHARACTER VARYING(64)       NOT NULL,
 
     payment_type          CHARACTER VARYING(16)       NOT NULL DEFAULT 'abono',
+    payment_concept       CHARACTER VARYING(16)       NOT NULL DEFAULT 'entrega',
     amount                NUMERIC(14,2)               NOT NULL,
     payment_method        CHARACTER VARYING(32)       NOT NULL,
     reference             CHARACTER VARYING(100),
@@ -20,6 +21,7 @@ CREATE TABLE IF NOT EXISTS indicolors.order_payments (
     certificate_ref       CHARACTER VARYING(100),
 
     -- Reserva para facturación electrónica (imputación futura; sin FK aún).
+    -- Distinto de order_cxc_documents (CxC = factura de cartera).
     invoice_id            CHARACTER VARYING(64),
 
     paid_at               TIMESTAMP WITHOUT TIME ZONE NOT NULL,
@@ -42,6 +44,8 @@ CREATE TABLE IF NOT EXISTS indicolors.order_payments (
         FOREIGN KEY (reversed_payment_id) REFERENCES indicolors.order_payments (order_payment_id),
     CONSTRAINT order_payments_type_check
         CHECK (payment_type IN ('abono', 'anticipo', 'retencion', 'reversion')),
+    CONSTRAINT order_payments_payment_concept_check
+        CHECK (payment_concept IN ('entrega', 'extra')),
     CONSTRAINT order_payments_amount_check
         CHECK (amount > 0),
     CONSTRAINT order_payments_method_check
@@ -90,6 +94,8 @@ COMMENT ON COLUMN indicolors.order_payments.production_order_id IS 'Orden de Pro
 COMMENT ON COLUMN indicolors.order_payments.client_id IS 'Cliente snapshot desde production_orders.client_id';
 COMMENT ON COLUMN indicolors.order_payments.payment_type IS
     'abono=caja | anticipo=saldo a favor/pasivo operativo | retencion=liquidación fiscal sin caja | reversion=anulación';
+COMMENT ON COLUMN indicolors.order_payments.payment_concept IS
+    'Concepto de aplicación del pago: entrega (valor ENT/CxC entrega) o extra (ADN/CxC extra). Default entrega.';
 COMMENT ON COLUMN indicolors.order_payments.amount IS 'Monto del movimiento, siempre positivo; el signo lo aplica el trigger según payment_type';
 COMMENT ON COLUMN indicolors.order_payments.payment_method IS
     'Canal de caja, o retencion cuando payment_type=retencion';

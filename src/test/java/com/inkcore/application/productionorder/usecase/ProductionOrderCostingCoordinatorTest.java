@@ -23,7 +23,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -380,6 +382,14 @@ class ProductionOrderCostingCoordinatorTest {
         @Override
         public Optional<CostSummary> findByProductionOrderId(String companyId, String productionOrderId) {
             return Optional.empty();
+        }
+
+        @Override
+        public Map<String, BigDecimal> mapQuotedPriceByOrderIds(
+                String companyId,
+                Collection<String> productionOrderIds
+        ) {
+            return Map.of();
         }
 
         @Override

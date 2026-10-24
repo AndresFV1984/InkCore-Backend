@@ -64,11 +64,11 @@ class AccountsReceivableItemResponseTest {
                 OrderResponses.AccountsReceivableItemResponse.from(row);
 
         assertEquals("CXC-7", summary.cxcNumber());
-        assertEquals("ODP-3", summary.lastDeliveryNumber());
+        assertEquals("ENT-3", summary.lastDeliveryNumber());
         assertFalse(summary.cxcNumber().equals(summary.lastDeliveryNumber()));
         assertFalse(summary.cxcNumber().equals(summary.lastPaymentNumber()));
         assertTrue(summary.cxcNumber().startsWith("CXC-"));
-        assertTrue(summary.lastDeliveryNumber().startsWith("ODP-"));
+        assertTrue(summary.lastDeliveryNumber().startsWith("ENT-"));
         assertTrue(summary.lastPaymentNumber().startsWith("LIQ-"));
     }
 
@@ -115,7 +115,7 @@ class AccountsReceivableItemResponseTest {
                 "current",
                 false,
                 false,
-                "ODP-3",
+                "ENT-3",
                 LocalDateTime.of(2026, 9, 12, 11, 0),
                 lastPaymentNumber,
                 lastPaymentNumber == null ? null : LocalDateTime.of(2026, 9, 15, 16, 0)

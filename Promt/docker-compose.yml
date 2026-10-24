@@ -26,7 +26,8 @@ services:
     restart: unless-stopped
 
   minio-init:
-    image: bayronindicore/inkcore-minio-init:${IMAGE_TAG:-latest}
+    image: bayronindicore/inkcore-minio-init:${IMAGE_TAG:-v22.10}
+    pull_policy: always
     container_name: inkcore-minio-init
     depends_on:
       minio:

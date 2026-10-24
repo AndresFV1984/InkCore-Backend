@@ -33,7 +33,7 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("InkCore API")
                         .description("")
-                        .version("0.0.78")
+                        .version("0.0.81")
                         .contact(new Contact().name("InkCore").email("admin@indicolors.com")))
                 .servers(List.of(
                         new Server().url(basePath).description("Context path local")
@@ -59,29 +59,24 @@ public class OpenApiConfig {
                         new Tag().name("Máquinas").description("Catálogo de máquinas y costo por hora"),
                         new Tag().name("Mermas").description("Rangos sugeridos de merma por compañía"),
                         new Tag().name("Órdenes de producción").description(
-                                "Wizard OP (OP-{n}). Listado/detalle incluyen totalToCharge (panel Cobro), "
-                                        + "negotiatedAdditionsTotal y amountToCollect (cobro + ADN vigentes). "
-                                        + "Al pasar a IN_PROGRESS* crea customer_orders (customerOrderId + odpNumber ODP-{n}) "
-                                        + "y cuenta Abonos (abonosNumber ABN-{n}). ANULADA reemplaza CANCELLED."),
+                                "Wizard OP (OP-{n}). Detalle recalcula totalToCharge; listado lo lee de "
+                                        + "cost_summary.quoted_price. negotiatedAdditionsTotal y amountToCollect "
+                                        + "(cobro + ADN vigentes). Al pasar a IN_PROGRESS* crea customer_orders "
+                                        + "(customerOrderId + odpNumber ODP-{n}) y Abonos (abonosNumber ABN-{n}). "
+                                        + "ANULADA reemplaza CANCELLED."),
                         new Tag().name("Estación").description(
                                 "Bitácora de planta: inbox, eventos (inicio/pausa/avance), intervalos y reportes. "
-                                        + "complete-if-ready → COMPLETED; admin-close-stages (solo ADMIN). "
+                                        + "complete-if-ready → COMPLETED; admin-close-stages (solo ADMIN; "
+                                        + "normaliza status legacy → IN_PROGRESS_*). "
                                         + "Roles OPERADOR|ADMINISTRADOR. occurredAt sin zona (sin Z)."),
                         new Tag().name("Reportes").description("Rentabilidad real de órdenes de producción"),
                         new Tag().name("Pedidos").description(
-                                "Ledgers comerciales sobre OP: entregas ODP-{n} y liquidaciones LIQ-{n} "
-                                        + "(append-only); adicionales negociados ADN-{n} (crear/editar; "
-                                        + "anular = voidedAt en la misma fila). "
-                                        + "Abonos sobre amountToCollect (totalToCharge + ADN vigentes; "
-                                        + "saldo puede ser negativo). CxC por entregas: unidades + ledger. "
-                                        + "abonosNumber ABN al crear pedido; cxcNumber en 1ª entrega; "
-                                        + "series ABN (cuenta) y LIQ (movimiento) separadas."),
+                                "Ledgers comerciales: ENT-{n}, LIQ-{n}, ADN-{n}; documentos CxC (1 ENT/ADN → 1 CxC). "
+                                        + "Pagos con paymentConcept + cxcDocumentId; aplicaciones y saldo a favor. "
+                                        + "Series ODP / ENT / CXC / ABN / LIQ independientes."),
                         new Tag().name("Cuentas por cobrar").description(
-                                "Dashboard CxC/Abonos (1:1 por OP): totalOwed=amountToCollect "
-                                        + "(totalToCharge + adicionales negociados vigentes), "
-                                        + "totalRemaining=totalOwed−totalPaid (puede ser negativo). "
-                                        + "cxcNumber, abonosNumber (ABN-n), odpNumber, aging, withBalance. "
-                                        + "Solo lectura; abonosNumber ABN ≠ paymentNumber LIQ del detalle."),
+                                "GET /documents = 1 fila por CxC (ENT|ADN); GET / = resumen 1:1 por OP (legado). "
+                                        + "cxcNumber CXC, odpNumber ODP, sourceNumber ENT|ADN. Solo lectura."),
                         new Tag().name("Conversión de color").description("Conversión RGB→CMYK (ICC / LittleCMS)"),
                         new Tag().name("Estimación de tinta").description("Estimación de consumo de tinta CMYK/spot"),
                         new Tag().name("Archivos estimación tinta").description(

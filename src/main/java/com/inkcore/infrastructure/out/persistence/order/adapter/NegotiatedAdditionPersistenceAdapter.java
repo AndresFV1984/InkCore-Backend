@@ -11,7 +11,9 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Component
@@ -85,6 +87,38 @@ public class NegotiatedAdditionPersistenceAdapter implements NegotiatedAdditionR
                 .setParameter("productionOrderId", productionOrderId)
                 .getSingleResult();
         return new BigDecimal(result.toString()).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public Map<String, BigDecimal> sumNetAmountByOrderIds(String companyId, Collection<String> productionOrderIds) {
+        if (companyId == null || companyId.isBlank() || productionOrderIds == null || productionOrderIds.isEmpty()) {
+            return Map.of();
+        }
+        List<String> ids = productionOrderIds.stream().filter(id -> id != null && !id.isBlank()).distinct().toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        List<Object[]> rows = entityManager.createNativeQuery("""
+                SELECT production_order_id, COALESCE(SUM(amount), 0)
+                FROM indicolors.order_negotiated_additions
+                WHERE company_id = :companyId
+                  AND production_order_id IN (:productionOrderIds)
+                  AND voided_at IS NULL
+                  AND movement_type = 'registro'
+                GROUP BY production_order_id
+                """)
+                .setParameter("companyId", companyId)
+                .setParameter("productionOrderIds", ids)
+                .getResultList();
+        Map<String, BigDecimal> result = new java.util.LinkedHashMap<>();
+        for (Object[] row : rows) {
+            result.put(
+                    String.valueOf(row[0]),
+                    new BigDecimal(row[1].toString()).setScale(2, RoundingMode.HALF_UP)
+            );
+        }
+        return result;
     }
 
     @Override

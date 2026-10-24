@@ -19,15 +19,18 @@ public class ReverseNegotiatedAdditionUseCase {
     private final OrderSupport support;
     private final NegotiatedAdditionRepositoryPort additionRepository;
     private final CreateNegotiatedAdditionUseCase createUseCase;
+    private final OrderCxcDocumentService cxcDocumentService;
 
     public ReverseNegotiatedAdditionUseCase(
             OrderSupport support,
             NegotiatedAdditionRepositoryPort additionRepository,
-            CreateNegotiatedAdditionUseCase createUseCase
+            CreateNegotiatedAdditionUseCase createUseCase,
+            OrderCxcDocumentService cxcDocumentService
     ) {
         this.support = support;
         this.additionRepository = additionRepository;
         this.createUseCase = createUseCase;
+        this.cxcDocumentService = cxcDocumentService;
     }
 
     @Transactional
@@ -59,6 +62,9 @@ public class ReverseNegotiatedAdditionUseCase {
         if (additionRepository.existsReversionFor(companyId, additionId)) {
             throw new OrderConflictException("Este adicional ya fue anulado");
         }
+
+        // Anular CxC del ADN antes de marcar void (bloquea si ya hay abonos).
+        cxcDocumentService.annulFromAddition(original, now);
 
         String voidNote = reason == null || reason.isBlank()
                 ? "Adicional anulado"

@@ -38,7 +38,13 @@ import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping("/api/v1/station/events")
-@Tag(name = "Estación", description = "Bitácora operativa de planta, inbox y sesiones de operario")
+@Tag(
+        name = "Estación",
+        description = "Bitácora de planta: inbox, eventos (inicio/pausa/avance), intervalos y reportes. "
+                + "complete-if-ready → COMPLETED; admin-close-stages (solo ADMIN; "
+                + "normaliza status legacy → IN_PROGRESS_*). "
+                + "Roles OPERADOR|ADMINISTRADOR. occurredAt sin zona (sin Z)."
+)
 @SecurityRequirement(name = "bearerAuth")
 public class StationEventController {
 
@@ -465,7 +471,8 @@ public class StationEventController {
                 payload.actualSetupMinutes(),
                 payload.actualRunMinutes(),
                 payload.machineId(),
-                payload.wasteReason()
+                payload.wasteReason(),
+                null
         ), authentication);
         return responseFactory.created(
                 httpRequest,

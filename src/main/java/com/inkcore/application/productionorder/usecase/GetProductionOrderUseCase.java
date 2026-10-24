@@ -9,13 +9,24 @@ import org.springframework.transaction.annotation.Transactional;
 public class GetProductionOrderUseCase {
 
     private final ProductionOrderSupport support;
+    private final ProductionOrderCostingCoordinator costing;
 
-    public GetProductionOrderUseCase(ProductionOrderSupport support) {
+    public GetProductionOrderUseCase(
+            ProductionOrderSupport support,
+            ProductionOrderCostingCoordinator costing
+    ) {
         this.support = support;
+        this.costing = costing;
     }
 
-    @Transactional(readOnly = true)
+    /**
+     * Detalle completo. También refresca {@code quoted_price} para que Pedidos/listado
+     * coincidan con el Cobro recalculado (descuentos por etapa incluidos).
+     */
+    @Transactional
     public ProductionOrder execute(String productionOrderId, Authentication authentication) {
-        return support.requireOrder(productionOrderId, support.companyId(authentication));
+        ProductionOrder order = support.requireOrder(productionOrderId, support.companyId(authentication));
+        costing.syncQuotedPrice(order);
+        return order;
     }
 }

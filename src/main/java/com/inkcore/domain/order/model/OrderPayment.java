@@ -12,6 +12,8 @@ public final class OrderPayment {
     private String productionOrderId;
     private String clientId;
     private PaymentType paymentType;
+    /** Concepto de aplicación: entrega | extra (CxC del mismo concepto). */
+    private CxcDocumentConcept paymentConcept;
     private BigDecimal amount;
     private PaymentMethod paymentMethod;
     private String reference;
@@ -29,6 +31,7 @@ public final class OrderPayment {
     public OrderPayment() {
         this.orderPaymentId = UUID.randomUUID().toString();
         this.paymentType = PaymentType.ABONO;
+        this.paymentConcept = CxcDocumentConcept.ENTREGA;
         this.amount = BigDecimal.ZERO;
     }
 
@@ -44,6 +47,8 @@ public final class OrderPayment {
     public void setClientId(String clientId) { this.clientId = clientId; }
     public PaymentType getPaymentType() { return paymentType; }
     public void setPaymentType(PaymentType paymentType) { this.paymentType = paymentType; }
+    public CxcDocumentConcept getPaymentConcept() { return paymentConcept; }
+    public void setPaymentConcept(CxcDocumentConcept paymentConcept) { this.paymentConcept = paymentConcept; }
     public BigDecimal getAmount() { return amount; }
     public void setAmount(BigDecimal amount) { this.amount = amount; }
     public PaymentMethod getPaymentMethod() { return paymentMethod; }

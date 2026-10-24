@@ -14,7 +14,10 @@ import java.math.BigDecimal;
 import java.sql.Date;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Component
@@ -33,6 +36,26 @@ public class CostSummaryPersistenceAdapter implements CostSummaryRepositoryPort 
     @Transactional(readOnly = true)
     public Optional<CostSummary> findByProductionOrderId(String companyId, String productionOrderId) {
         return repository.findByProductionOrderIdAndCompanyId(productionOrderId, companyId).map(this::toDomain);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<String, BigDecimal> mapQuotedPriceByOrderIds(String companyId, Collection<String> productionOrderIds) {
+        if (companyId == null || companyId.isBlank() || productionOrderIds == null || productionOrderIds.isEmpty()) {
+            return Map.of();
+        }
+        List<String> ids = productionOrderIds.stream().filter(id -> id != null && !id.isBlank()).distinct().toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, BigDecimal> result = new LinkedHashMap<>();
+        for (ProductionOrderCostSummaryEntity entity
+                : repository.findAllByCompanyIdAndProductionOrderIdIn(companyId, ids)) {
+            if (entity.getQuotedPrice() != null) {
+                result.put(entity.getProductionOrderId(), entity.getQuotedPrice());
+            }
+        }
+        return result;
     }
 
     @Override

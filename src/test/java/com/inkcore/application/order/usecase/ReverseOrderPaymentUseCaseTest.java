@@ -31,13 +31,15 @@ class ReverseOrderPaymentUseCaseTest {
     @Mock OrderSupport support;
     @Mock OrderPaymentRepositoryPort paymentRepository;
     @Mock AccountsReceivableRepositoryPort accountsReceivableRepository;
+    @Mock OrderCxcDocumentService cxcDocumentService;
     @Mock Authentication authentication;
 
     private ReverseOrderPaymentUseCase useCase;
 
     @BeforeEach
     void setUp() {
-        useCase = new ReverseOrderPaymentUseCase(support, paymentRepository, accountsReceivableRepository);
+        useCase = new ReverseOrderPaymentUseCase(
+                support, paymentRepository, accountsReceivableRepository, cxcDocumentService);
     }
 
     @Test
@@ -60,12 +62,13 @@ class ReverseOrderPaymentUseCaseTest {
                 .thenReturn(Optional.of(original));
         when(paymentRepository.existsReversionFor("company-1", "payment-1")).thenReturn(false);
         when(paymentRepository.save(any(OrderPayment.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(accountsReceivableRepository.findByProductionOrderId("company-1", "op-1"))
+        when(accountsReceivableRepository.findByProductionOrderIdFresh("company-1", "op-1"))
                 .thenReturn(Optional.of(updated));
 
         var result = useCase.execute("op-1", "payment-1", "Comprobante duplicado", authentication);
 
         verify(paymentRepository).findByIdForUpdate("company-1", "payment-1");
+        verify(cxcDocumentService).reverseApplicationsForPayment("company-1", "payment-1", now);
         ArgumentCaptor<OrderPayment> captor = ArgumentCaptor.forClass(OrderPayment.class);
         verify(paymentRepository).save(captor.capture());
         OrderPayment reversion = captor.getValue();

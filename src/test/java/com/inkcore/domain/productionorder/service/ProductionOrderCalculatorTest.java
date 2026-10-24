@@ -4,8 +4,14 @@ import com.inkcore.domain.productionorder.model.BillingDetails;
 import com.inkcore.domain.productionorder.model.DiscountType;
 import com.inkcore.domain.productionorder.model.FlipType;
 import com.inkcore.domain.productionorder.model.PaperRow;
+import com.inkcore.domain.productionorder.model.PostpressLine;
+import com.inkcore.domain.productionorder.model.PostpressRecord;
+import com.inkcore.domain.productionorder.model.PostpressType;
 import com.inkcore.domain.productionorder.model.PrepressDetails;
+import com.inkcore.domain.productionorder.model.PrintConfig;
+import com.inkcore.domain.productionorder.model.PrintEntry;
 import com.inkcore.domain.productionorder.model.ProductionOrder;
+import com.inkcore.domain.productionorder.model.ProductionOrderStage;
 import com.inkcore.domain.thousandrate.model.ThousandRate;
 import org.junit.jupiter.api.Test;
 
@@ -88,6 +94,49 @@ class ProductionOrderCalculatorTest {
         order.setBilling(billing);
 
         assertEquals(new BigDecimal("1350000.00"), ProductionOrderCalculator.calculateTotalToCharge(order));
+    }
+
+    @Test
+    void calculateTotalToCharge_appliesStageAndPrintDiscountsOnlyToTheirSubtotals() {
+        ProductionOrder order = ProductionOrder.reconstitute();
+        order.setCompanyId("co-1");
+        order.setProductionOrderId("op-1");
+
+        PrepressDetails prepress = new PrepressDetails();
+        prepress.setTotalPlatesValue(new BigDecimal("1000000.00"));
+        order.setPrepress(prepress);
+
+        PaperRow row = new PaperRow();
+        row.setTotalPaperValue(new BigDecimal("400000.00"));
+        row.setTotalCutValue(new BigDecimal("100000.00"));
+        order.setPaperRows(List.of(row));
+        order.upsertStageDiscount(ProductionOrderStage.CUTTING, DiscountType.PERCENT, new BigDecimal("10"));
+
+        PrintConfig print = new PrintConfig();
+        PrintEntry entry = new PrintEntry();
+        entry.setBasicPrintingPrice(new BigDecimal("200000.00"));
+        print.setEntries(List.of(entry));
+        print.setPrintingDiscountType(DiscountType.PERCENT);
+        print.setPrintingDiscountValue(new BigDecimal("50"));
+        order.setPrints(List.of(print));
+
+        PostpressRecord finished = new PostpressRecord();
+        finished.setType(PostpressType.FINISHED_PRODUCT);
+        PostpressLine finishedLine = new PostpressLine();
+        finishedLine.setChargedPrice(new BigDecimal("300000.00"));
+        finished.setLines(List.of(finishedLine));
+        order.setPostpressRecords(List.of(finished));
+        order.upsertStageDiscount(
+                ProductionOrderStage.FINISHED_PRODUCTS,
+                DiscountType.AMOUNT,
+                new BigDecimal("50000.00")
+        );
+
+        // preprensa 1_000_000
+        // corte 500_000 - 10% = 450_000
+        // impresión 200_000 - 50% = 100_000  (descuento solo sobre impresión, no sobre el acumulado)
+        // terminados 300_000 - 50_000 = 250_000
+        assertEquals(new BigDecimal("1800000.00"), ProductionOrderCalculator.calculateTotalToCharge(order));
     }
 
     @Test

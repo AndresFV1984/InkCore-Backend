@@ -1,11 +1,14 @@
 package com.inkcore.infrastructure.in.rest.orders;
 
+import com.inkcore.application.order.usecase.ApplyPedidoCreditToCxcUseCase;
+import com.inkcore.application.order.usecase.CreateCxcFromAdditionUseCase;
 import com.inkcore.application.order.usecase.CreateNegotiatedAdditionUseCase;
 import com.inkcore.application.order.usecase.CreateOrderDeliveryUseCase;
 import com.inkcore.application.order.usecase.CreateOrderPaymentUseCase;
 import com.inkcore.application.order.usecase.GetOrderAccountsReceivableUseCase;
 import com.inkcore.application.order.usecase.GetOrderAvailabilityUseCase;
 import com.inkcore.application.order.usecase.ListNegotiatedAdditionsUseCase;
+import com.inkcore.application.order.usecase.ListOrderCxcDocumentsUseCase;
 import com.inkcore.application.order.usecase.ListOrderDeliveriesUseCase;
 import com.inkcore.application.order.usecase.ListOrderPaymentsUseCase;
 import com.inkcore.application.order.usecase.ReverseNegotiatedAdditionUseCase;
@@ -22,9 +25,12 @@ import com.inkcore.infrastructure.in.rest.openapi.ApiErrorResponses;
 import com.inkcore.infrastructure.in.rest.openapi.ApiSecuredErrorResponses;
 import com.inkcore.infrastructure.in.rest.openapi.OrderAvailabilitySuccessEnvelope;
 import com.inkcore.infrastructure.in.rest.openapi.OrderAccountsReceivableSuccessEnvelope;
+import com.inkcore.infrastructure.in.rest.openapi.OrderApplyCreditToCxcSuccessEnvelope;
+import com.inkcore.infrastructure.in.rest.openapi.OrderCreateCxcFromAdditionSuccessEnvelope;
 import com.inkcore.infrastructure.in.rest.openapi.OrderCreateDeliverySuccessEnvelope;
 import com.inkcore.infrastructure.in.rest.openapi.OrderCreateNegotiatedAdditionSuccessEnvelope;
 import com.inkcore.infrastructure.in.rest.openapi.OrderCreatePaymentSuccessEnvelope;
+import com.inkcore.infrastructure.in.rest.openapi.OrderCxcDocumentListSuccessEnvelope;
 import com.inkcore.infrastructure.in.rest.openapi.OrderDeliveryListSuccessEnvelope;
 import com.inkcore.infrastructure.in.rest.openapi.OrderNegotiatedAdditionListSuccessEnvelope;
 import com.inkcore.infrastructure.in.rest.openapi.OrderPaymentListSuccessEnvelope;
@@ -55,6 +61,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
@@ -65,12 +72,9 @@ import java.util.List;
 @RequestMapping("/api/v1/production-orders")
 @Tag(
         name = "Pedidos",
-        description = "Ledgers comerciales sobre OP: entregas (deliveryNumber ODP-{n}, distinto del odpNumber del pedido) "
-                + "y liquidaciones LIQ-{n} append-only; adicionales negociados ADN-{n} (crear/editar; "
-                + "anular = voidedAt en la misma fila, sin otro consecutivo). "
-                + "amountToCollect = totalToCharge + ADN vigentes; Abonos usa esa base. "
-                + "Agregado CxC/Abonos: abonosNumber ABN al crear pedido; cxcNumber en 1ª entrega; "
-                + "series ABN (cuenta) y LIQ (movimiento) separadas."
+        description = "Ledgers comerciales: ENT-{n}, LIQ-{n}, ADN-{n}; documentos CxC (1 ENT/ADN → 1 CxC). "
+                + "Pagos con paymentConcept + cxcDocumentId; aplicaciones y saldo a favor. "
+                + "Series ODP / ENT / CXC / ABN / LIQ independientes."
 )
 @SecurityRequirement(name = "bearerAuth")
 public class OrderController {
@@ -87,6 +91,9 @@ public class OrderController {
     private final ReverseNegotiatedAdditionUseCase reverseNegotiatedAdditionUseCase;
     private final UpdateNegotiatedAdditionUseCase updateNegotiatedAdditionUseCase;
     private final ListNegotiatedAdditionsUseCase listNegotiatedAdditionsUseCase;
+    private final ListOrderCxcDocumentsUseCase listCxcDocumentsUseCase;
+    private final CreateCxcFromAdditionUseCase createCxcFromAdditionUseCase;
+    private final ApplyPedidoCreditToCxcUseCase applyPedidoCreditToCxcUseCase;
     private final ApiResponseFactory responseFactory;
 
     public OrderController(
@@ -102,6 +109,9 @@ public class OrderController {
             ReverseNegotiatedAdditionUseCase reverseNegotiatedAdditionUseCase,
             UpdateNegotiatedAdditionUseCase updateNegotiatedAdditionUseCase,
             ListNegotiatedAdditionsUseCase listNegotiatedAdditionsUseCase,
+            ListOrderCxcDocumentsUseCase listCxcDocumentsUseCase,
+            CreateCxcFromAdditionUseCase createCxcFromAdditionUseCase,
+            ApplyPedidoCreditToCxcUseCase applyPedidoCreditToCxcUseCase,
             ApiResponseFactory responseFactory
     ) {
         this.createDeliveryUseCase = createDeliveryUseCase;
@@ -116,6 +126,9 @@ public class OrderController {
         this.reverseNegotiatedAdditionUseCase = reverseNegotiatedAdditionUseCase;
         this.updateNegotiatedAdditionUseCase = updateNegotiatedAdditionUseCase;
         this.listNegotiatedAdditionsUseCase = listNegotiatedAdditionsUseCase;
+        this.listCxcDocumentsUseCase = listCxcDocumentsUseCase;
+        this.createCxcFromAdditionUseCase = createCxcFromAdditionUseCase;
+        this.applyPedidoCreditToCxcUseCase = applyPedidoCreditToCxcUseCase;
         this.responseFactory = responseFactory;
     }
 
@@ -124,8 +137,8 @@ public class OrderController {
     @Operation(
             operationId = "createOrderDelivery",
             summary = "Registrar entrega parcial o total",
-            description = "Inserta en order_deliveries (append-only). Asigna deliveryNumber=ODP-{n} por empresa "
-                    + "(secuencia propia de entregas; no es customer_orders.odpNumber del pedido comercial). "
+            description = "Inserta en order_deliveries (append-only). Asigna deliveryNumber=ENT-{n} por empresa "
+                    + "(secuencia ENT propia; ≠ customer_orders.odpNumber ODP; ≠ cxcNumber CXC). "
                     + "totalValue = quantityDelivered × unitPrice. La disponibilidad la valida el trigger de BD; "
                     + "422 si no alcanza. abonosNumber=ABN-{n} nace con el pedido; en la 1ª entrega el trigger "
                     + "asigna cxcNumber=CXC-{n} y openedAt=deliveredAt (si la cuenta shell aún no tenía CXC). "
@@ -196,7 +209,7 @@ public class OrderController {
             operationId = "listOrderDeliveries",
             summary = "Listar entregas de una OP",
             description = "Historial append-only (entrega|reversion) ordenado por deliveredAt DESC. "
-                    + "Cada fila incluye deliveryNumber (ODP-{n} de entrega, distinto del odpNumber del pedido)."
+                    + "Cada fila incluye deliveryNumber ENT-{n} (≠ odpNumber ODP del pedido, ≠ cxcNumber CXC)."
     )
     @ApiResponse(
             responseCode = "200",
@@ -227,7 +240,7 @@ public class OrderController {
     @Operation(
             operationId = "reverseOrderDelivery",
             summary = "Anular una entrega (append-only)",
-            description = "No borra la entrega: inserta movementType=reversion con nuevo ODP-{n}. "
+            description = "No borra la entrega: inserta movementType=reversion con nuevo ENT-{n}. "
                     + "Recalcula unidades/saldos CxC; cxcNumber y abonosNumber (ABN) no cambian. "
                     + "409 si ya fue anulada. 422 si el saldo adeudado quedaría por debajo de lo abonado."
     )
@@ -381,14 +394,12 @@ public class OrderController {
             summary = "Registrar liquidación (abono, anticipo o retención)",
             description = "Inserta order_payments (append-only) con paymentNumber=LIQ-{n} (consecutivo por empresa). "
                     + "paymentType: abono|anticipo|retencion (default abono). "
-                    + "Los abonos se aplican sobre amountToCollect de la OP (totalToCharge + ADN vigentes; "
-                    + "no solo valor entregado): se puede registrar abono sin entregas / CxC en cero; "
-                    + "anticipo válido sin totalToCharge. "
-                    + "totalRemaining puede quedar negativo (saldo a favor). "
+                    + "paymentConcept: entrega|extra (default entrega). "
+                    + "Si hay CxC abiertas del mismo concepto, cxcDocumentId es obligatorio "
+                    + "(nunca auto-asigna); excedente → saldo a favor del pedido. "
+                    + "Sin CxC abiertas del concepto, todo el monto va a favor. "
                     + "Retención exige withholdingType y paymentMethod=retencion. "
-                    + "Actualiza el agregado CxC/Abonos existente (sin regenerar abonosNumber): "
-                    + "totalPaid/buckets, lastPaymentNumber=ABN del movimiento y lastPaymentAt=paidAt. "
-                    + "Devuelve accounts_receivable con totalOwed=amountToCollect y totalRemaining recalculados."
+                    + "Actualiza el agregado accounts_receivable (ABN) y crea order_payment_applications."
     )
     @ApiResponse(
             responseCode = "201",
@@ -434,7 +445,9 @@ public class OrderController {
                         request.certificateRef(),
                         request.invoiceId(),
                         request.paidAt(),
-                        request.notes()
+                        request.notes(),
+                        request.paymentConcept(),
+                        request.cxcDocumentId()
                 ),
                 authentication
         );
@@ -529,6 +542,149 @@ public class OrderController {
         );
     }
 
+    @GetMapping("/{productionOrderId}/cxc-documents")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
+    @Operation(
+            operationId = "listOrderCxcDocuments",
+            summary = "Listar CxC abiertas del pedido",
+            description = "Documentos de cartera CxC. Por defecto openOnly=true (saldo > 0). "
+                    + "openOnly=false incluye pagadas (p. ej. saber si un ADN ya tiene CxC). "
+                    + "Filtrar por concept=entrega|extra. "
+                    + "Selector de pago: cxcDocumentId obligatorio si hay filas abiertas del mismo concepto."
+    )
+    @ApiResponse(
+            responseCode = "200",
+            description = "CxC del pedido",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    schema = @Schema(implementation = OrderCxcDocumentListSuccessEnvelope.class),
+                    examples = @ExampleObject(name = "ListadoCxC", value = OrderSwaggerExamples.CXC_DOCUMENT_LIST_RESPONSE)
+            )
+    )
+    @ApiErrorResponses
+    @ApiSecuredErrorResponses
+    public ResponseEntity<ApiSuccessEnvelope<List<OrderResponses.CxcDocumentResponse>>> listCxcDocuments(
+            @Parameter(description = "ID de la OP", required = true, example = OrderSwaggerExamples.ORDER_ID)
+            @PathVariable String productionOrderId,
+            @Parameter(description = "entrega | extra (opcional)")
+            @RequestParam(required = false) String concept,
+            @Parameter(description = "true = solo saldo > 0 (default); false = todas excepto anuladas")
+            @RequestParam(required = false, defaultValue = "true") boolean openOnly,
+            Authentication authentication,
+            HttpServletRequest httpRequest
+    ) {
+        return responseFactory.okStandard(
+                httpRequest,
+                listCxcDocumentsUseCase.execute(productionOrderId, concept, openOnly, authentication)
+                        .stream()
+                        .map(OrderResponses.CxcDocumentResponse::from)
+                        .toList()
+        );
+    }
+
+    @PostMapping("/{productionOrderId}/cxc-documents/from-addition")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
+    @Operation(
+            operationId = "createCxcFromAddition",
+            summary = "Abrir CxC extra desde un ADN",
+            description = "1 ADN vigente → 1 CxC concepto extra. Idempotente si ya existe CxC activa del ADN."
+    )
+    @ApiResponse(
+            responseCode = "201",
+            description = "CxC creada",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    schema = @Schema(implementation = OrderCreateCxcFromAdditionSuccessEnvelope.class),
+                    examples = @ExampleObject(
+                            name = "CxCExtraCreada",
+                            value = OrderSwaggerExamples.CREATE_CXC_FROM_ADDITION_RESPONSE
+                    )
+            )
+    )
+    @ApiErrorResponses
+    @ApiSecuredErrorResponses
+    public ResponseEntity<ApiSuccessEnvelope<OrderResponses.CreateCxcFromAdditionResponse>> createCxcFromAddition(
+            @Parameter(description = "ID de la OP", required = true, example = OrderSwaggerExamples.ORDER_ID)
+            @PathVariable String productionOrderId,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    description = "ADN vigente a facturar como CxC extra",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = CreateCxcFromAdditionRequest.class),
+                            examples = @ExampleObject(
+                                    name = "DesdeAdn",
+                                    value = OrderSwaggerExamples.CREATE_CXC_FROM_ADDITION_REQUEST
+                            )
+                    )
+            )
+            @Valid @RequestBody CreateCxcFromAdditionRequest request,
+            Authentication authentication,
+            HttpServletRequest httpRequest
+    ) {
+        CreateCxcFromAdditionUseCase.Result result = createCxcFromAdditionUseCase.execute(
+                productionOrderId, request.additionId(), authentication);
+        return responseFactory.success(
+                httpRequest,
+                HttpStatus.CREATED,
+                OrderResponses.CreateCxcFromAdditionResponse.from(result)
+        );
+    }
+
+    @PostMapping("/{productionOrderId}/cxc-documents/{cxcDocumentId}/apply-credit")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
+    @Operation(
+            operationId = "applyPedidoCreditToCxc",
+            summary = "Aplicar saldo a favor a una CxC",
+            description = "Consume saldo a favor del pedido (apps sin CxC) hacia la CxC indicada. No crea LIQ nuevo."
+    )
+    @ApiResponse(
+            responseCode = "200",
+            description = "Favor aplicado",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    schema = @Schema(implementation = OrderApplyCreditToCxcSuccessEnvelope.class),
+                    examples = @ExampleObject(
+                            name = "FavorAplicado",
+                            value = OrderSwaggerExamples.APPLY_CREDIT_TO_CXC_RESPONSE
+                    )
+            )
+    )
+    @ApiErrorResponses
+    @ApiSecuredErrorResponses
+    public ResponseEntity<ApiSuccessEnvelope<OrderResponses.ApplyCreditToCxcResponse>> applyCreditToCxc(
+            @Parameter(description = "ID de la OP", required = true, example = OrderSwaggerExamples.ORDER_ID)
+            @PathVariable String productionOrderId,
+            @Parameter(description = "ID del documento CxC", required = true,
+                    example = OrderSwaggerExamples.CXC_DOCUMENT_ID)
+            @PathVariable String cxcDocumentId,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    description = "Monto del saldo a favor a aplicar a la CxC",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApplyCreditToCxcRequest.class),
+                            examples = @ExampleObject(
+                                    name = "AplicarFavor",
+                                    value = OrderSwaggerExamples.APPLY_CREDIT_TO_CXC_REQUEST
+                            )
+                    )
+            )
+            @Valid @RequestBody ApplyCreditToCxcRequest request,
+            Authentication authentication,
+            HttpServletRequest httpRequest
+    ) {
+        ApplyPedidoCreditToCxcUseCase.Result result = applyPedidoCreditToCxcUseCase.execute(
+                new ApplyPedidoCreditToCxcUseCase.Command(
+                        productionOrderId, cxcDocumentId, request.amount()),
+                authentication
+        );
+        return responseFactory.okStandard(
+                httpRequest,
+                OrderResponses.ApplyCreditToCxcResponse.from(result)
+        );
+    }
+
     @PostMapping("/{productionOrderId}/negotiated-additions")
     @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
@@ -537,6 +693,7 @@ public class OrderController {
             description = "Cambio de alcance que el cliente aprueba y paga. No modifica el costeo de planta "
                     + "(totalToCharge / PDF de cobro). Inserta order_negotiated_additions "
                     + "con additionNumber=ADN-{n}. amountToCollect = totalToCharge + suma vigente de ADN. "
+                    + "Al registrar abre de una la CxC EXTRA (Adicionales) asociada al ADN. "
                     + "La lectura de Abonos usa amountToCollect como totalOwed. "
                     + "Obligatorios: concept, changeReason, amount > 0, approvedByClientName, approvalChannel."
     )
@@ -667,7 +824,9 @@ public class OrderController {
             operationId = "reverseNegotiatedAddition",
             summary = "Anular un adicional negociado",
             description = "Marca el mismo ADN como anulado (voidedAt/voidedBy). No asigna otro consecutivo. "
-                    + "409 si ya fue anulado. amountToCollect y totalOwed de Abonos dejan de incluir ese monto."
+                    + "Si existe CxC extra del ADN sin abonos, la anula. "
+                    + "422 si la CxC ya tiene abonos. 409 si ya fue anulado. "
+                    + "amountToCollect y totalOwed de Abonos dejan de incluir ese monto."
     )
     @ApiResponse(
             responseCode = "200",
@@ -754,9 +913,9 @@ public class OrderController {
 
     @Schema(
             name = "OrderCreateDeliveryRequest",
-            description = "Payload para registrar una entrega. No enviar deliveryNumber/ODP ni cxcNumber: "
+            description = "Payload para registrar una entrega. No enviar deliveryNumber ni cxcNumber: "
                     + "companyId, deliveredBy, totalValue, snapshots, availableBefore y números los determina el servidor. "
-                    + "El deliveryNumber ODP-{n} de la entrega no es el odpNumber del pedido (customer_orders)."
+                    + "El deliveryNumber ENT-{n} es serie propia (≠ odpNumber ODP del pedido, ≠ cxcNumber CXC)."
     )
     public record CreateDeliveryRequest(
             @Schema(description = "parcial | total", allowableValues = {"parcial", "total"}, example = "parcial", requiredMode = Schema.RequiredMode.REQUIRED)
@@ -777,7 +936,8 @@ public class OrderController {
     @Schema(
             name = "OrderCreatePaymentRequest",
             description = "Payload para registrar abono, anticipo o retención. No enviar paymentNumber/ABN: "
-                    + "registeredBy y LIQ-{n} se determinan en el servidor. paymentType default=abono."
+                    + "registeredBy y LIQ-{n} se determinan en el servidor. paymentType default=abono. "
+                    + "paymentConcept default=entrega. cxcDocumentId obligatorio si hay CxC abiertas del concepto."
     )
     public record CreatePaymentRequest(
             @Schema(example = "200000.00", requiredMode = Schema.RequiredMode.REQUIRED)
@@ -794,11 +954,33 @@ public class OrderController {
             @Schema(example = "1000000.00") BigDecimal withholdingBase,
             @Schema(example = "2.5") BigDecimal withholdingRate,
             @Schema(example = "CERT-2026-001") String certificateRef,
-            @Schema(description = "Reserva FE (nullable)") String invoiceId,
+            @Schema(description = "Reserva FE electrónica (nullable); distinto de cxcDocumentId") String invoiceId,
             @Schema(description = "Fecha/hora del pago (sin Z)", example = "2026-09-05T16:00:00")
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime paidAt,
             @Schema(example = "Abono inicial")
-            String notes
+            String notes,
+            @Schema(allowableValues = {"entrega", "extra"}, example = "entrega",
+                    description = "Concepto de aplicación del pago (default entrega)")
+            String paymentConcept,
+            @Schema(description = "CxC destino obligatoria si hay CxC abiertas del paymentConcept",
+                    example = "cxc-uuid-001")
+            String cxcDocumentId
+    ) {
+    }
+
+    @Schema(name = "OrderCreateCxcFromAdditionRequest",
+            description = "Factura un ADN vigente como CxC concepto extra.")
+    public record CreateCxcFromAdditionRequest(
+            @Schema(example = "adn-uuid-001", requiredMode = Schema.RequiredMode.REQUIRED)
+            @NotBlank String additionId
+    ) {
+    }
+
+    @Schema(name = "OrderApplyCreditToCxcRequest",
+            description = "Aplica saldo a favor del pedido a una CxC abierta.")
+    public record ApplyCreditToCxcRequest(
+            @Schema(example = "150000.00", requiredMode = Schema.RequiredMode.REQUIRED)
+            @NotNull @DecimalMin("0.01") BigDecimal amount
     ) {
     }
 

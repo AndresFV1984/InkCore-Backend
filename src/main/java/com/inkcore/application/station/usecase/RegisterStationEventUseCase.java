@@ -166,10 +166,11 @@ public class RegisterStationEventUseCase {
                         command.wasteReason()
                 );
             }
-            if (command.eventType() == StationEventType.AVANCE_UNIDADES
+            if (!Boolean.TRUE.equals(command.deferOrderCompletion())
+                    && (command.eventType() == StationEventType.AVANCE_UNIDADES
                     || command.eventType() == StationEventType.ENTREGA_TOTAL
                     || command.eventType() == StationEventType.ENTREGA_PARCIAL
-                    || command.eventType() == StationEventType.FIN_FASE) {
+                    || command.eventType() == StationEventType.FIN_FASE)) {
                 orderCompletionService.completeIfAllStagesProcessed(order, actorUserId, now);
             }
         }

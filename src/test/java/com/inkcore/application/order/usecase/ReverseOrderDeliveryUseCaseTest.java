@@ -1,7 +1,6 @@
 package com.inkcore.application.order.usecase;
 
 import com.inkcore.application.order.OrderSupport;
-import com.inkcore.domain.order.exception.OrderBusinessRuleException;
 import com.inkcore.domain.order.exception.OrderConflictException;
 import com.inkcore.domain.order.model.AccountsReceivable;
 import com.inkcore.domain.order.model.DeliveryMovementType;
@@ -35,17 +34,19 @@ class ReverseOrderDeliveryUseCaseTest {
     @Mock OrderSupport support;
     @Mock OrderDeliveryRepositoryPort deliveryRepository;
     @Mock AccountsReceivableRepositoryPort accountsReceivableRepository;
+    @Mock OrderCxcDocumentService cxcDocumentService;
     @Mock Authentication authentication;
 
     private ReverseOrderDeliveryUseCase useCase;
 
     @BeforeEach
     void setUp() {
-        useCase = new ReverseOrderDeliveryUseCase(support, deliveryRepository, accountsReceivableRepository);
+        useCase = new ReverseOrderDeliveryUseCase(
+                support, deliveryRepository, accountsReceivableRepository, cxcDocumentService);
     }
 
     @Test
-    void execute_appendsReversionWithNewOdpAndKeepsCxc() {
+    void execute_appendsReversionWithNewEntAndKeepsCxc() {
         LocalDateTime now = LocalDateTime.of(2026, 9, 8, 12, 0);
         OrderDelivery original = originalDelivery();
         AccountsReceivable current = ar("ar-1", "CXC-7", new BigDecimal("600000.00"), BigDecimal.ZERO);
@@ -55,21 +56,22 @@ class ReverseOrderDeliveryUseCaseTest {
         when(support.userId(authentication)).thenReturn("user-authenticated");
         when(support.now()).thenReturn(now);
         when(support.requireActiveOrder("op-1", "company-1")).thenReturn(ProductionOrder.reconstitute());
-        when(support.nextDeliveryNumber("company-1")).thenReturn("ODP-99");
+        when(support.nextDeliveryNumber("company-1")).thenReturn("ENT-99");
         when(deliveryRepository.findByIdForUpdate("company-1", "del-1")).thenReturn(Optional.of(original));
         when(deliveryRepository.existsReversionFor("company-1", "del-1")).thenReturn(false);
-        when(accountsReceivableRepository.findByProductionOrderId("company-1", "op-1"))
+        when(accountsReceivableRepository.findByProductionOrderIdFresh("company-1", "op-1"))
                 .thenReturn(Optional.of(current), Optional.of(updated));
         when(deliveryRepository.save(any(OrderDelivery.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         CreateOrderDeliveryUseCase.CreateDeliveryResult result =
                 useCase.execute("op-1", "del-1", "Entrega duplicada", authentication);
 
+        verify(cxcDocumentService).annulFromDelivery(original, now);
         ArgumentCaptor<OrderDelivery> captor = ArgumentCaptor.forClass(OrderDelivery.class);
         verify(deliveryRepository).save(captor.capture());
         OrderDelivery reversion = captor.getValue();
         assertEquals(DeliveryMovementType.REVERSION, reversion.getMovementType());
-        assertEquals("ODP-99", reversion.getDeliveryNumber());
+        assertEquals("ENT-99", reversion.getDeliveryNumber());
         assertEquals("del-1", reversion.getReversedDeliveryId());
         assertEquals(original.getTotalValue(), reversion.getTotalValue());
         assertEquals("Anulado por: Entrega duplicada", reversion.getNotes());
@@ -94,29 +96,36 @@ class ReverseOrderDeliveryUseCaseTest {
     }
 
     @Test
-    void execute_rejectsWhenOwedWouldFallBelowPaid() {
+    void execute_allowsReverseEvenWhenPaidExceedsDeliveryLedger() {
+        // Abonos van sobre amountToCollect de la OP; anular entrega no se bloquea por totalPaid vs CxC.
+        LocalDateTime now = LocalDateTime.of(2026, 9, 8, 12, 0);
         AccountsReceivable current = ar("ar-1", "CXC-7", new BigDecimal("600000.00"), new BigDecimal("200000.00"));
+        AccountsReceivable updated = ar("ar-1", "CXC-7", BigDecimal.ZERO, new BigDecimal("200000.00"));
 
         when(support.companyId(authentication)).thenReturn("company-1");
         when(support.userId(authentication)).thenReturn("user-authenticated");
-        when(support.now()).thenReturn(LocalDateTime.of(2026, 9, 8, 12, 0));
+        when(support.now()).thenReturn(now);
         when(support.requireActiveOrder("op-1", "company-1")).thenReturn(ProductionOrder.reconstitute());
+        when(support.nextDeliveryNumber("company-1")).thenReturn("ENT-99");
         when(deliveryRepository.findByIdForUpdate("company-1", "del-1")).thenReturn(Optional.of(originalDelivery()));
         when(deliveryRepository.existsReversionFor("company-1", "del-1")).thenReturn(false);
-        when(accountsReceivableRepository.findByProductionOrderId("company-1", "op-1")).thenReturn(Optional.of(current));
+        when(accountsReceivableRepository.findByProductionOrderIdFresh("company-1", "op-1"))
+                .thenReturn(Optional.of(current), Optional.of(updated));
+        when(deliveryRepository.save(any(OrderDelivery.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        assertThrows(
-                OrderBusinessRuleException.class,
-                () -> useCase.execute("op-1", "del-1", "No aplica", authentication)
-        );
-        verify(deliveryRepository, never()).save(any());
+        CreateOrderDeliveryUseCase.CreateDeliveryResult result =
+                useCase.execute("op-1", "del-1", "No aplica", authentication);
+
+        assertEquals("ENT-99", result.delivery().getDeliveryNumber());
+        assertEquals("CXC-7", result.accountsReceivable().getCxcNumber());
+        verify(deliveryRepository).save(any(OrderDelivery.class));
     }
 
     private static OrderDelivery originalDelivery() {
         OrderDelivery delivery = new OrderDelivery();
         delivery.setOrderDeliveryId("del-1");
         delivery.setCompanyId("company-1");
-        delivery.setDeliveryNumber("ODP-1");
+        delivery.setDeliveryNumber("ENT-1");
         delivery.setProductionOrderId("op-1");
         delivery.setClientId("client-1");
         delivery.setSellerId("seller-1");

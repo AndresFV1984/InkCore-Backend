@@ -16,7 +16,8 @@ public final class StationRequests {
 
     @Schema(
             name = "AdminCloseOrderStagesRequest",
-            description = "Cierre administrativo de todas las etapas incompletas de una OP. Solo ADMINISTRADOR."
+            description = "Cierre administrativo de todas las etapas incompletas de una OP. "
+                    + "Solo ADMINISTRADOR. Normaliza status legacy (español) a IN_PROGRESS_* si aplica."
     )
     public record AdminCloseOrderStagesRequest(
             @Schema(

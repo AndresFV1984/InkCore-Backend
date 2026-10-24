@@ -35,6 +35,7 @@ import com.inkcore.domain.order.ports.out.AccountsReceivableRepositoryPort;
 import com.inkcore.domain.order.ports.out.CustomerOrderRepositoryPort;
 import com.inkcore.domain.productionorder.model.PostpressType;
 import com.inkcore.domain.productionorder.model.ProductionOrder;
+import com.inkcore.domain.productionorder.ports.out.CostSummaryRepositoryPort;
 import com.inkcore.domain.shared.PageQuery;
 import com.inkcore.infrastructure.in.rest.envelope.ApiResponseFactory;
 import com.inkcore.infrastructure.in.rest.envelope.ApiSuccessEnvelope;
@@ -98,10 +99,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/production-orders")
 @Tag(
         name = "Órdenes de producción",
-        description = "Wizard OP (OP-{n}). Listado/detalle: totalToCharge (panel Cobro), "
-                + "negotiatedAdditionsTotal y amountToCollect (cobro + ADN vigentes). "
-                + "Al pasar a IN_PROGRESS* crea customer_orders "
-                + "(customerOrderId + odpNumber ODP-{n}) y cuenta Abonos (abonosNumber ABN-{n}). "
+        description = "Wizard OP (OP-{n}). Detalle recalcula totalToCharge; listado lo lee de "
+                + "cost_summary.quoted_price. negotiatedAdditionsTotal y amountToCollect "
+                + "(cobro + ADN vigentes). Al pasar a IN_PROGRESS* crea customer_orders "
+                + "(customerOrderId + odpNumber ODP-{n}) y Abonos (abonosNumber ABN-{n}). "
                 + "ANULADA reemplaza CANCELLED."
 )
 @SecurityRequirement(name = "bearerAuth")
@@ -127,6 +128,7 @@ public class ProductionOrderController {
     private final StationOrderProgressService orderProgressService;
     private final CustomerOrderRepositoryPort customerOrderRepository;
     private final AccountsReceivableRepositoryPort accountsReceivableRepository;
+    private final CostSummaryRepositoryPort costSummaryRepository;
     private final AuthenticatedCompanyResolver companyResolver;
     private final ApiResponseFactory responseFactory;
 
@@ -151,6 +153,7 @@ public class ProductionOrderController {
             StationOrderProgressService orderProgressService,
             CustomerOrderRepositoryPort customerOrderRepository,
             AccountsReceivableRepositoryPort accountsReceivableRepository,
+            CostSummaryRepositoryPort costSummaryRepository,
             AuthenticatedCompanyResolver companyResolver,
             ApiResponseFactory responseFactory
     ) {
@@ -174,6 +177,7 @@ public class ProductionOrderController {
         this.orderProgressService = orderProgressService;
         this.customerOrderRepository = customerOrderRepository;
         this.accountsReceivableRepository = accountsReceivableRepository;
+        this.costSummaryRepository = costSummaryRepository;
         this.companyResolver = companyResolver;
         this.responseFactory = responseFactory;
     }
@@ -226,8 +230,8 @@ public class ProductionOrderController {
                     + "(productionOrderPlateId), paperRows, prints, postpressRecords "
                     + "(FINISHED_PRODUCT / FINISHING_PROCESS), billing, operators, stageDiscounts, "
                     + "timestamps de progreso, version, cantidadDisponible, totalToCharge "
-                    + "(panel Cobro; null sin costos), negotiatedAdditionsTotal (ADN vigentes), "
-                    + "amountToCollect (cobro + ADN; base de Abonos) y, si ya existe, "
+                    + "(recalculado del agregado; null si aún no se cotizó), negotiatedAdditionsTotal "
+                    + "(ADN vigentes), amountToCollect (cobro + ADN; base de Abonos) y, si ya existe, "
                     + "customerOrderId + odpNumber + abonosNumber (ABN) del pedido/cuenta. "
                     + "Solo de la empresa del usuario autenticado."
     )
@@ -270,7 +274,9 @@ public class ProductionOrderController {
             description = "Filtros opcionales: orderNumber (búsqueda parcial, ej. OP-42 o 42), status "
                     + "(ANULADA; CANCELLED se normaliza a ANULADA), clientId, fromDate/toDate (orderDate), state. "
                     + "Cada ítem incluye customerOrderId/odpNumber/abonosNumber cuando la OP ya tiene pedido, "
-                    + "totalToCharge (panel Cobro; null sin costos), negotiatedAdditionsTotal y amountToCollect. "
+                    + "totalToCharge (= production_order_cost_summary.quoted_price; null si aún no se cotizó), "
+                    + "negotiatedAdditionsTotal (suma ADN vigentes) y amountToCollect. "
+                    + "Listado liviano: no hidrata corte/impresión/postprensa. "
                     + "Siempre acotado al companyId del JWT. Las respuestas nunca devuelven CANCELLED."
     )
     @ApiResponse(
@@ -325,13 +331,17 @@ public class ProductionOrderController {
                         AccountsReceivable::getAbonosNumber,
                         (a, b) -> a
                 ));
+        // quoted_price persistido = totalToCharge (evita hidratar corte/impresión/postprensa).
+        Map<String, java.math.BigDecimal> quotedByOrder =
+                costSummaryRepository.mapQuotedPriceByOrderIds(companyId, orderIds);
         PageResponse<ProductionOrderResponse> data = PageResponse.from(
                 result,
-                order -> toResponse(
+                order -> toListResponse(
                         order,
                         cantidadByOrder.getOrDefault(order.getProductionOrderId(), 0),
                         orderByProductionOrderId.get(order.getProductionOrderId()),
-                        abonosByProductionOrderId.get(order.getProductionOrderId())
+                        abonosByProductionOrderId.get(order.getProductionOrderId()),
+                        quotedByOrder.get(order.getProductionOrderId())
                 )
         );
         return responseFactory.okStandard(httpRequest, data);
@@ -661,7 +671,7 @@ public class ProductionOrderController {
                     + "Si el status pasa de un estado no-progreso a cualquier IN_PROGRESS*, el backend crea "
                     + "(idempotente) customer_orders con customerOrderId + odpNumber=ODP-{n} y la cuenta "
                     + "de Abonos abonosNumber=ABN-{n}; ambos se devuelven en la respuesta. "
-                    + "Distinto de order_deliveries.deliveryNumber (también ODP-{n}) y de paymentNumber LIQ-{n}."
+                    + "Distinto de order_deliveries.deliveryNumber (ENT-{n}), cxcNumber (CXC) y paymentNumber LIQ-{n}."
     )
     @ApiResponse(
             responseCode = "200",
@@ -1105,6 +1115,23 @@ public class ProductionOrderController {
                 linkedOrder == null ? null : linkedOrder.getCustomerOrderId(),
                 linkedOrder == null ? null : linkedOrder.getOdpNumber(),
                 abonosNumber
+        );
+    }
+
+    private static ProductionOrderResponse toListResponse(
+            ProductionOrder order,
+            int cantidadDisponible,
+            CustomerOrder linkedOrder,
+            String abonosNumber,
+            java.math.BigDecimal quotedPrice
+    ) {
+        return ProductionOrderResponse.from(
+                order,
+                cantidadDisponible,
+                linkedOrder == null ? null : linkedOrder.getCustomerOrderId(),
+                linkedOrder == null ? null : linkedOrder.getOdpNumber(),
+                abonosNumber,
+                quotedPrice
         );
     }
 

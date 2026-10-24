@@ -59,7 +59,7 @@ public class ListAccountsReceivableUseCase {
     ) {
         String companyId = support.companyId(authentication);
         // No abrir cuentas aquí: este use case es @Transactional(readOnly=true).
-        // Shells ABN nacen en el trigger de customer_orders (V71) / backfill V68.
+        // Shells ABN nacen en el trigger de customer_orders.
         PageQuery query = pageQuery == null ? PageQuery.of(0, PageQuery.DEFAULT_SIZE) : pageQuery;
         LocalDate today = LocalDate.now();
 

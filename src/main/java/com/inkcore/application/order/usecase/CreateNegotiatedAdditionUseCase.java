@@ -4,6 +4,7 @@ import com.inkcore.application.order.AbonosBalance;
 import com.inkcore.application.order.OrderSupport;
 import com.inkcore.domain.order.exception.OrderBusinessRuleException;
 import com.inkcore.domain.order.model.AccountsReceivable;
+import com.inkcore.domain.order.model.CustomerOrder;
 import com.inkcore.domain.order.model.NegotiatedAddition;
 import com.inkcore.domain.order.model.NegotiatedAdditionApprovalChannel;
 import com.inkcore.domain.order.model.NegotiatedAdditionMovementType;
@@ -29,15 +30,18 @@ public class CreateNegotiatedAdditionUseCase {
     private final OrderSupport support;
     private final NegotiatedAdditionRepositoryPort additionRepository;
     private final AccountsReceivableRepositoryPort accountsReceivableRepository;
+    private final OrderCxcDocumentService cxcDocumentService;
 
     public CreateNegotiatedAdditionUseCase(
             OrderSupport support,
             NegotiatedAdditionRepositoryPort additionRepository,
-            AccountsReceivableRepositoryPort accountsReceivableRepository
+            AccountsReceivableRepositoryPort accountsReceivableRepository,
+            OrderCxcDocumentService cxcDocumentService
     ) {
         this.support = support;
         this.additionRepository = additionRepository;
         this.accountsReceivableRepository = accountsReceivableRepository;
+        this.cxcDocumentService = cxcDocumentService;
     }
 
     @Transactional
@@ -84,6 +88,16 @@ public class CreateNegotiatedAdditionUseCase {
         addition.setCreatedAt(now);
 
         NegotiatedAddition saved = additionRepository.save(addition);
+
+        // Al registrar ADN se abre de una la CxC EXTRA (Adicionales) para cobro.
+        AccountsReceivable arForCxc = accountsReceivableRepository
+                .findByProductionOrderIdFresh(companyId, order.getProductionOrderId())
+                .orElseGet(AccountsReceivable::new);
+        CustomerOrder customerOrder = support.customerOrderRepository()
+                .findByProductionOrderId(companyId, order.getProductionOrderId())
+                .orElse(null);
+        cxcDocumentService.createFromAddition(saved, arForCxc, customerOrder, now);
+
         return finish(companyId, order, saved);
     }
 

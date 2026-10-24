@@ -38,6 +38,9 @@ public class OrderPaymentEntity implements Persistable<String> {
     @Column(name = "payment_type", nullable = false, length = 16)
     private String paymentType;
 
+    @Column(name = "payment_concept", nullable = false, length = 16)
+    private String paymentConcept = "entrega";
+
     @Column(nullable = false, precision = 14, scale = 2)
     private BigDecimal amount;
 
@@ -101,6 +104,8 @@ public class OrderPaymentEntity implements Persistable<String> {
     public void setClientId(String clientId) { this.clientId = clientId; }
     public String getPaymentType() { return paymentType; }
     public void setPaymentType(String paymentType) { this.paymentType = paymentType; }
+    public String getPaymentConcept() { return paymentConcept; }
+    public void setPaymentConcept(String paymentConcept) { this.paymentConcept = paymentConcept; }
     public BigDecimal getAmount() { return amount; }
     public void setAmount(BigDecimal amount) { this.amount = amount; }
     public String getPaymentMethod() { return paymentMethod; }

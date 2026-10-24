@@ -1,5 +1,7 @@
 package com.inkcore.infrastructure.in.rest.orders;
 
+import com.inkcore.application.order.usecase.ApplyPedidoCreditToCxcUseCase;
+import com.inkcore.application.order.usecase.CreateCxcFromAdditionUseCase;
 import com.inkcore.application.order.usecase.CreateNegotiatedAdditionUseCase;
 import com.inkcore.application.order.usecase.CreateOrderDeliveryUseCase;
 import com.inkcore.application.order.usecase.CreateOrderPaymentUseCase;
@@ -7,12 +9,17 @@ import com.inkcore.application.order.usecase.GetClientAccountsReceivableUseCase;
 import com.inkcore.application.order.usecase.GetOrderAccountsReceivableUseCase;
 import com.inkcore.application.order.usecase.GetOrderAvailabilityUseCase;
 import com.inkcore.application.order.usecase.ListAccountsReceivableUseCase;
+import com.inkcore.application.order.usecase.ListCxcDocumentsDashboardUseCase;
+import com.inkcore.application.order.usecase.OrderCxcDocumentService;
 import com.inkcore.domain.order.model.AccountsReceivable;
 import com.inkcore.domain.order.model.AccountsReceivableAging;
+import com.inkcore.domain.order.model.CxcDocumentConcept;
 import com.inkcore.domain.order.model.DeliveryMovementType;
 import com.inkcore.domain.order.model.NegotiatedAddition;
+import com.inkcore.domain.order.model.OrderCxcDocument;
 import com.inkcore.domain.order.model.OrderDelivery;
 import com.inkcore.domain.order.model.OrderPayment;
+import com.inkcore.domain.order.model.OrderPaymentApplication;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
@@ -203,28 +210,138 @@ public final class OrderResponses {
     }
 
     @Schema(name = "OrderCreateDeliveryResponse", description = "Resultado de registrar una entrega o su reversión. "
-            + "accountsReceivable incluye cxcNumber, abonosNumber (ABN-n) y odpNumber cuando aplica.")
+            + "accountsReceivable incluye cxcNumber, abonosNumber (ABN-n) y odpNumber cuando aplica. "
+            + "cxcDocument = documento de cartera creado con la entrega (1 ENT → 1 CxC).")
     public record CreateDeliveryResponse(
             DeliveryResponse delivery,
-            AccountsReceivableResponse accountsReceivable
+            AccountsReceivableResponse accountsReceivable,
+            CxcDocumentResponse cxcDocument
     ) {
         public static CreateDeliveryResponse from(CreateOrderDeliveryUseCase.CreateDeliveryResult result) {
             return new CreateDeliveryResponse(
                     DeliveryResponse.from(result.delivery()),
+                    AccountsReceivableResponse.from(result.accountsReceivable(), result.odpNumber()),
+                    result.cxcDocument() == null ? null : CxcDocumentResponse.from(result.cxcDocument())
+            );
+        }
+    }
+
+    @Schema(name = "OrderCxcDocumentResponse", description = "Documento de cartera CxC (en producto = factura). "
+            + "Saldo = total − aplicaciones activas. Serie cxcNumber CXC-{n}.")
+    public record CxcDocumentResponse(
+            @Schema(example = "cxc-uuid-001") String cxcDocumentId,
+            @Schema(example = "CXC-12", pattern = "^CXC-[0-9]+$") String cxcNumber,
+            @Schema(example = "ef658d09-bf30-43de-ba7a-edd0f14a61bd") String productionOrderId,
+            @Schema(allowableValues = {"entrega", "extra"}, example = "entrega") String concept,
+            @Schema(example = "del-uuid-001") String sourceDeliveryId,
+            @Schema(example = "adn-uuid-001") String sourceAdditionId,
+            @Schema(example = "600000.00") BigDecimal total,
+            @Schema(example = "200000.00") BigDecimal totalApplied,
+            @Schema(example = "400000.00") BigDecimal remaining,
+            @Schema(allowableValues = {"pendiente", "parcial", "pagada", "anulada"}, example = "pendiente")
+            String status,
+            @Schema(example = "2026-09-05T14:30:00") String issuedAt,
+            @Schema(example = "2026-10-05") String dueDate,
+            @Schema(example = "30") int paymentTermDays
+    ) {
+        public static CxcDocumentResponse from(OrderCxcDocument document) {
+            return from(document, null, null);
+        }
+
+        public static CxcDocumentResponse from(OrderCxcDocumentService.OpenCxcView view) {
+            return from(view.document(), view.totalApplied(), view.remaining());
+        }
+
+        public static CxcDocumentResponse from(
+                OrderCxcDocument document,
+                BigDecimal totalApplied,
+                BigDecimal remaining
+        ) {
+            BigDecimal applied = totalApplied == null ? BigDecimal.ZERO : totalApplied;
+            BigDecimal rem = remaining == null
+                    ? document.getTotal().subtract(applied)
+                    : remaining;
+            return new CxcDocumentResponse(
+                    document.getCxcDocumentId(),
+                    document.getCxcNumber(),
+                    document.getProductionOrderId(),
+                    document.getConcept() == null
+                            ? CxcDocumentConcept.ENTREGA.getDbValue()
+                            : document.getConcept().getDbValue(),
+                    document.getSourceDeliveryId(),
+                    document.getSourceAdditionId(),
+                    document.getTotal(),
+                    applied,
+                    rem,
+                    document.getStatus().getDbValue(),
+                    document.getIssuedAt() == null ? null : document.getIssuedAt().toString(),
+                    document.getDueDate() == null ? null : document.getDueDate().toString(),
+                    document.getPaymentTermDays()
+            );
+        }
+    }
+
+    @Schema(name = "OrderPaymentApplicationResponse",
+            description = "Aplicación de un LIQ a CxC o saldo a favor (cxcDocumentId null).")
+    public record PaymentApplicationResponse(
+            @Schema(example = "app-uuid-001") String applicationId,
+            @Schema(example = "pay-uuid-001") String paymentId,
+            @Schema(example = "cxc-uuid-001") String cxcDocumentId,
+            @Schema(example = "150000.00") BigDecimal amount,
+            @Schema(example = "app-favor-001") String originApplicationId,
+            @Schema(allowableValues = {"activo", "reversado"}, example = "activo") String status,
+            @Schema(example = "2026-09-05T16:00:00") String appliedAt
+    ) {
+        public static PaymentApplicationResponse from(OrderPaymentApplication application) {
+            return new PaymentApplicationResponse(
+                    application.getApplicationId(),
+                    application.getPaymentId(),
+                    application.getCxcDocumentId(),
+                    application.getAmount(),
+                    application.getOriginApplicationId(),
+                    application.getStatus().getDbValue(),
+                    application.getAppliedAt() == null ? null : application.getAppliedAt().toString()
+            );
+        }
+    }
+
+    @Schema(name = "OrderCreateCxcFromAdditionResponse",
+            description = "CxC extra creada desde un ADN vigente.")
+    public record CreateCxcFromAdditionResponse(
+            CxcDocumentResponse cxcDocument,
+            AccountsReceivableResponse accountsReceivable
+    ) {
+        public static CreateCxcFromAdditionResponse from(CreateCxcFromAdditionUseCase.Result result) {
+            return new CreateCxcFromAdditionResponse(
+                    CxcDocumentResponse.from(result.cxcDocument()),
+                    AccountsReceivableResponse.from(result.accountsReceivable(), result.odpNumber())
+            );
+        }
+    }
+
+    @Schema(name = "OrderApplyCreditToCxcResponse",
+            description = "Resultado de aplicar saldo a favor del pedido a una CxC.")
+    public record ApplyCreditToCxcResponse(
+            List<PaymentApplicationResponse> applications,
+            AccountsReceivableResponse accountsReceivable
+    ) {
+        public static ApplyCreditToCxcResponse from(ApplyPedidoCreditToCxcUseCase.Result result) {
+            return new ApplyCreditToCxcResponse(
+                    result.applications().stream().map(PaymentApplicationResponse::from).toList(),
                     AccountsReceivableResponse.from(result.accountsReceivable(), result.odpNumber())
             );
         }
     }
 
     @Schema(name = "OrderDeliveryResponse", description = "Entrega o reversión comercial (ledger append-only). "
-            + "deliveryNumber=ODP-{n} es el consecutivo de la entrega (order_deliveries), "
-            + "no el odpNumber del pedido comercial (customer_orders).")
+            + "deliveryNumber=ENT-{n} es el consecutivo de la entrega (order_deliveries), "
+            + "serie independiente del odpNumber del pedido (ODP) y del cxcNumber (CXC).")
     public record DeliveryResponse(
             @Schema(example = "del-uuid-001") String orderDeliveryId,
             @Schema(
-                    description = "Número visible de la entrega (order_deliveries.delivery_number = ODP-{n}). "
-                            + "Secuencia distinta de customer_orders.odp_number.",
-                    example = "ODP-42"
+                    description = "Número visible de la entrega (order_deliveries.delivery_number = ENT-{n}). "
+                            + "Serie propia: ≠ customer_orders.odp_number (ODP), ≠ cxcNumber (CXC).",
+                    example = "ENT-42"
             ) String deliveryNumber,
             @Schema(example = "ef658d09-bf30-43de-ba7a-edd0f14a61bd") String productionOrderId,
             @Schema(allowableValues = {"entrega", "reversion"}, example = "entrega") String movementType,
@@ -265,15 +382,21 @@ public final class OrderResponses {
 
     @Schema(name = "OrderCreatePaymentResponse", description = "Resultado de registrar un abono o reversión. "
             + "accountsReceivable trae cxcNumber, abonosNumber (ABN-n), lastPaymentNumber/lastPaymentAt y totales recalculados. "
-            + "payment.paymentNumber (LIQ-n) ≠ accountsReceivable.abonosNumber (ABN-n).")
+            + "payment.paymentNumber (LIQ-n) ≠ accountsReceivable.abonosNumber (ABN-n). "
+            + "applications = desglose a CxC y/o saldo a favor.")
     public record CreatePaymentResponse(
             PaymentResponse payment,
-            AccountsReceivableResponse accountsReceivable
+            AccountsReceivableResponse accountsReceivable,
+            List<PaymentApplicationResponse> applications
     ) {
         public static CreatePaymentResponse from(CreateOrderPaymentUseCase.CreatePaymentResult result) {
+            List<PaymentApplicationResponse> apps = result.applications() == null
+                    ? List.of()
+                    : result.applications().stream().map(PaymentApplicationResponse::from).toList();
             return new CreatePaymentResponse(
                     PaymentResponse.from(result.payment()),
-                    AccountsReceivableResponse.from(result.accountsReceivable(), result.odpNumber())
+                    AccountsReceivableResponse.from(result.accountsReceivable(), result.odpNumber()),
+                    apps
             );
         }
     }
@@ -289,6 +412,9 @@ public final class OrderResponses {
             ) String paymentNumber,
             @Schema(example = "ef658d09-bf30-43de-ba7a-edd0f14a61bd") String productionOrderId,
             @Schema(allowableValues = {"abono", "anticipo", "retencion", "reversion"}, example = "abono") String paymentType,
+            @Schema(allowableValues = {"entrega", "extra"}, example = "entrega",
+                    description = "Concepto de aplicación: entrega (CxC ENT) o extra (CxC ADN).")
+            String paymentConcept,
             @Schema(example = "200000.00") BigDecimal amount,
             @Schema(allowableValues = {"efectivo", "transferencia", "cheque", "tarjeta", "otro", "retencion"}, example = "transferencia")
             String paymentMethod,
@@ -310,6 +436,9 @@ public final class OrderResponses {
                     payment.getPaymentNumber(),
                     payment.getProductionOrderId(),
                     payment.getPaymentType().getDbValue(),
+                    payment.getPaymentConcept() == null
+                            ? CxcDocumentConcept.ENTREGA.getDbValue()
+                            : payment.getPaymentConcept().getDbValue(),
                     payment.getAmount(),
                     payment.getPaymentMethod().getDbValue(),
                     payment.getReference(),
@@ -326,6 +455,64 @@ public final class OrderResponses {
         }
     }
 
+    @Schema(name = "CxcDocumentDashboardItemResponse",
+            description = "Fila del dashboard CxC por documento (1 fila = 1 CxC ENT o ADN).")
+    public record CxcDocumentDashboardItemResponse(
+            @Schema(example = "cxc-uuid-001") String cxcDocumentId,
+            @Schema(example = "CXC-12") String cxcNumber,
+            @Schema(example = "ef658d09-bf30-43de-ba7a-edd0f14a61bd") String productionOrderId,
+            @Schema(example = "OP-142") String orderNumber,
+            @Schema(example = "ODP-12") String odpNumber,
+            String clientId,
+            @Schema(example = "Distribuciones ACME") String clientName,
+            @Schema(allowableValues = {"entrega", "extra"}, example = "extra") String concept,
+            @Schema(example = "del-uuid-001") String sourceDeliveryId,
+            @Schema(example = "adn-uuid-001") String sourceAdditionId,
+            @Schema(description = "ENT-{n} o ADN-{n} según concept", example = "ADN-3") String sourceNumber,
+            @Schema(example = "180000.00") BigDecimal total,
+            @Schema(example = "50000.00") BigDecimal totalApplied,
+            @Schema(example = "130000.00") BigDecimal remaining,
+            @Schema(allowableValues = {"pendiente", "parcial", "pagada", "anulada"}, example = "parcial")
+            String status,
+            @Schema(example = "2026-09-05T14:30:00") String issuedAt,
+            @Schema(example = "2026-10-05") String dueDate,
+            @Schema(example = "30") int paymentTermDays,
+            @Schema(allowableValues = {"al_dia", "por_vencer", "vencida", "sin_vencimiento"}, example = "por_vencer")
+            String collectionStatus,
+            @Schema(example = "0") int daysOverdue,
+            @Schema(example = "false") boolean overdue,
+            @Schema(example = "true") boolean dueSoon
+    ) {
+        public static CxcDocumentDashboardItemResponse from(
+                ListCxcDocumentsDashboardUseCase.CxcDocumentDashboardRow row
+        ) {
+            return new CxcDocumentDashboardItemResponse(
+                    row.cxcDocumentId(),
+                    row.cxcNumber(),
+                    row.productionOrderId(),
+                    row.orderNumber(),
+                    row.odpNumber(),
+                    row.clientId(),
+                    row.clientName(),
+                    row.concept(),
+                    row.sourceDeliveryId(),
+                    row.sourceAdditionId(),
+                    row.sourceNumber(),
+                    row.total(),
+                    row.totalApplied(),
+                    row.remaining(),
+                    row.status(),
+                    row.issuedAt() == null ? null : row.issuedAt().toString(),
+                    row.dueDate() == null ? null : row.dueDate().toString(),
+                    row.paymentTermDays(),
+                    row.collectionStatus(),
+                    row.daysOverdue(),
+                    row.overdue(),
+                    row.dueSoon()
+            );
+        }
+    }
+
     @Schema(name = "AccountsReceivableItemResponse", description = "Fila del dashboard CxC/Abonos (1 fila = 1 OP). "
             + "cxcNumber = id CxC; abonosNumber = id agregado Abonos (ABN-n ≠ paymentNumber del detalle); "
             + "totalOwed = amountToCollect (totalToCharge + ADN vigentes); "
@@ -333,7 +520,11 @@ public final class OrderResponses {
             + "Unidades entregadas = cartera CxC por entregas. odpNumber = pedido; lastPaymentNumber = último movimiento.")
     public record AccountsReceivableItemResponse(
             @Schema(description = "UUID de la CxC", example = "ar-uuid-001") String accountsReceivableId,
-            @Schema(description = "Número visible CXC-{n}; id de negocio del agregado CxC", example = "CXC-7") String cxcNumber,
+            @Schema(
+                    description = "Número visible CXC-{n}; id de negocio del agregado CxC. "
+                            + "Serie propia (accounts_receivable_number_sequences), ≠ odpNumber ODP y ≠ deliveryNumber ENT.",
+                    example = "CXC-7"
+            ) String cxcNumber,
             @Schema(
                     description = "Id de negocio del agregado de Abonos (ABN-{n}). Inmutable tras el primer INSERT del trigger. "
                             + "Serie ABN propia; distinta de paymentNumber LIQ-{n}. ≠ lastPaymentNumber.",
@@ -382,9 +573,9 @@ public final class OrderResponses {
             @Schema(example = "true") boolean overdue,
             @Schema(example = "false") boolean dueSoon,
             @Schema(
-                    description = "Último deliveryNumber (ODP-{n} de order_deliveries) de la OP; null si no hay entregas. "
-                            + "No es customer_orders.odpNumber.",
-                    example = "ODP-42"
+                    description = "Último deliveryNumber (ENT-{n} de order_deliveries) de la OP; null si no hay entregas. "
+                            + "Serie ENT, distinta de odpNumber (ODP) y de cxcNumber (CXC).",
+                    example = "ENT-42"
             )
             String lastDeliveryNumber,
             @Schema(
@@ -441,10 +632,10 @@ public final class OrderResponses {
         }
     }
 
-    @Schema(name = "AccountsReceivableDetailResponse", description = "Detalle CxC/Abonos: summary (cxcNumber + abonosNumber + odpNumber + lastPaymentNumber) "
-            + "+ historial entregas (deliveryNumber) + historial pagos (paymentNumber LIQ). "
+    @Schema(name = "AccountsReceivableDetailResponse", description = "Detalle CxC/Abonos: summary (cxcNumber CXC + abonosNumber ABN + odpNumber ODP + lastPaymentNumber) "
+            + "+ historial entregas (deliveryNumber ENT) + historial pagos (paymentNumber LIQ). "
             + "Invariante: abonosNumber != payment.paymentNumber para todo pago del detalle "
-            + "(ABN cuenta ? LIQ movimiento).")
+            + "(ABN cuenta ≠ LIQ movimiento).")
     public record AccountsReceivableDetailResponse(
             AccountsReceivableItemResponse summary,
             List<DeliveryResponse> deliveries,

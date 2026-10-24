@@ -1,4 +1,5 @@
--- Consecutivo atómico ODP por empresa (delivery_number = ODP-{n}).
+-- Consecutivo atómico ENT por empresa (delivery_number = ENT-{n}).
+-- Serie propia: distinta de customer_orders.odp_number (ODP) y de cxc_number (CXC).
 
 CREATE TABLE IF NOT EXISTS indicolors.order_delivery_number_sequences (
     company_id  CHARACTER VARYING(64) NOT NULL,
@@ -10,11 +11,13 @@ CREATE TABLE IF NOT EXISTS indicolors.order_delivery_number_sequences (
 );
 
 COMMENT ON TABLE indicolors.order_delivery_number_sequences IS
-    'Último consecutivo de delivery_number emitido por compañía; se incrementa de forma atómica al crear una entrega';
+    'Consecutivo ENT-{n} por compañía para delivery_number (entregas / reversiones). '
+    'Serie propia, distinta de customer_orders_number_sequences (ODP de pedidos) '
+    'y de accounts_receivable_number_sequences (CXC).';
 COMMENT ON COLUMN indicolors.order_delivery_number_sequences.company_id IS
     'Identificador de la empresa dueña del contador';
 COMMENT ON COLUMN indicolors.order_delivery_number_sequences.last_value IS
-    'Último número asignado (el delivery_number expuesto es ODP-{last_value})';
+    'Último número asignado (delivery_number = ENT-{last_value})';
 
 GRANT ALL PRIVILEGES ON TABLE indicolors.order_delivery_number_sequences TO indicolors_owner;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.order_delivery_number_sequences TO indicolors_app;

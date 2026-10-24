@@ -70,7 +70,7 @@ public class OrderDeliveryPersistenceAdapter implements OrderDeliveryRepositoryP
                            (SELECT MAX(CAST(substring(d.delivery_number FROM 5) AS BIGINT))
                             FROM indicolors.order_deliveries d
                             WHERE d.company_id = :companyId
-                              AND d.delivery_number ~ '^ODP-[0-9]+$'),
+                              AND d.delivery_number ~ '^ENT-[0-9]+$'),
                            0
                        ) + 1
                 ON CONFLICT (company_id) DO UPDATE

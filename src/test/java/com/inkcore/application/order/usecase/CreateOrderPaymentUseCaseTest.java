@@ -5,6 +5,7 @@ import com.inkcore.domain.order.model.AccountsReceivable;
 import com.inkcore.domain.order.model.OrderPayment;
 import com.inkcore.domain.order.model.PaymentType;
 import com.inkcore.domain.order.ports.out.AccountsReceivableRepositoryPort;
+import com.inkcore.domain.order.ports.out.CustomerOrderRepositoryPort;
 import com.inkcore.domain.order.ports.out.OrderPaymentRepositoryPort;
 import com.inkcore.domain.productionorder.model.PrepressDetails;
 import com.inkcore.domain.productionorder.model.ProductionOrder;
@@ -18,10 +19,13 @@ import org.springframework.security.core.Authentication;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -31,13 +35,16 @@ class CreateOrderPaymentUseCaseTest {
     @Mock OrderSupport support;
     @Mock OrderPaymentRepositoryPort paymentRepository;
     @Mock AccountsReceivableRepositoryPort accountsReceivableRepository;
+    @Mock OrderCxcDocumentService cxcDocumentService;
+    @Mock CustomerOrderRepositoryPort customerOrderRepository;
     @Mock Authentication authentication;
 
     private CreateOrderPaymentUseCase useCase;
 
     @BeforeEach
     void setUp() {
-        useCase = new CreateOrderPaymentUseCase(support, paymentRepository, accountsReceivableRepository);
+        useCase = new CreateOrderPaymentUseCase(
+                support, paymentRepository, accountsReceivableRepository, cxcDocumentService);
     }
 
     @Test
@@ -56,8 +63,13 @@ class CreateOrderPaymentUseCaseTest {
         when(support.now()).thenReturn(now);
         when(support.requireActiveOrder("op-1", "company-1")).thenReturn(order);
         when(support.nextPaymentNumber("company-1")).thenReturn("LIQ-1");
+        when(support.customerOrderRepository()).thenReturn(customerOrderRepository);
+        when(customerOrderRepository.findByProductionOrderId("company-1", "op-1"))
+                .thenReturn(Optional.empty());
         when(paymentRepository.save(any(OrderPayment.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(accountsReceivableRepository.findByProductionOrderId("company-1", "op-1"))
+        when(cxcDocumentService.applyPayment(any(OrderPayment.class), isNull(), isNull(), eq(now)))
+                .thenReturn(List.of());
+        when(accountsReceivableRepository.findByProductionOrderIdFresh("company-1", "op-1"))
                 .thenReturn(Optional.of(updated));
         when(support.resolveOdpNumber("company-1", "op-1")).thenReturn("ODP-12");
 
@@ -104,13 +116,19 @@ class CreateOrderPaymentUseCaseTest {
         updated.setTotalPaid(new BigDecimal("300000.00"));
         updated.setTotalOwed(BigDecimal.ZERO);
 
+        LocalDateTime now = LocalDateTime.of(2026, 9, 15, 16, 0);
         when(support.companyId(authentication)).thenReturn("company-1");
         when(support.userId(authentication)).thenReturn("user-authenticated");
-        when(support.now()).thenReturn(LocalDateTime.of(2026, 9, 15, 16, 0));
+        when(support.now()).thenReturn(now);
         when(support.requireActiveOrder("op-1", "company-1")).thenReturn(order);
         when(support.nextPaymentNumber("company-1")).thenReturn("LIQ-2");
+        when(support.customerOrderRepository()).thenReturn(customerOrderRepository);
+        when(customerOrderRepository.findByProductionOrderId("company-1", "op-1"))
+                .thenReturn(Optional.empty());
         when(paymentRepository.save(any(OrderPayment.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(accountsReceivableRepository.findByProductionOrderId("company-1", "op-1"))
+        when(cxcDocumentService.applyPayment(any(OrderPayment.class), isNull(), isNull(), eq(now)))
+                .thenReturn(List.of());
+        when(accountsReceivableRepository.findByProductionOrderIdFresh("company-1", "op-1"))
                 .thenReturn(Optional.of(updated));
 
         var result = useCase.execute(
@@ -141,13 +159,19 @@ class CreateOrderPaymentUseCaseTest {
     @Test
     void execute_registersWithholding() {
         ProductionOrder order = bareOrder();
+        LocalDateTime now = LocalDateTime.of(2026, 9, 8, 10, 0);
         when(support.companyId(authentication)).thenReturn("company-1");
         when(support.userId(authentication)).thenReturn("user-authenticated");
-        when(support.now()).thenReturn(LocalDateTime.of(2026, 9, 8, 10, 0));
+        when(support.now()).thenReturn(now);
         when(support.requireActiveOrder("op-1", "company-1")).thenReturn(order);
         when(support.nextPaymentNumber("company-1")).thenReturn("LIQ-2");
+        when(support.customerOrderRepository()).thenReturn(customerOrderRepository);
+        when(customerOrderRepository.findByProductionOrderId("company-1", "op-1"))
+                .thenReturn(Optional.empty());
         when(paymentRepository.save(any(OrderPayment.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(accountsReceivableRepository.findByProductionOrderId("company-1", "op-1"))
+        when(cxcDocumentService.applyPayment(any(OrderPayment.class), isNull(), isNull(), eq(now)))
+                .thenReturn(List.of());
+        when(accountsReceivableRepository.findByProductionOrderIdFresh("company-1", "op-1"))
                 .thenReturn(Optional.of(summary(BigDecimal.ZERO)));
 
         useCase.execute(

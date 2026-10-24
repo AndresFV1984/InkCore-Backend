@@ -5,6 +5,7 @@ import com.inkcore.domain.order.exception.OrderBusinessRuleException;
 import com.inkcore.domain.order.model.NegotiatedAddition;
 import com.inkcore.domain.order.model.NegotiatedAdditionMovementType;
 import com.inkcore.domain.order.ports.out.AccountsReceivableRepositoryPort;
+import com.inkcore.domain.order.ports.out.CustomerOrderRepositoryPort;
 import com.inkcore.domain.order.ports.out.NegotiatedAdditionRepositoryPort;
 import com.inkcore.domain.productionorder.model.PrepressDetails;
 import com.inkcore.domain.productionorder.model.ProductionOrder;
@@ -23,6 +24,8 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -32,13 +35,16 @@ class CreateNegotiatedAdditionUseCaseTest {
     @Mock OrderSupport support;
     @Mock NegotiatedAdditionRepositoryPort additionRepository;
     @Mock AccountsReceivableRepositoryPort accountsReceivableRepository;
+    @Mock OrderCxcDocumentService cxcDocumentService;
+    @Mock CustomerOrderRepositoryPort customerOrderRepository;
     @Mock Authentication authentication;
 
     private CreateNegotiatedAdditionUseCase useCase;
 
     @BeforeEach
     void setUp() {
-        useCase = new CreateNegotiatedAdditionUseCase(support, additionRepository, accountsReceivableRepository);
+        useCase = new CreateNegotiatedAdditionUseCase(
+                support, additionRepository, accountsReceivableRepository, cxcDocumentService);
     }
 
     @Test
@@ -50,9 +56,17 @@ class CreateNegotiatedAdditionUseCaseTest {
         when(support.now()).thenReturn(now);
         when(support.requireActiveOrder("op-1", "company-1")).thenReturn(order);
         when(support.nextNegotiatedAdditionNumber("company-1")).thenReturn("ADN-1");
-        when(additionRepository.save(any(NegotiatedAddition.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(additionRepository.save(any(NegotiatedAddition.class))).thenAnswer(invocation -> {
+            NegotiatedAddition a = invocation.getArgument(0);
+            a.setOrderNegotiatedAdditionId("adn-1");
+            return a;
+        });
         when(additionRepository.sumNetAmount("company-1", "op-1")).thenReturn(new BigDecimal("180000.00"));
+        when(accountsReceivableRepository.findByProductionOrderIdFresh("company-1", "op-1"))
+                .thenReturn(Optional.empty());
         when(accountsReceivableRepository.findByProductionOrderId("company-1", "op-1")).thenReturn(Optional.empty());
+        when(support.customerOrderRepository()).thenReturn(customerOrderRepository);
+        when(customerOrderRepository.findByProductionOrderId("company-1", "op-1")).thenReturn(Optional.empty());
         when(support.resolveOdpNumber("company-1", "op-1")).thenReturn("ODP-4");
 
         var result = useCase.execute(
@@ -89,6 +103,7 @@ class CreateNegotiatedAdditionUseCaseTest {
         assertEquals(0, new BigDecimal("1680000.00").compareTo(result.amountToCollect()));
         assertEquals(0, new BigDecimal("1680000.00").compareTo(result.accountsReceivable().getTotalOwed()));
         assertEquals("ODP-4", result.odpNumber());
+        verify(cxcDocumentService).createFromAddition(eq(saved), any(), isNull(), eq(now));
     }
 
     @Test

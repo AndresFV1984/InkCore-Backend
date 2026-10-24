@@ -6,9 +6,12 @@ import com.inkcore.domain.productionorder.model.PaperRow;
 import com.inkcore.domain.productionorder.model.Plate;
 import com.inkcore.domain.productionorder.model.PostpressLine;
 import com.inkcore.domain.productionorder.model.PostpressRecord;
+import com.inkcore.domain.productionorder.model.PostpressType;
 import com.inkcore.domain.productionorder.model.PrintConfig;
 import com.inkcore.domain.productionorder.model.PrintEntry;
 import com.inkcore.domain.productionorder.model.ProductionOrder;
+import com.inkcore.domain.productionorder.model.ProductionOrderStage;
+import com.inkcore.domain.productionorder.model.StageDiscount;
 import com.inkcore.domain.thousandrate.model.ThousandRate;
 
 import java.math.BigDecimal;
@@ -205,8 +208,8 @@ public final class ProductionOrderCalculator {
     }
 
     /**
-     * Total a cobrar de la OP (panel Cobro): suma de etapas menos descuentos de
-     * preprensa/impresión/cobro. Mismo criterio que el PDF de cobro.
+     * Total a cobrar de la OP (panel Cobro): subtotal por etapa → descuento de esa
+     * etapa → descuento global de cobro. Alineado con el Cobro del front.
      * No incluye adicionales negociados ({@link #calculateAmountToCollect}).
      * {@code null} si aún no hay datos de costo cargados.
      */
@@ -223,54 +226,62 @@ public final class ProductionOrderCalculator {
             return null;
         }
 
-        BigDecimal total = BigDecimal.ZERO;
+        BigDecimal prepress = BigDecimal.ZERO;
         if (order.getPrepress() != null && order.getPrepress().getTotalPlatesValue() != null) {
-            total = total.add(order.getPrepress().getTotalPlatesValue());
-            if (order.getPrepress().getDesignCost() != null) {
-                total = total.add(order.getPrepress().getDesignCost());
-            }
-            if (order.getPrepress().getAssemblyPriceCost() != null) {
-                total = total.add(order.getPrepress().getAssemblyPriceCost());
-            }
-            total = applyDiscount(
-                    total,
+            prepress = prepress.add(order.getPrepress().getTotalPlatesValue());
+            prepress = prepress.add(nullSafe(order.getPrepress().getDesignCost()));
+            prepress = prepress.add(nullSafe(order.getPrepress().getAssemblyPriceCost()));
+            prepress = applyDiscount(
+                    prepress,
                     DiscountType.toValue(order.getPrepress().getPrepressDiscountType()),
                     order.getPrepress().getPrepressDiscountValue()
             );
         }
+
+        BigDecimal cutting = BigDecimal.ZERO;
         if (order.getPaperRows() != null) {
             for (PaperRow row : order.getPaperRows()) {
-                total = total.add(nullSafe(row.getTotalPaperValue()));
-                total = total.add(nullSafe(row.getTotalCutValue()));
+                cutting = cutting.add(nullSafe(row.getTotalPaperValue()));
+                cutting = cutting.add(nullSafe(row.getTotalCutValue()));
             }
         }
+        cutting = applyStageDiscount(order, ProductionOrderStage.CUTTING, cutting);
+
+        BigDecimal printing = BigDecimal.ZERO;
+        DiscountType printingDiscountType = null;
+        BigDecimal printingDiscountValue = null;
         if (order.getPrints() != null) {
             for (PrintConfig print : order.getPrints()) {
                 if (print.getEntries() != null) {
                     for (PrintEntry entry : print.getEntries()) {
-                        total = total.add(nullSafe(entry.getBasicPrintingPrice()));
-                        total = total.add(nullSafe(entry.getPantonePrintingPrice()));
-                        total = total.add(nullSafe(entry.getPantoneInkChargePrice()));
+                        printing = printing.add(nullSafe(entry.getBasicPrintingPrice()));
+                        printing = printing.add(nullSafe(entry.getPantonePrintingPrice()));
+                        printing = printing.add(nullSafe(entry.getPantoneInkChargePrice()));
                     }
                 }
-                total = total.add(nullSafe(print.getSherpaTestPrice()));
-                total = applyDiscount(
-                        total,
-                        DiscountType.toValue(print.getPrintingDiscountType()),
-                        print.getPrintingDiscountValue()
-                );
-            }
-        }
-        if (order.getPostpressRecords() != null) {
-            for (PostpressRecord record : order.getPostpressRecords()) {
-                if (record.getLines() == null) {
-                    continue;
-                }
-                for (PostpressLine line : record.getLines()) {
-                    total = total.add(nullSafe(line.getChargedPrice()));
+                printing = printing.add(nullSafe(print.getSherpaTestPrice()));
+                if (printingDiscountType == null
+                        && (print.getPrintingDiscountType() != null
+                        || (print.getPrintingDiscountValue() != null
+                        && print.getPrintingDiscountValue().signum() > 0))) {
+                    printingDiscountType = print.getPrintingDiscountType();
+                    printingDiscountValue = print.getPrintingDiscountValue();
                 }
             }
         }
+        printing = applyDiscount(
+                printing,
+                DiscountType.toValue(printingDiscountType),
+                printingDiscountValue
+        );
+
+        BigDecimal finished = sumPostpressCharged(order, PostpressType.FINISHED_PRODUCT);
+        finished = applyStageDiscount(order, ProductionOrderStage.FINISHED_PRODUCTS, finished);
+
+        BigDecimal finishing = sumPostpressCharged(order, PostpressType.FINISHING_PROCESS);
+        finishing = applyStageDiscount(order, ProductionOrderStage.FINISHING_PROCESSES, finishing);
+
+        BigDecimal total = prepress.add(cutting).add(printing).add(finished).add(finishing);
         if (order.getBilling() != null) {
             total = applyDiscount(
                     total,
@@ -279,6 +290,50 @@ public final class ProductionOrderCalculator {
             );
         }
         return money(total);
+    }
+
+    private static BigDecimal sumPostpressCharged(ProductionOrder order, PostpressType type) {
+        BigDecimal sum = BigDecimal.ZERO;
+        if (order.getPostpressRecords() == null) {
+            return sum;
+        }
+        for (PostpressRecord record : order.getPostpressRecords()) {
+            if (record.getType() != type || record.getLines() == null) {
+                continue;
+            }
+            for (PostpressLine line : record.getLines()) {
+                sum = sum.add(nullSafe(line.getChargedPrice()));
+            }
+        }
+        return sum;
+    }
+
+    private static BigDecimal applyStageDiscount(
+            ProductionOrder order,
+            ProductionOrderStage stage,
+            BigDecimal subtotal
+    ) {
+        StageDiscount discount = findStageDiscount(order, stage);
+        if (discount == null) {
+            return money(subtotal);
+        }
+        return applyDiscount(
+                subtotal,
+                DiscountType.toValue(discount.getDiscountType()),
+                discount.getDiscountValue()
+        );
+    }
+
+    private static StageDiscount findStageDiscount(ProductionOrder order, ProductionOrderStage stage) {
+        if (order.getStageDiscounts() == null || stage == null) {
+            return null;
+        }
+        for (StageDiscount discount : order.getStageDiscounts()) {
+            if (discount != null && stage == discount.getStage()) {
+                return discount;
+            }
+        }
+        return null;
     }
 
     /**

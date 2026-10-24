@@ -5,8 +5,10 @@ import com.inkcore.domain.client.model.Client;
 import com.inkcore.domain.client.ports.out.ClientRepositoryPort;
 import com.inkcore.domain.order.exception.InsufficientAvailabilityException;
 import com.inkcore.domain.order.model.AccountsReceivable;
+import com.inkcore.domain.order.model.OrderCxcDocument;
 import com.inkcore.domain.order.model.OrderDelivery;
 import com.inkcore.domain.order.ports.out.AccountsReceivableRepositoryPort;
+import com.inkcore.domain.order.ports.out.CustomerOrderRepositoryPort;
 import com.inkcore.domain.order.ports.out.OrderDeliveryRepositoryPort;
 import com.inkcore.domain.productionorder.model.ProductionOrder;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,8 +26,10 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -37,6 +41,8 @@ class CreateOrderDeliveryUseCaseTest {
     @Mock OrderDeliveryRepositoryPort deliveryRepository;
     @Mock AccountsReceivableRepositoryPort accountsReceivableRepository;
     @Mock ClientRepositoryPort clientRepository;
+    @Mock OrderCxcDocumentService cxcDocumentService;
+    @Mock CustomerOrderRepositoryPort customerOrderRepository;
     @Mock Authentication authentication;
 
     private CreateOrderDeliveryUseCase useCase;
@@ -47,7 +53,8 @@ class CreateOrderDeliveryUseCaseTest {
                 support,
                 deliveryRepository,
                 accountsReceivableRepository,
-                clientRepository
+                clientRepository,
+                cxcDocumentService
         );
     }
 
@@ -57,22 +64,30 @@ class CreateOrderDeliveryUseCaseTest {
         AccountsReceivable updated = new AccountsReceivable();
         updated.setProductionOrderId("op-1");
         LocalDateTime now = LocalDateTime.of(2026, 9, 8, 10, 0);
+        OrderCxcDocument cxc = new OrderCxcDocument();
+        cxc.setCxcNumber("CXC-1");
 
         when(support.companyId(authentication)).thenReturn("company-1");
         when(support.userId(authentication)).thenReturn("user-authenticated");
         when(support.now()).thenReturn(now);
         when(support.requireActiveOrder("op-1", "company-1")).thenReturn(order);
-        when(support.nextDeliveryNumber("company-1")).thenReturn("ODP-1");
+        when(support.nextDeliveryNumber("company-1")).thenReturn("ENT-1");
+        when(support.customerOrderRepository()).thenReturn(customerOrderRepository);
+        when(customerOrderRepository.findByProductionOrderId("company-1", "op-1"))
+                .thenReturn(Optional.empty());
         when(clientRepository.findById("client-1")).thenReturn(Optional.of(client()));
         when(deliveryRepository.save(any(OrderDelivery.class))).thenAnswer(invocation -> {
             OrderDelivery delivery = invocation.getArgument(0);
             delivery.setAvailableBefore(1000);
             return delivery;
         });
-        when(accountsReceivableRepository.findByProductionOrderId("company-1", "op-1"))
+        when(accountsReceivableRepository.findByProductionOrderIdFresh("company-1", "op-1"))
                 .thenReturn(Optional.of(updated));
+        when(cxcDocumentService.createFromDelivery(any(OrderDelivery.class), eq(updated), eq(null), eq(now)))
+                .thenReturn(cxc);
+        when(support.resolveOdpNumber("company-1", "op-1")).thenReturn("ODP-1");
 
-        useCase.execute(
+        var result = useCase.execute(
                 new CreateOrderDeliveryUseCase.CreateOrderDeliveryCommand(
                         "op-1",
                         "total",
@@ -88,12 +103,14 @@ class CreateOrderDeliveryUseCaseTest {
         ArgumentCaptor<OrderDelivery> captor = ArgumentCaptor.forClass(OrderDelivery.class);
         verify(deliveryRepository).save(captor.capture());
         OrderDelivery saved = captor.getValue();
-        assertEquals("ODP-1", saved.getDeliveryNumber());
+        assertEquals("ENT-1", saved.getDeliveryNumber());
         assertEquals(0, new BigDecimal("400000.00").compareTo(saved.getTotalValue()));
         assertEquals("Trabajo demo", saved.getWorkNameSnapshot());
         assertEquals("Cliente demo", saved.getClientNameSnapshot());
         assertEquals("user-authenticated", saved.getDeliveredBy());
         assertEquals("IN_PROGRESS", order.getStatus());
+        assertNotNull(result.cxcDocument());
+        assertEquals("CXC-1", result.cxcDocument().getCxcNumber());
         verify(support, never()).productionOrderRepository();
     }
 
@@ -104,7 +121,7 @@ class CreateOrderDeliveryUseCaseTest {
         when(support.userId(authentication)).thenReturn("user-authenticated");
         when(support.now()).thenReturn(LocalDateTime.of(2026, 9, 8, 10, 0));
         when(support.requireActiveOrder("op-1", "company-1")).thenReturn(order);
-        when(support.nextDeliveryNumber("company-1")).thenReturn("ODP-2");
+        when(support.nextDeliveryNumber("company-1")).thenReturn("ENT-2");
         when(clientRepository.findById("client-1")).thenReturn(Optional.of(client()));
         when(deliveryRepository.save(any(OrderDelivery.class))).thenThrow(
                 new DataIntegrityViolationException(

@@ -49,7 +49,10 @@ COMMENT ON COLUMN indicolors.production_order_cost_summary.actual_waste_cost IS 
 COMMENT ON COLUMN indicolors.production_order_cost_summary.actual_merma_cost IS 'Suma de COALESCE(actual_cost, planned_cost) donde waste_category es distinto de desperdicio';
 COMMENT ON COLUMN indicolors.production_order_cost_summary.actual_desperdicio_cost IS 'Suma de COALESCE(actual_cost, 0) donde waste_category = desperdicio. No entra en el precio cobrado; sí entra en actual_waste_cost y por tanto en actual_total_cost';
 COMMENT ON COLUMN indicolors.production_order_cost_summary.actual_total_cost IS 'actual_material_cost + actual_machine_cost + actual_waste_cost';
-COMMENT ON COLUMN indicolors.production_order_cost_summary.quoted_price IS 'Precio final cotizado/facturado al cliente; lo actualiza el backend (no un trigger) una vez resuelta la lógica de descuentos de production_order_billing_details';
+COMMENT ON COLUMN indicolors.production_order_cost_summary.quoted_price IS
+    'Precio final cotizado al cliente (= totalToCharge del panel Cobro). Lo escribe el backend al cotizar '
+    '(no este trigger) y no cambia al registrar desperdicio o retrabajo. '
+    'Fuente de totalToCharge en GET /production-orders/list (sin recalcular el agregado).';
 COMMENT ON COLUMN indicolors.production_order_cost_summary.estimated_margin IS 'quoted_price - estimated_total_cost; NULL mientras no se conozca quoted_price';
 COMMENT ON COLUMN indicolors.production_order_cost_summary.actual_margin IS 'quoted_price - actual_total_cost; NULL mientras no se conozca quoted_price. Esta es la ganancia neta real de la OP, no el margen que se puso en la cotización';
 COMMENT ON COLUMN indicolors.production_order_cost_summary.actual_margin_pct IS 'Margen real como % del precio cotizado; usado para resaltar en el reporte las órdenes que están dejando pérdida';

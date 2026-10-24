@@ -128,8 +128,20 @@ public class StationValidationService {
     }
 
     public void requireExecutionAllowed(ProductionOrder order) {
-        if (!orderAllowsOperatorExecution(order)) {
-            throw new StationBusinessRuleException(EXECUTION_BLOCKED_MESSAGE);
+        if (!order.isState()) {
+            throw new StationBusinessRuleException(
+                    "La orden está inactiva (archivada); no se pueden registrar avances."
+            );
+        }
+        if (!isInProgressStatus(order.getStatus())) {
+            throw new StationBusinessRuleException(
+                    EXECUTION_BLOCKED_MESSAGE
+                            + " (status="
+                            + order.getStatus()
+                            + ", state="
+                            + order.isState()
+                            + ")"
+            );
         }
     }
 
@@ -204,17 +216,65 @@ public class StationValidationService {
 
     /**
      * True si la OP está en planta: {@code IN_PROGRESS} o cualquier {@code IN_PROGRESS_*}.
-     * También acepta el alias legacy {@code EN PROCESO}.
+     * También acepta aliases legacy en español ({@code EN PROCESO}, {@code EN PROCESO IMPRESION}, etc.).
      */
     public static boolean isInProgressStatus(String status) {
+        return toCanonicalInProgressWire(status) != null;
+    }
+
+    /**
+     * Devuelve el wire canónico ({@code IN_PROGRESS} / {@code IN_PROGRESS_*}) si el status
+     * representa planta; {@code null} si no está en proceso.
+     */
+    public static String toCanonicalInProgressWire(String status) {
         if (status == null || status.isBlank()) {
-            return false;
+            return null;
         }
-        String normalized = status.trim();
-        if ("EN PROCESO".equalsIgnoreCase(normalized)) {
-            return true;
+        String normalized = status.trim().toUpperCase(java.util.Locale.ROOT)
+                .replace('Á', 'A')
+                .replace('É', 'E')
+                .replace('Í', 'I')
+                .replace('Ó', 'O')
+                .replace('Ú', 'U')
+                .replace('·', ' ')
+                .replace('•', ' ')
+                .replace('_', ' ')
+                .replace('-', ' ')
+                .replaceAll("\\s+", " ")
+                .trim();
+
+        if (ProductionOrderStatus.isInProgressWire(status.trim())) {
+            return ProductionOrderStatus.fromWire(status.trim()).getWireValue();
         }
-        return ProductionOrderStatus.isInProgressWire(normalized);
+        // Reintentar por si venía con ruido pero el wire queda reconocible.
+        String compactWire = normalized.replace(' ', '_');
+        if (ProductionOrderStatus.isInProgressWire(compactWire)) {
+            return ProductionOrderStatus.fromWire(compactWire).getWireValue();
+        }
+
+        if ("EN PROCESO".equals(normalized) || "EN PROGRESO".equals(normalized)) {
+            return ProductionOrderStatus.IN_PROGRESS.getWireValue();
+        }
+        if (normalized.startsWith("EN PROCESO ") || normalized.startsWith("EN PROGRESO ")) {
+            String phase = normalized
+                    .replaceFirst("^EN PROCESO ", "")
+                    .replaceFirst("^EN PROGRESO ", "")
+                    .trim();
+            return switch (phase) {
+                case "PREPRENSA", "PRE PRENSA", "PRE-PRENSA" ->
+                        ProductionOrderStatus.IN_PROGRESS_PREPRESS.getWireValue();
+                case "CORTE DE PAPEL", "CORTE", "CORTE PAPEL" ->
+                        ProductionOrderStatus.IN_PROGRESS_CUTTING.getWireValue();
+                case "IMPRESION", "PRINTING" ->
+                        ProductionOrderStatus.IN_PROGRESS_PRINTING.getWireValue();
+                case "TERMINADOS", "TERMINADO", "FINISHED PRODUCTS" ->
+                        ProductionOrderStatus.IN_PROGRESS_FINISHED_PRODUCTS.getWireValue();
+                case "ACABADOS", "ACABADO", "FINISHING" ->
+                        ProductionOrderStatus.IN_PROGRESS_FINISHING.getWireValue();
+                default -> ProductionOrderStatus.IN_PROGRESS.getWireValue();
+            };
+        }
+        return null;
     }
 
     public static int sumUnits(List<StationOperationEvent> events, StationEventType type, String processKey) {

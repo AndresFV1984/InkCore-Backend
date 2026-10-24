@@ -30,8 +30,9 @@ import java.util.Map;
 
 @Schema(
         name = "ProductionOrderResponse",
-        description = "Agregado completo de Orden de Producción (planta). "
-                + "Incluye totalToCharge (panel Cobro; null si aún no hay costos), "
+        description = "Orden de Producción (planta). "
+                + "En detalle, totalToCharge se recalcula del agregado; en listado sale de "
+                + "cost_summary.quoted_price (null si aún no se cotizó). "
                 + "negotiatedAdditionsTotal (ADN vigentes) y amountToCollect (cobro + adicionales). "
                 + "customerOrderId/odpNumber son del pedido comercial (customer_orders); "
                 + "abonosNumber (ABN-{n}) nace con el pedido. null mientras no haya IN_PROGRESS*."
@@ -59,7 +60,7 @@ public record ProductionOrderResponse(
         String customerOrderId,
         @Schema(
                 description = "Número visible del pedido comercial (customer_orders.odp_number = ODP-{n}). "
-                        + "Secuencia distinta de order_deliveries.deliveryNumber (también ODP-{n}). "
+                        + "Secuencia distinta de order_deliveries.deliveryNumber (ENT-{n}) y de cxcNumber (CXC). "
                         + "null si el pedido aún no existe.",
                 example = "ODP-7",
                 pattern = "^ODP-[0-9]+$",
@@ -83,7 +84,8 @@ public record ProductionOrderResponse(
         Integer requestedQuantity,
         @Schema(
                 description = "Total del panel Cobro: suma de etapas menos descuentos. "
-                        + "No incluye adicionales negociados. null si aún no hay costos.",
+                        + "No incluye adicionales negociados. En GET detalle se recalcula; "
+                        + "en GET listado = quoted_price del cost summary. null si aún no se cotizó.",
                 example = "1500000.00",
                 nullable = true
         )
@@ -187,6 +189,27 @@ public record ProductionOrderResponse(
             String odpNumber,
             String abonosNumber
     ) {
+        return from(order, cantidadDisponible, customerOrderId, odpNumber, abonosNumber, null);
+    }
+
+    /**
+     * @param totalToChargeOverride si no es null (p. ej. {@code quoted_price} del listado),
+     *                              evita recalcular el agregado completo.
+     */
+    public static ProductionOrderResponse from(
+            ProductionOrder order,
+            int cantidadDisponible,
+            String customerOrderId,
+            String odpNumber,
+            String abonosNumber,
+            BigDecimal totalToChargeOverride
+    ) {
+        BigDecimal totalToCharge = totalToChargeOverride != null
+                ? totalToChargeOverride
+                : ProductionOrderCalculator.calculateTotalToCharge(order);
+        BigDecimal amountToCollect = totalToChargeOverride != null
+                ? amountToCollectFromParts(totalToCharge, order.getNegotiatedAdditionsTotal())
+                : ProductionOrderCalculator.calculateAmountToCollect(order);
         return new ProductionOrderResponse(
                 order.getProductionOrderId(),
                 order.getCompanyId(),
@@ -200,9 +223,9 @@ public record ProductionOrderResponse(
                 order.getSellerId(),
                 order.getOrderDate(),
                 order.getRequestedQuantity(),
-                ProductionOrderCalculator.calculateTotalToCharge(order),
+                totalToCharge,
                 order.getNegotiatedAdditionsTotal(),
-                ProductionOrderCalculator.calculateAmountToCollect(order),
+                amountToCollect,
                 cantidadDisponible,
                 order.getProposalQuantity1(),
                 order.getProposalQuantity2(),
@@ -236,6 +259,15 @@ public record ProductionOrderResponse(
                 order.getPhaseEstimatedMachineCost(),
                 order.getPhaseEstimatedWasteCost()
         );
+    }
+
+    private static BigDecimal amountToCollectFromParts(BigDecimal totalToCharge, BigDecimal negotiatedAdditionsTotal) {
+        BigDecimal additions = negotiatedAdditionsTotal == null ? BigDecimal.ZERO : negotiatedAdditionsTotal;
+        if (totalToCharge == null && additions.signum() == 0) {
+            return null;
+        }
+        BigDecimal production = totalToCharge == null ? BigDecimal.ZERO : totalToCharge;
+        return production.add(additions);
     }
 
     public record PrepressResponse(

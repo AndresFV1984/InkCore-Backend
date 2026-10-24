@@ -39,7 +39,13 @@ import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/v1/station")
-@Tag(name = "Estación", description = "Bitácora operativa de planta, inbox y sesiones de operario")
+@Tag(
+        name = "Estación",
+        description = "Bitácora de planta: inbox, eventos (inicio/pausa/avance), intervalos y reportes. "
+                + "complete-if-ready → COMPLETED; admin-close-stages (solo ADMIN; "
+                + "normaliza status legacy → IN_PROGRESS_*). "
+                + "Roles OPERADOR|ADMINISTRADOR. occurredAt sin zona (sin Z)."
+)
 @SecurityRequirement(name = "bearerAuth")
 public class StationReportController {
 

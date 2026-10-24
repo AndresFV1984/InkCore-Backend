@@ -3,9 +3,12 @@
 # MinIO borró minio/minio y minio/mc de Docker Hub (sept. 2026).
 # Object storage: pgsty/silo, fork comunitario de MinIO (mismo API S3, MINIO_* y formato de datos).
 # Propias: bayronindicore/inkcore-backend, inkcore-minio-init, inkcore-postgres.
+# Tag de versión: v + día.mes (ej. v22.10). Definir IMAGE_TAG en .env (lo escribe push-hub.ps1).
+# pull_policy: always → Compose descarga esa versión del Hub en cada up.
 services:
   db:
-    image: bayronindicore/inkcore-postgres:${IMAGE_TAG:-latest}
+    image: bayronindicore/inkcore-postgres:${IMAGE_TAG:-v22.10}
+    pull_policy: always
     container_name: inkcore-postgres
     environment:
       # BD + owner: la imagen crea inkcore / indicolors_owner.
@@ -80,7 +83,8 @@ services:
     restart: unless-stopped
 
   minio-init:
-    image: bayronindicore/inkcore-minio-init:${IMAGE_TAG:-latest}
+    image: bayronindicore/inkcore-minio-init:${IMAGE_TAG:-v22.10}
+    pull_policy: always
     container_name: inkcore-minio-init
     depends_on:
       minio:
@@ -139,7 +143,8 @@ services:
     restart: unless-stopped
 
   app:
-    image: bayronindicore/inkcore-backend:${IMAGE_TAG:-latest}
+    image: bayronindicore/inkcore-backend:${IMAGE_TAG:-v22.10}
+    pull_policy: always
     container_name: inkcore-backend
     ports:
       - "8086:8086"

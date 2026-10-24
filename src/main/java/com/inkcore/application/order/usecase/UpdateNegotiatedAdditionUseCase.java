@@ -26,15 +26,18 @@ public class UpdateNegotiatedAdditionUseCase {
     private final OrderSupport support;
     private final NegotiatedAdditionRepositoryPort additionRepository;
     private final CreateNegotiatedAdditionUseCase createUseCase;
+    private final OrderCxcDocumentService cxcDocumentService;
 
     public UpdateNegotiatedAdditionUseCase(
             OrderSupport support,
             NegotiatedAdditionRepositoryPort additionRepository,
-            CreateNegotiatedAdditionUseCase createUseCase
+            CreateNegotiatedAdditionUseCase createUseCase,
+            OrderCxcDocumentService cxcDocumentService
     ) {
         this.support = support;
         this.additionRepository = additionRepository;
         this.createUseCase = createUseCase;
+        this.cxcDocumentService = cxcDocumentService;
     }
 
     @Transactional
@@ -91,6 +94,7 @@ public class UpdateNegotiatedAdditionUseCase {
         addition.setNotes(blankToNull(command.notes()));
 
         NegotiatedAddition saved = additionRepository.update(addition);
+        cxcDocumentService.syncTotalFromAddition(saved, now);
         return createUseCase.finish(companyId, order, saved);
     }
 

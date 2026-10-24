@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS indicolors.order_deliveries (
     CONSTRAINT order_deliveries_available_before_check
         CHECK (available_before >= 0),
     CONSTRAINT order_deliveries_delivery_number_format_check
-        CHECK (delivery_number ~ '^ODP-[0-9]+$')
+        CHECK (delivery_number ~ '^ENT-[0-9]+$')
 );
 
 CREATE INDEX IF NOT EXISTS idx_order_deliveries_company_id ON indicolors.order_deliveries (company_id);
@@ -71,7 +71,10 @@ COMMENT ON TABLE indicolors.order_deliveries IS 'Bitácora append-only de entreg
 
 COMMENT ON COLUMN indicolors.order_deliveries.order_delivery_id IS 'Identificador único de la entrega o de su reversión';
 COMMENT ON COLUMN indicolors.order_deliveries.company_id IS 'Identificador de la empresa dueña del registro';
-COMMENT ON COLUMN indicolors.order_deliveries.delivery_number IS 'Consecutivo corto del pedido/entrega por compañía (ej. ODP-1, ODP-42), generado por el backend; único por compañía; cada reversión también recibe el suyo propio';
+COMMENT ON COLUMN indicolors.order_deliveries.delivery_number IS
+    'Consecutivo de entrega por compañía (ENT-{n}), generado por el backend; '
+    'serie propia distinta de customer_orders.odp_number (ODP) y de cxc_number (CXC). '
+    'Único por compañía; cada reversión también recibe el suyo.';
 COMMENT ON COLUMN indicolors.order_deliveries.production_order_id IS 'Identificador de la Orden de Producción entregada';
 COMMENT ON COLUMN indicolors.order_deliveries.client_id IS 'Cliente que recibe la entrega (snapshot desde production_orders.client_id)';
 COMMENT ON COLUMN indicolors.order_deliveries.seller_id IS 'Representante/vendedor asociado a la entrega, si aplica';

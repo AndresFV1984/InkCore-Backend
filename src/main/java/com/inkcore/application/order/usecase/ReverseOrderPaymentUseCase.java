@@ -23,15 +23,18 @@ public class ReverseOrderPaymentUseCase {
     private final OrderSupport support;
     private final OrderPaymentRepositoryPort paymentRepository;
     private final AccountsReceivableRepositoryPort accountsReceivableRepository;
+    private final OrderCxcDocumentService cxcDocumentService;
 
     public ReverseOrderPaymentUseCase(
             OrderSupport support,
             OrderPaymentRepositoryPort paymentRepository,
-            AccountsReceivableRepositoryPort accountsReceivableRepository
+            AccountsReceivableRepositoryPort accountsReceivableRepository,
+            OrderCxcDocumentService cxcDocumentService
     ) {
         this.support = support;
         this.paymentRepository = paymentRepository;
         this.accountsReceivableRepository = accountsReceivableRepository;
+        this.cxcDocumentService = cxcDocumentService;
     }
 
     @Transactional
@@ -68,6 +71,7 @@ public class ReverseOrderPaymentUseCase {
         reversion.setProductionOrderId(original.getProductionOrderId());
         reversion.setClientId(original.getClientId());
         reversion.setPaymentType(PaymentType.REVERSION);
+        reversion.setPaymentConcept(original.getPaymentConcept());
         reversion.setAmount(original.getAmount());
         reversion.setPaymentMethod(original.getPaymentMethod());
         reversion.setReference(original.getReference());
@@ -85,8 +89,10 @@ public class ReverseOrderPaymentUseCase {
         reversion.setCreatedAt(now);
 
         OrderPayment saved = paymentRepository.save(reversion);
+        cxcDocumentService.reverseApplicationsForPayment(companyId, paymentId, now);
+
         AccountsReceivable summary = accountsReceivableRepository
-                .findByProductionOrderId(companyId, productionOrderId)
+                .findByProductionOrderIdFresh(companyId, productionOrderId)
                 .orElseGet(AccountsReceivable::new);
         AbonosBalance.applyTo(summary, order);
         String odpNumber = support.resolveOdpNumber(companyId, productionOrderId);

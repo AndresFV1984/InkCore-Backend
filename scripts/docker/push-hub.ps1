@@ -76,4 +76,24 @@ Write-Host "Construyendo imagen ${postgres}:$tag ..."
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Push-TaggedImage $postgres
 
+# Sincroniza IMAGE_TAG en .env para que docker compose use la versión recién publicada.
+$envFile = Join-Path $root ".env"
+$envLine = "IMAGE_TAG=$tag"
+if (Test-Path $envFile) {
+    $envText = Get-Content $envFile -Raw
+    if ($envText -match '(?m)^IMAGE_TAG=.*$') {
+        $envText = [regex]::Replace($envText, '(?m)^IMAGE_TAG=.*$', $envLine)
+    } else {
+        if (-not $envText.EndsWith("`n")) { $envText += "`n" }
+        $envText += "$envLine`n"
+    }
+    Set-Content -Path $envFile -Value $envText -NoNewline
+} else {
+    Copy-Item (Join-Path $root ".env.example") $envFile
+    $envText = Get-Content $envFile -Raw
+    $envText = [regex]::Replace($envText, '(?m)^IMAGE_TAG=.*$', $envLine)
+    Set-Content -Path $envFile -Value $envText -NoNewline
+}
+Write-Host "IMAGE_TAG=$tag escrito en .env (compose: ${Namespace}/inkcore-backend:$tag)"
+
 Write-Host "Listo: ${Namespace}/inkcore-backend, inkcore-minio-init, inkcore-postgres  ($tag + latest)"

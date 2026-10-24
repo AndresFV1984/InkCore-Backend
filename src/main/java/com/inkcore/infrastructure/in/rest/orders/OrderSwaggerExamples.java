@@ -9,6 +9,7 @@ public final class OrderSwaggerExamples {
     public static final String DELIVERY_ID = "del-uuid-001";
     public static final String PAYMENT_ID = "pay-uuid-001";
     public static final String ADDITION_ID = "adn-uuid-001";
+    public static final String CXC_DOCUMENT_ID = "cxc-uuid-001";
     public static final String CLIENT_ID = "client-seed-001";
 
     public static final String CREATE_DELIVERY_REQUEST = """
@@ -34,7 +35,7 @@ public final class OrderSwaggerExamples {
               "data": {
                 "delivery": {
                   "orderDeliveryId": "del-uuid-001",
-                  "deliveryNumber": "ODP-42",
+                  "deliveryNumber": "ENT-42",
                   "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
                   "movementType": "entrega",
                   "deliveryType": "parcial",
@@ -77,6 +78,21 @@ public final class OrderSwaggerExamples {
                   "lastDeliveryAt": "2026-09-05T14:30:00",
                   "lastPaymentNumber": null,
                   "lastPaymentAt": null
+                },
+                "cxcDocument": {
+                  "cxcDocumentId": "cxc-uuid-001",
+                  "cxcNumber": "CXC-12",
+                  "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
+                  "concept": "entrega",
+                  "sourceDeliveryId": "del-uuid-001",
+                  "sourceAdditionId": null,
+                  "total": 600000.00,
+                  "totalApplied": 0.00,
+                  "remaining": 600000.00,
+                  "status": "pendiente",
+                  "issuedAt": "2026-09-05T14:30:00",
+                  "dueDate": "2026-10-05",
+                  "paymentTermDays": 30
                 }
               }
             }
@@ -111,7 +127,7 @@ public final class OrderSwaggerExamples {
               "data": [
                 {
                   "orderDeliveryId": "del-uuid-001",
-                  "deliveryNumber": "ODP-42",
+                  "deliveryNumber": "ENT-42",
                   "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
                   "movementType": "entrega",
                   "deliveryType": "parcial",
@@ -147,7 +163,7 @@ public final class OrderSwaggerExamples {
               "data": {
                 "delivery": {
                   "orderDeliveryId": "del-reversion-uuid-001",
-                  "deliveryNumber": "ODP-43",
+                  "deliveryNumber": "ENT-43",
                   "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
                   "movementType": "reversion",
                   "deliveryType": "parcial",
@@ -190,7 +206,8 @@ public final class OrderSwaggerExamples {
                   "lastDeliveryAt": "2026-09-08T15:00:00",
                   "lastPaymentNumber": null,
                   "lastPaymentAt": null
-                }
+                },
+                "cxcDocument": null
               }
             }
             """;
@@ -334,6 +351,8 @@ public final class OrderSwaggerExamples {
             {
               "amount": 200000.00,
               "paymentType": "abono",
+              "paymentConcept": "entrega",
+              "cxcDocumentId": "cxc-uuid-001",
               "paymentMethod": "transferencia",
               "reference": "COMP-00123",
               "paidAt": "2026-09-05T16:00:00",
@@ -345,6 +364,8 @@ public final class OrderSwaggerExamples {
             {
               "amount": 50000.00,
               "paymentType": "retencion",
+              "paymentConcept": "entrega",
+              "cxcDocumentId": "cxc-uuid-001",
               "paymentMethod": "retencion",
               "withholdingType": "retefuente",
               "withholdingBase": 1000000.00,
@@ -359,10 +380,11 @@ public final class OrderSwaggerExamples {
             {
               "amount": 100000.00,
               "paymentType": "anticipo",
+              "paymentConcept": "entrega",
               "paymentMethod": "transferencia",
               "reference": "ANT-7788",
               "paidAt": "2026-09-04T10:00:00",
-              "notes": "Anticipo del cliente"
+              "notes": "Anticipo del cliente (sin CxC abierta → saldo a favor)"
             }
             """;
 
@@ -381,6 +403,7 @@ public final class OrderSwaggerExamples {
                   "paymentNumber": "LIQ-15",
                   "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
                   "paymentType": "abono",
+                  "paymentConcept": "entrega",
                   "amount": 200000.00,
                   "paymentMethod": "transferencia",
                   "reference": "COMP-00123",
@@ -421,9 +444,20 @@ public final class OrderSwaggerExamples {
                   "dueSoon": true,
                   "overdue": false,
                   "lastDeliveryAt": "2026-09-05T14:30:00",
-                  "lastPaymentNumber": "LIQ-4",
+                  "lastPaymentNumber": "LIQ-15",
                   "lastPaymentAt": "2026-09-05T16:00:00"
-                }
+                },
+                "applications": [
+                  {
+                    "applicationId": "app-uuid-001",
+                    "paymentId": "pay-uuid-001",
+                    "cxcDocumentId": "cxc-uuid-001",
+                    "amount": 200000.00,
+                    "originApplicationId": null,
+                    "status": "activo",
+                    "appliedAt": "2026-09-05T16:00:00"
+                  }
+                ]
               }
             }
             """;
@@ -449,6 +483,7 @@ public final class OrderSwaggerExamples {
                   "paymentNumber": "LIQ-16",
                   "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
                   "paymentType": "reversion",
+                  "paymentConcept": "entrega",
                   "amount": 200000.00,
                   "paymentMethod": "transferencia",
                   "reference": "COMP-00123",
@@ -491,7 +526,8 @@ public final class OrderSwaggerExamples {
                   "lastDeliveryAt": "2026-09-05T14:30:00",
                   "lastPaymentNumber": null,
                   "lastPaymentAt": null
-                }
+                },
+                "applications": []
               }
             }
             """;
@@ -511,6 +547,7 @@ public final class OrderSwaggerExamples {
                   "paymentNumber": "LIQ-15",
                   "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
                   "paymentType": "abono",
+                  "paymentConcept": "entrega",
                   "amount": 200000.00,
                   "paymentMethod": "transferencia",
                   "reference": "COMP-00123",
@@ -529,6 +566,7 @@ public final class OrderSwaggerExamples {
                   "paymentNumber": "LIQ-17",
                   "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
                   "paymentType": "retencion",
+                  "paymentConcept": "entrega",
                   "amount": 50000.00,
                   "paymentMethod": "retencion",
                   "reference": null,
@@ -584,7 +622,7 @@ public final class OrderSwaggerExamples {
                     "agingBucket": "1-30",
                     "overdue": true,
                     "dueSoon": false,
-                    "lastDeliveryNumber": "ODP-42",
+                    "lastDeliveryNumber": "ENT-42",
                     "lastDeliveryAt": "2026-09-05T14:30:00",
                     "lastPaymentNumber": "LIQ-4",
                     "lastPaymentAt": "2026-09-05T16:00:00"
@@ -636,7 +674,7 @@ public final class OrderSwaggerExamples {
                   "agingBucket": "current",
                   "overdue": false,
                   "dueSoon": true,
-                  "lastDeliveryNumber": "ODP-42",
+                  "lastDeliveryNumber": "ENT-42",
                   "lastDeliveryAt": "2026-09-05T14:30:00",
                   "lastPaymentNumber": "LIQ-4",
                   "lastPaymentAt": "2026-09-05T16:00:00"
@@ -644,7 +682,7 @@ public final class OrderSwaggerExamples {
                 "deliveries": [
                   {
                     "orderDeliveryId": "del-uuid-001",
-                    "deliveryNumber": "ODP-42",
+                    "deliveryNumber": "ENT-42",
                     "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
                     "movementType": "entrega",
                     "deliveryType": "parcial",
@@ -665,6 +703,7 @@ public final class OrderSwaggerExamples {
                     "paymentNumber": "LIQ-15",
                     "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
                     "paymentType": "abono",
+                    "paymentConcept": "entrega",
                     "amount": 150000.00,
                     "paymentMethod": "transferencia",
                     "reference": "COMP-00123",
@@ -683,6 +722,7 @@ public final class OrderSwaggerExamples {
                     "paymentNumber": "LIQ-17",
                     "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
                     "paymentType": "retencion",
+                    "paymentConcept": "entrega",
                     "amount": 50000.00,
                     "paymentMethod": "retencion",
                     "reference": null,
@@ -918,6 +958,245 @@ public final class OrderSwaggerExamples {
                   "voidedBy": null
                 }
               ]
+            }
+            """;
+
+    public static final String CXC_DOCUMENT_LIST_RESPONSE = """
+            {
+              "headers": {
+                "correlationId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "statusCode": 200,
+                "code": "OK",
+                "description": "Success"
+              },
+              "timestamp": "2026-09-05T16:12:00Z",
+              "data": [
+                {
+                  "cxcDocumentId": "cxc-uuid-001",
+                  "cxcNumber": "CXC-12",
+                  "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
+                  "concept": "entrega",
+                  "sourceDeliveryId": "del-uuid-001",
+                  "sourceAdditionId": null,
+                  "total": 600000.00,
+                  "totalApplied": 200000.00,
+                  "remaining": 400000.00,
+                  "status": "parcial",
+                  "issuedAt": "2026-09-05T14:30:00",
+                  "dueDate": "2026-10-05",
+                  "paymentTermDays": 30
+                },
+                {
+                  "cxcDocumentId": "cxc-uuid-extra-001",
+                  "cxcNumber": "CXC-13",
+                  "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
+                  "concept": "extra",
+                  "sourceDeliveryId": null,
+                  "sourceAdditionId": "adn-uuid-001",
+                  "total": 180000.00,
+                  "totalApplied": 0.00,
+                  "remaining": 180000.00,
+                  "status": "pendiente",
+                  "issuedAt": "2026-10-19T16:00:00",
+                  "dueDate": "2026-11-18",
+                  "paymentTermDays": 30
+                }
+              ]
+            }
+            """;
+
+    public static final String CREATE_CXC_FROM_ADDITION_REQUEST = """
+            {
+              "additionId": "adn-uuid-001"
+            }
+            """;
+
+    public static final String CREATE_CXC_FROM_ADDITION_RESPONSE = """
+            {
+              "headers": {
+                "correlationId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "statusCode": 201,
+                "code": "OK",
+                "description": "Success"
+              },
+              "timestamp": "2026-10-19T16:00:02Z",
+              "data": {
+                "cxcDocument": {
+                  "cxcDocumentId": "cxc-uuid-extra-001",
+                  "cxcNumber": "CXC-13",
+                  "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
+                  "concept": "extra",
+                  "sourceDeliveryId": null,
+                  "sourceAdditionId": "adn-uuid-001",
+                  "total": 180000.00,
+                  "totalApplied": 0.00,
+                  "remaining": 180000.00,
+                  "status": "pendiente",
+                  "issuedAt": "2026-10-19T16:00:00",
+                  "dueDate": "2026-11-18",
+                  "paymentTermDays": 30
+                },
+                "accountsReceivable": {
+                  "accountsReceivableId": "ar-uuid-001",
+                  "cxcNumber": "CXC-7",
+                  "abonosNumber": "ABN-7",
+                  "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
+                  "odpNumber": "ODP-12",
+                  "clientId": "client-seed-001",
+                  "totalUnits": 1000,
+                  "deliveredUnits": 500,
+                  "pendingUnits": 500,
+                  "totalOwed": 1680000.00,
+                  "totalPaid": 300000.00,
+                  "totalRemaining": 1380000.00,
+                  "totalCashPaid": 150000.00,
+                  "totalWithheld": 50000.00,
+                  "totalAdvancePaid": 0.00,
+                  "status": "parcial",
+                  "hasMovements": true,
+                  "openedAt": "2026-09-05T14:30:00",
+                  "dueDate": "2026-10-05",
+                  "paymentTermDays": 30,
+                  "collectionStatus": "por_vencer",
+                  "daysOverdue": 0,
+                  "agingBucket": "current",
+                  "dueSoon": true,
+                  "overdue": false,
+                  "lastDeliveryAt": "2026-09-05T14:30:00",
+                  "lastPaymentNumber": "LIQ-4",
+                  "lastPaymentAt": "2026-09-05T16:00:00"
+                }
+              }
+            }
+            """;
+
+    public static final String APPLY_CREDIT_TO_CXC_REQUEST = """
+            {
+              "amount": 100000.00
+            }
+            """;
+
+    public static final String APPLY_CREDIT_TO_CXC_RESPONSE = """
+            {
+              "headers": {
+                "correlationId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "statusCode": 200,
+                "code": "OK",
+                "description": "Success"
+              },
+              "timestamp": "2026-09-06T10:00:00Z",
+              "data": {
+                "applications": [
+                  {
+                    "applicationId": "app-consume-uuid-001",
+                    "paymentId": "pay-anticipo-001",
+                    "cxcDocumentId": "cxc-uuid-001",
+                    "amount": 100000.00,
+                    "originApplicationId": "app-favor-001",
+                    "status": "activo",
+                    "appliedAt": "2026-09-06T10:00:00"
+                  }
+                ],
+                "accountsReceivable": {
+                  "accountsReceivableId": "ar-uuid-001",
+                  "cxcNumber": "CXC-7",
+                  "abonosNumber": "ABN-7",
+                  "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
+                  "odpNumber": "ODP-12",
+                  "clientId": "client-seed-001",
+                  "totalUnits": 1000,
+                  "deliveredUnits": 500,
+                  "pendingUnits": 500,
+                  "totalOwed": 1500000.00,
+                  "totalPaid": 300000.00,
+                  "totalRemaining": 1200000.00,
+                  "totalCashPaid": 150000.00,
+                  "totalWithheld": 50000.00,
+                  "totalAdvancePaid": 100000.00,
+                  "status": "parcial",
+                  "hasMovements": true,
+                  "openedAt": "2026-09-05T14:30:00",
+                  "dueDate": "2026-10-05",
+                  "paymentTermDays": 30,
+                  "collectionStatus": "por_vencer",
+                  "daysOverdue": 0,
+                  "agingBucket": "current",
+                  "dueSoon": true,
+                  "overdue": false,
+                  "lastDeliveryAt": "2026-09-05T14:30:00",
+                  "lastPaymentNumber": "LIQ-18",
+                  "lastPaymentAt": "2026-09-04T10:00:00"
+                }
+              }
+            }
+            """;
+
+    public static final String CXC_DOCUMENTS_DASHBOARD_RESPONSE = """
+            {
+              "headers": {
+                "correlationId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "statusCode": 200,
+                "code": "OK",
+                "description": "Success"
+              },
+              "timestamp": "2026-09-05T16:15:00Z",
+              "data": {
+                "content": [
+                  {
+                    "cxcDocumentId": "cxc-uuid-extra-001",
+                    "cxcNumber": "CXC-13",
+                    "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
+                    "orderNumber": "OP-142",
+                    "odpNumber": "ODP-12",
+                    "clientId": "client-seed-001",
+                    "clientName": "Distribuciones ACME",
+                    "concept": "extra",
+                    "sourceDeliveryId": null,
+                    "sourceAdditionId": "adn-uuid-001",
+                    "sourceNumber": "ADN-3",
+                    "total": 180000.00,
+                    "totalApplied": 50000.00,
+                    "remaining": 130000.00,
+                    "status": "parcial",
+                    "issuedAt": "2026-10-19T16:00:00",
+                    "dueDate": "2026-11-18",
+                    "paymentTermDays": 30,
+                    "collectionStatus": "por_vencer",
+                    "daysOverdue": 0,
+                    "overdue": false,
+                    "dueSoon": true
+                  },
+                  {
+                    "cxcDocumentId": "cxc-uuid-001",
+                    "cxcNumber": "CXC-12",
+                    "productionOrderId": "ef658d09-bf30-43de-ba7a-edd0f14a61bd",
+                    "orderNumber": "OP-142",
+                    "odpNumber": "ODP-12",
+                    "clientId": "client-seed-001",
+                    "clientName": "Distribuciones ACME",
+                    "concept": "entrega",
+                    "sourceDeliveryId": "del-uuid-001",
+                    "sourceAdditionId": null,
+                    "sourceNumber": "ENT-42",
+                    "total": 600000.00,
+                    "totalApplied": 200000.00,
+                    "remaining": 400000.00,
+                    "status": "parcial",
+                    "issuedAt": "2026-09-05T14:30:00",
+                    "dueDate": "2026-10-05",
+                    "paymentTermDays": 30,
+                    "collectionStatus": "por_vencer",
+                    "daysOverdue": 0,
+                    "overdue": false,
+                    "dueSoon": true
+                  }
+                ],
+                "page": 0,
+                "size": 20,
+                "totalElements": 2,
+                "totalPages": 1,
+                "hasNext": false
+              }
             }
             """;
 }

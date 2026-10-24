@@ -30,10 +30,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/clients")
 @Tag(
         name = "Cuentas por cobrar",
-        description = "Dashboard/detalle CxC/Abonos (CXC-{n} + abonosNumber ABN-{n} + accountsReceivableId). "
-                + "Incluye openedAt (1ª entrega), dueDate/aging. Solo lectura; anulación implícita "
-                + "(status anulado/sin_movimientos tras reversiones netas a cero). Sin DELETE. "
-                + "abonosNumber ABN ≠ paymentNumber LIQ del detalle (series separadas)."
+        description = "Dashboard CxC/Abonos (1:1 por OP): totalOwed=amountToCollect "
+                + "(totalToCharge + adicionales negociados vigentes), "
+                + "totalRemaining=totalOwed−totalPaid (puede ser negativo). "
+                + "cxcNumber CXC, abonosNumber ABN, odpNumber ODP, "
+                + "lastDeliveryNumber ENT (series independientes). "
+                + "Solo lectura; abonosNumber ABN ≠ paymentNumber LIQ del detalle."
 )
 @SecurityRequirement(name = "bearerAuth")
 public class ClientAccountsReceivableController {

@@ -193,7 +193,8 @@ public class ProductionOrderPersistenceAdapter implements ProductionOrderReposit
     @Transactional(readOnly = true)
     public PageResult<ProductionOrder> findPage(ProductionOrderFilter filter, PageQuery pageQuery) {
         Page<ProductionOrderEntity> page = orderRepository.findAll(toSpecification(filter), pageable(pageQuery));
-        List<ProductionOrder> orders = page.getContent().stream().map(this::loadAggregate).toList();
+        // Listado liviano: no hidratar corte/impresión/postprensa (el GET detalle sí lo hace).
+        List<ProductionOrder> orders = loadListItems(page.getContent());
         return new PageResult<>(
                 orders,
                 pageQuery.page(),
@@ -312,9 +313,48 @@ public class ProductionOrderPersistenceAdapter implements ProductionOrderReposit
     }
 
     /**
-     * El listado paginado carga el agregado completo para poder calcular
-     * {@code totalToCharge} (panel Cobro) sin un round-trip adicional.
+     * Ítems de listado: raíz + operadores + preprensa (nombre diseño) + suma ADN.
+     * {@code totalToCharge} sale de {@code production_order_cost_summary.quoted_price}
+     * en el controller (sin recalcular el agregado).
      */
+    private List<ProductionOrder> loadListItems(List<ProductionOrderEntity> roots) {
+        if (roots.isEmpty()) {
+            return List.of();
+        }
+        List<String> ids = roots.stream().map(ProductionOrderEntity::getProductionOrderId).toList();
+        String companyId = roots.get(0).getCompanyId();
+
+        Map<String, List<com.inkcore.domain.productionorder.model.OperatorAssignment>> operatorsByOrder =
+                new LinkedHashMap<>();
+        for (var entity : operatorRepository.findAllByProductionOrderIdIn(ids)) {
+            operatorsByOrder
+                    .computeIfAbsent(entity.getProductionOrderId(), key -> new ArrayList<>())
+                    .add(mapper.toDomain(entity));
+        }
+
+        Map<String, com.inkcore.domain.productionorder.model.PrepressDetails> prepressByOrder =
+                new LinkedHashMap<>();
+        for (var entity : prepressRepository.findAllById(ids)) {
+            prepressByOrder.put(entity.getProductionOrderId(), mapper.toDomain(entity));
+        }
+
+        Map<String, java.math.BigDecimal> additionsByOrder =
+                negotiatedAdditionRepository.sumNetAmountByOrderIds(companyId, ids);
+
+        List<ProductionOrder> orders = new ArrayList<>(roots.size());
+        for (ProductionOrderEntity root : roots) {
+            String orderId = root.getProductionOrderId();
+            ProductionOrder order = mapper.toDomain(root);
+            order.setOperators(operatorsByOrder.getOrDefault(orderId, List.of()));
+            order.setPrepress(prepressByOrder.get(orderId));
+            order.setNegotiatedAdditionsTotal(
+                    additionsByOrder.getOrDefault(orderId, java.math.BigDecimal.ZERO.setScale(2))
+            );
+            orders.add(order);
+        }
+        return orders;
+    }
+
     private ProductionOrder loadAggregate(ProductionOrderEntity rootEntity) {
         String orderId = rootEntity.getProductionOrderId();
         ProductionOrder order = mapper.toDomain(rootEntity);

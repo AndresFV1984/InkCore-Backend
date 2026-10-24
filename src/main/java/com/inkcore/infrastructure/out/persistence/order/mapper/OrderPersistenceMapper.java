@@ -2,6 +2,8 @@ package com.inkcore.infrastructure.out.persistence.order.mapper;
 
 import com.inkcore.domain.order.model.AccountsReceivableStatus;
 import com.inkcore.domain.order.model.AccountsReceivable;
+import com.inkcore.domain.order.model.CxcDocumentConcept;
+import com.inkcore.domain.order.model.CxcDocumentStatus;
 import com.inkcore.domain.order.model.DeliveryMovementType;
 import com.inkcore.domain.order.model.DeliveryType;
 import com.inkcore.domain.order.model.CustomerOrder;
@@ -9,15 +11,20 @@ import com.inkcore.domain.order.model.NegotiatedAddition;
 import com.inkcore.domain.order.model.NegotiatedAdditionApprovalChannel;
 import com.inkcore.domain.order.model.NegotiatedAdditionMovementType;
 import com.inkcore.domain.order.model.NegotiatedAdditionReason;
+import com.inkcore.domain.order.model.OrderCxcDocument;
 import com.inkcore.domain.order.model.OrderDelivery;
 import com.inkcore.domain.order.model.OrderPayment;
+import com.inkcore.domain.order.model.OrderPaymentApplication;
+import com.inkcore.domain.order.model.PaymentApplicationStatus;
 import com.inkcore.domain.order.model.PaymentMethod;
 import com.inkcore.domain.order.model.PaymentType;
 import com.inkcore.domain.order.model.WithholdingType;
 import com.inkcore.infrastructure.out.persistence.order.entity.AccountsReceivableEntity;
+import com.inkcore.infrastructure.out.persistence.order.entity.OrderCxcDocumentEntity;
 import com.inkcore.infrastructure.out.persistence.order.entity.OrderDeliveryEntity;
 import com.inkcore.infrastructure.out.persistence.order.entity.CustomerOrderEntity;
 import com.inkcore.infrastructure.out.persistence.order.entity.NegotiatedAdditionEntity;
+import com.inkcore.infrastructure.out.persistence.order.entity.OrderPaymentApplicationEntity;
 import com.inkcore.infrastructure.out.persistence.order.entity.OrderPaymentEntity;
 
 public final class OrderPersistenceMapper {
@@ -93,6 +100,11 @@ public final class OrderPersistenceMapper {
         entity.setProductionOrderId(payment.getProductionOrderId());
         entity.setClientId(payment.getClientId());
         entity.setPaymentType(payment.getPaymentType().getDbValue());
+        entity.setPaymentConcept(
+                payment.getPaymentConcept() == null
+                        ? CxcDocumentConcept.ENTREGA.getDbValue()
+                        : payment.getPaymentConcept().getDbValue()
+        );
         entity.setAmount(payment.getAmount());
         entity.setPaymentMethod(payment.getPaymentMethod().getDbValue());
         entity.setReference(payment.getReference());
@@ -118,6 +130,7 @@ public final class OrderPersistenceMapper {
         payment.setProductionOrderId(entity.getProductionOrderId());
         payment.setClientId(entity.getClientId());
         payment.setPaymentType(PaymentType.fromValue(entity.getPaymentType()));
+        payment.setPaymentConcept(CxcDocumentConcept.fromValue(entity.getPaymentConcept()));
         payment.setAmount(entity.getAmount());
         payment.setPaymentMethod(PaymentMethod.fromValue(entity.getPaymentMethod()));
         payment.setReference(entity.getReference());
@@ -132,6 +145,90 @@ public final class OrderPersistenceMapper {
         payment.setNotes(entity.getNotes());
         payment.setCreatedAt(entity.getCreatedAt());
         return payment;
+    }
+
+    public static OrderCxcDocumentEntity toEntity(OrderCxcDocument document) {
+        OrderCxcDocumentEntity entity = new OrderCxcDocumentEntity();
+        entity.markNew();
+        copy(document, entity);
+        return entity;
+    }
+
+    public static void copy(OrderCxcDocument document, OrderCxcDocumentEntity entity) {
+        entity.setCxcDocumentId(document.getCxcDocumentId());
+        entity.setCompanyId(document.getCompanyId());
+        entity.setCxcNumber(document.getCxcNumber());
+        entity.setProductionOrderId(document.getProductionOrderId());
+        entity.setCustomerOrderId(document.getCustomerOrderId());
+        entity.setClientId(document.getClientId());
+        entity.setConcept(document.getConcept().getDbValue());
+        entity.setSourceDeliveryId(document.getSourceDeliveryId());
+        entity.setSourceAdditionId(document.getSourceAdditionId());
+        entity.setTotal(document.getTotal());
+        entity.setStatus(document.getStatus().getDbValue());
+        entity.setIssuedAt(document.getIssuedAt());
+        entity.setDueDate(document.getDueDate());
+        entity.setPaymentTermDays(document.getPaymentTermDays());
+        entity.setCreatedAt(document.getCreatedAt());
+        entity.setUpdatedAt(document.getUpdatedAt());
+    }
+
+    public static OrderCxcDocument toDomain(OrderCxcDocumentEntity entity) {
+        OrderCxcDocument document = new OrderCxcDocument();
+        document.setCxcDocumentId(entity.getCxcDocumentId());
+        document.setCompanyId(entity.getCompanyId());
+        document.setCxcNumber(entity.getCxcNumber());
+        document.setProductionOrderId(entity.getProductionOrderId());
+        document.setCustomerOrderId(entity.getCustomerOrderId());
+        document.setClientId(entity.getClientId());
+        document.setConcept(CxcDocumentConcept.fromValue(entity.getConcept()));
+        document.setSourceDeliveryId(entity.getSourceDeliveryId());
+        document.setSourceAdditionId(entity.getSourceAdditionId());
+        document.setTotal(entity.getTotal());
+        document.setStatus(CxcDocumentStatus.fromValue(entity.getStatus()));
+        document.setIssuedAt(entity.getIssuedAt());
+        document.setDueDate(entity.getDueDate());
+        document.setPaymentTermDays(entity.getPaymentTermDays());
+        document.setCreatedAt(entity.getCreatedAt());
+        document.setUpdatedAt(entity.getUpdatedAt());
+        return document;
+    }
+
+    public static OrderPaymentApplicationEntity toEntity(OrderPaymentApplication application) {
+        OrderPaymentApplicationEntity entity = new OrderPaymentApplicationEntity();
+        entity.markNew();
+        copy(application, entity);
+        return entity;
+    }
+
+    public static void copy(OrderPaymentApplication application, OrderPaymentApplicationEntity entity) {
+        entity.setApplicationId(application.getApplicationId());
+        entity.setCompanyId(application.getCompanyId());
+        entity.setPaymentId(application.getPaymentId());
+        entity.setProductionOrderId(application.getProductionOrderId());
+        entity.setCustomerOrderId(application.getCustomerOrderId());
+        entity.setCxcDocumentId(application.getCxcDocumentId());
+        entity.setAmount(application.getAmount());
+        entity.setOriginApplicationId(application.getOriginApplicationId());
+        entity.setStatus(application.getStatus().getDbValue());
+        entity.setAppliedAt(application.getAppliedAt());
+        entity.setCreatedAt(application.getCreatedAt());
+    }
+
+    public static OrderPaymentApplication toDomain(OrderPaymentApplicationEntity entity) {
+        OrderPaymentApplication application = new OrderPaymentApplication();
+        application.setApplicationId(entity.getApplicationId());
+        application.setCompanyId(entity.getCompanyId());
+        application.setPaymentId(entity.getPaymentId());
+        application.setProductionOrderId(entity.getProductionOrderId());
+        application.setCustomerOrderId(entity.getCustomerOrderId());
+        application.setCxcDocumentId(entity.getCxcDocumentId());
+        application.setAmount(entity.getAmount());
+        application.setOriginApplicationId(entity.getOriginApplicationId());
+        application.setStatus(PaymentApplicationStatus.fromValue(entity.getStatus()));
+        application.setAppliedAt(entity.getAppliedAt());
+        application.setCreatedAt(entity.getCreatedAt());
+        return application;
     }
 
     public static AccountsReceivable toDomain(AccountsReceivableEntity entity) {

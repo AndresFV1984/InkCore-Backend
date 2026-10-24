@@ -11,6 +11,13 @@ public interface AccountsReceivableRepositoryPort {
 
     Optional<AccountsReceivable> findByProductionOrderId(String companyId, String productionOrderId);
 
+    /**
+     * Relee la fila AR desde BD tras un INSERT en order_payments/order_deliveries.
+     * Los triggers actualizan total_paid/total_owed fuera del L1 de Hibernate; sin refresh
+     * el snapshot del create puede devolver montos viejos (p. ej. totalPaid=0).
+     */
+    Optional<AccountsReceivable> findByProductionOrderIdFresh(String companyId, String productionOrderId);
+
     List<AccountsReceivable> findByProductionOrderIds(String companyId, List<String> productionOrderIds);
 
     List<AccountsReceivable> findByClientId(String companyId, String clientId);

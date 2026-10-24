@@ -49,7 +49,8 @@ import java.util.Map;
 @Tag(
         name = "Estación",
         description = "Bitácora de planta: inbox, eventos (inicio/pausa/avance), intervalos y reportes. "
-                + "complete-if-ready → COMPLETED; admin-close-stages (solo ADMIN). "
+                + "complete-if-ready → COMPLETED; admin-close-stages (solo ADMIN; "
+                + "normaliza status legacy → IN_PROGRESS_*). "
                 + "Roles OPERADOR|ADMINISTRADOR. occurredAt sin zona (sin Z)."
 )
 @SecurityRequirement(name = "bearerAuth")
@@ -199,6 +200,8 @@ public class StationController {
                     Completa el cupo pendiente (avance + entrega total) y registra fin_fase en cada
                     proceso incompleto, con observación «Cerrado por administrador: {nota}».
                     Independiente del operario asignado. Requiere nota obligatoria.
+                    Si el status de planta viene en alias legacy español (p. ej. «En Proceso Impresión»),
+                    se reescribe al wire canónico IN_PROGRESS_* antes de cerrar.
                     Si tras el cierre todas las etapas quedan cumplidas, la OP puede pasar a COMPLETED.
                     """
     )

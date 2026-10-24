@@ -42,6 +42,16 @@ public class AccountsReceivablePersistenceAdapter implements AccountsReceivableR
     }
 
     @Override
+    public Optional<AccountsReceivable> findByProductionOrderIdFresh(String companyId, String productionOrderId) {
+        entityManager.flush();
+        return repository.findByCompanyIdAndProductionOrderId(companyId, productionOrderId)
+                .map(entity -> {
+                    entityManager.refresh(entity);
+                    return OrderPersistenceMapper.toDomain(entity);
+                });
+    }
+
+    @Override
     public List<AccountsReceivable> findByProductionOrderIds(String companyId, List<String> productionOrderIds) {
         if (productionOrderIds == null || productionOrderIds.isEmpty()) {
             return List.of();

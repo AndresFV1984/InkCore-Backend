@@ -4,6 +4,7 @@ import com.inkcore.application.station.StationIntervalService;
 import com.inkcore.application.station.StationOrderCompletionService;
 import com.inkcore.application.station.StationSupport;
 import com.inkcore.domain.productionorder.model.ProductionOrder;
+import com.inkcore.domain.productionorder.model.ProductionOrderStatus;
 import com.inkcore.domain.station.exception.StationBusinessRuleException;
 import com.inkcore.domain.station.model.StationEventType;
 import com.inkcore.domain.station.model.StationOperationEvent;
@@ -69,6 +70,7 @@ public class AdminCloseOrderStagesUseCase {
 
         String companyId = support.companyId(authentication);
         ProductionOrder order = support.requireOrder(productionOrderId, companyId);
+        order = ensureCanonicalPlantStatusForAdminClose(order, authentication);
         StationValidationService validation = new StationValidationService();
         validation.requireExecutionAllowed(order);
 
@@ -106,13 +108,68 @@ public class AdminCloseOrderStagesUseCase {
                                 : left)
                 .ifPresent(intervalService::closeAllOpenWorkIntervalsForOrder);
 
-        orderCompletionService.completeIfAllStagesProcessed(
-                order,
+        // Tras completar cupos/entregas, la OP queda Finalizada (COMPLETED).
+        ProductionOrder latest = support.requireOrder(productionOrderId, companyId);
+        boolean completed = orderCompletionService.completeIfAllStagesProcessed(
+                latest,
                 support.userId(authentication),
                 support.now()
         );
+        if (!completed) {
+            forceCompletedAfterAdminClose(latest, authentication);
+        }
 
         return new Result(order.getProductionOrderId(), observation, closed);
+    }
+
+    /**
+     * Normaliza status legacy a {@code IN_PROGRESS_*} y reabre planta no anulada
+     * ({@code COMPLETED}, {@code PENDING}, {@code PAUSED}, …) para poder registrar el cierre admin.
+     */
+    private ProductionOrder ensureCanonicalPlantStatusForAdminClose(
+            ProductionOrder order,
+            Authentication authentication
+    ) {
+        if (!order.isState()) {
+            throw new StationBusinessRuleException(
+                    "La orden está inactiva (archivada); no se pueden registrar avances."
+            );
+        }
+        if (ProductionOrderStatus.isAnuladaAlias(order.getStatus())) {
+            throw new StationBusinessRuleException(
+                    StationValidationService.EXECUTION_BLOCKED_MESSAGE
+                            + " (status="
+                            + order.getStatus()
+                            + ", state="
+                            + order.isState()
+                            + ")"
+            );
+        }
+        String canonical = StationValidationService.toCanonicalInProgressWire(order.getStatus());
+        if (canonical == null) {
+            // Cierre admin: reabrir Finalizada / Pendiente / Pausada a En Proceso.
+            canonical = ProductionOrderStatus.IN_PROGRESS.getWireValue();
+        }
+        if (canonical.equals(order.getStatus())) {
+            return order;
+        }
+        order.setStatus(canonical);
+        order.setUpdatedAt(support.now());
+        order.setUpdatedBy(support.userId(authentication));
+        return support.productionOrderRepository().saveRoot(order);
+    }
+
+    private void forceCompletedAfterAdminClose(ProductionOrder order, Authentication authentication) {
+        if (order == null || ProductionOrderStatus.isAnuladaAlias(order.getStatus())) {
+            return;
+        }
+        if (ProductionOrderStatus.COMPLETED.getWireValue().equalsIgnoreCase(order.getStatus())) {
+            return;
+        }
+        order.setStatus(ProductionOrderStatus.COMPLETED.getWireValue());
+        order.setUpdatedAt(support.now());
+        order.setUpdatedBy(support.userId(authentication));
+        support.productionOrderRepository().saveRoot(order);
     }
 
     private void sealOpenStage(
@@ -230,7 +287,8 @@ public class AdminCloseOrderStagesUseCase {
                         null,
                         null,
                         null,
-                        null
+                        null,
+                        true
                 ),
                 authentication
         );

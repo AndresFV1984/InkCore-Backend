@@ -26,15 +26,18 @@ public class ReverseOrderDeliveryUseCase {
     private final OrderSupport support;
     private final OrderDeliveryRepositoryPort deliveryRepository;
     private final AccountsReceivableRepositoryPort accountsReceivableRepository;
+    private final OrderCxcDocumentService cxcDocumentService;
 
     public ReverseOrderDeliveryUseCase(
             OrderSupport support,
             OrderDeliveryRepositoryPort deliveryRepository,
-            AccountsReceivableRepositoryPort accountsReceivableRepository
+            AccountsReceivableRepositoryPort accountsReceivableRepository,
+            OrderCxcDocumentService cxcDocumentService
     ) {
         this.support = support;
         this.deliveryRepository = deliveryRepository;
         this.accountsReceivableRepository = accountsReceivableRepository;
+        this.cxcDocumentService = cxcDocumentService;
     }
 
     @Transactional
@@ -65,8 +68,8 @@ public class ReverseOrderDeliveryUseCase {
             throw new OrderConflictException("Esta entrega ya fue anulada");
         }
 
-        // Abonos se aplican sobre totalToCharge de la OP (no sobre el valor entregado):
-        // anular una entrega no se bloquea por totalPaid vs valor CxC de entregas.
+        // Anular CxC de la entrega antes de la reversión (bloquea si ya hay abonos).
+        cxcDocumentService.annulFromDelivery(original, now);
 
         OrderDelivery reversion = new OrderDelivery();
         reversion.setCompanyId(companyId);
@@ -97,7 +100,7 @@ public class ReverseOrderDeliveryUseCase {
         }
 
         AccountsReceivable summary = accountsReceivableRepository
-                .findByProductionOrderId(companyId, productionOrderId)
+                .findByProductionOrderIdFresh(companyId, productionOrderId)
                 .orElseGet(AccountsReceivable::new);
         AbonosBalance.applyTo(summary, order);
         String odpNumber = support.resolveOdpNumber(companyId, productionOrderId);

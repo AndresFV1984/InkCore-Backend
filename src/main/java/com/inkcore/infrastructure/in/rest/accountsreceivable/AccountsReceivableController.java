@@ -2,6 +2,7 @@ package com.inkcore.infrastructure.in.rest.accountsreceivable;
 
 import com.inkcore.application.order.usecase.GetAccountsReceivableDetailUseCase;
 import com.inkcore.application.order.usecase.ListAccountsReceivableUseCase;
+import com.inkcore.application.order.usecase.ListCxcDocumentsDashboardUseCase;
 import com.inkcore.domain.shared.PageQuery;
 import com.inkcore.infrastructure.in.rest.envelope.ApiResponseFactory;
 import com.inkcore.infrastructure.in.rest.envelope.ApiSuccessEnvelope;
@@ -9,6 +10,7 @@ import com.inkcore.infrastructure.in.rest.openapi.AccountsReceivableDetailSucces
 import com.inkcore.infrastructure.in.rest.openapi.AccountsReceivableListSuccessEnvelope;
 import com.inkcore.infrastructure.in.rest.openapi.ApiErrorResponses;
 import com.inkcore.infrastructure.in.rest.openapi.ApiSecuredErrorResponses;
+import com.inkcore.infrastructure.in.rest.openapi.CxcDocumentDashboardListSuccessEnvelope;
 import com.inkcore.infrastructure.in.rest.orders.OrderResponses;
 import com.inkcore.infrastructure.in.rest.orders.OrderSwaggerExamples;
 import com.inkcore.infrastructure.in.rest.shared.PageResponse;
@@ -35,25 +37,79 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/accounts-receivable")
 @Tag(
         name = "Cuentas por cobrar",
-        description = "Dashboard/detalle CxC y Abonos (1:1 por OP). "
-                + "cxcNumber (CXC-n), abonosNumber (ABN-n, id agregado; ≠ paymentNumber LIQ), "
-                + "odpNumber (pedido), lastPaymentNumber (último LIQ). Solo lectura; anulación implícita. Sin DELETE."
+        description = "GET /documents = 1 fila por CxC (ENT|ADN); GET / = resumen 1:1 por OP (legado). "
+                + "cxcNumber CXC, odpNumber ODP, sourceNumber ENT|ADN. Solo lectura."
 )
 @SecurityRequirement(name = "bearerAuth")
 public class AccountsReceivableController {
 
     private final ListAccountsReceivableUseCase listUseCase;
+    private final ListCxcDocumentsDashboardUseCase listDocumentsUseCase;
     private final GetAccountsReceivableDetailUseCase detailUseCase;
     private final ApiResponseFactory responseFactory;
 
     public AccountsReceivableController(
             ListAccountsReceivableUseCase listUseCase,
+            ListCxcDocumentsDashboardUseCase listDocumentsUseCase,
             GetAccountsReceivableDetailUseCase detailUseCase,
             ApiResponseFactory responseFactory
     ) {
         this.listUseCase = listUseCase;
+        this.listDocumentsUseCase = listDocumentsUseCase;
         this.detailUseCase = detailUseCase;
         this.responseFactory = responseFactory;
+    }
+
+    @GetMapping("/documents")
+    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
+    @Operation(
+            operationId = "listCxcDocumentsDashboard",
+            summary = "Listado paginado de documentos CxC (1 fila = ENT o ADN)",
+            description = "Fuente: order_cxc_documents (excluye anuladas). "
+                    + "concept=entrega|extra. sourceNumber = ENT-{n} o ADN-{n}. "
+                    + "Filtros: concept, clientId, search, overdueOnly, dueSoonOnly, withBalance."
+    )
+    @ApiResponse(
+            responseCode = "200",
+            description = "Documentos CxC",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    schema = @Schema(implementation = CxcDocumentDashboardListSuccessEnvelope.class),
+                    examples = @ExampleObject(
+                            name = "DashboardDocumentosCxC",
+                            value = OrderSwaggerExamples.CXC_DOCUMENTS_DASHBOARD_RESPONSE
+                    )
+            )
+    )
+    @ApiErrorResponses
+    @ApiSecuredErrorResponses
+    public ResponseEntity<ApiSuccessEnvelope<PageResponse<OrderResponses.CxcDocumentDashboardItemResponse>>> listDocuments(
+            @Parameter(description = "entrega | extra", example = "extra")
+            @RequestParam(required = false) String concept,
+            @Parameter(description = "Filtrar por cliente")
+            @RequestParam(required = false) String clientId,
+            @Parameter(description = "Búsqueda por CXC, OP, ODP, cliente, ENT/ADN", example = "ADN-3")
+            @RequestParam(required = false) String search,
+            @Parameter(description = "Solo CxC vencidas con saldo > 0", example = "true")
+            @RequestParam(required = false) Boolean overdueOnly,
+            @Parameter(description = "Solo CxC por vencer (≤7 días) con saldo > 0", example = "true")
+            @RequestParam(required = false) Boolean dueSoonOnly,
+            @Parameter(description = "Solo documentos con saldo > 0", example = "true")
+            @RequestParam(required = false) Boolean withBalance,
+            @Parameter(description = "Página 0-based", example = "0")
+            @RequestParam(required = false, defaultValue = "0") Integer page,
+            @Parameter(description = "Tamaño de página (máx 100)", example = "20")
+            @RequestParam(required = false, defaultValue = "20") Integer size,
+            Authentication authentication,
+            HttpServletRequest httpRequest
+    ) {
+        PageResponse<OrderResponses.CxcDocumentDashboardItemResponse> data = PageResponse.from(
+                listDocumentsUseCase.execute(
+                        concept, clientId, search, overdueOnly, dueSoonOnly, withBalance,
+                        PageQuery.of(page, size), authentication),
+                OrderResponses.CxcDocumentDashboardItemResponse::from
+        );
+        return responseFactory.okStandard(httpRequest, data);
     }
 
     @GetMapping

@@ -233,12 +233,3 @@ COMMENT ON FUNCTION indicolors.fn_trg_recalc_cost_summary_from_prepress_details(
 COMMENT ON FUNCTION indicolors.fn_trg_recalc_cost_summary_from_postpress_lines() IS 'Dispara el recálculo de production_order_cost_summary tras cualquier cambio en production_order_postpress_lines, resolviendo production_order_id vía production_order_postpress_records';
 COMMENT ON FUNCTION indicolors.fn_trg_recalc_cost_summary_from_machine_usage() IS 'Dispara el recálculo de production_order_cost_summary tras cualquier cambio en production_order_machine_usage';
 COMMENT ON FUNCTION indicolors.fn_trg_recalc_cost_summary_from_waste_records() IS 'Dispara el recálculo de production_order_cost_summary tras cualquier cambio en production_order_waste_records';
-
--- Backfill para OP ya existentes: el trigger solo corre en escrituras futuras.
-DO $$
-DECLARE r RECORD;
-BEGIN
-    FOR r IN SELECT production_order_id, company_id FROM indicolors.production_orders LOOP
-        PERFORM indicolors.fn_recalc_production_order_cost_summary(r.production_order_id, r.company_id);
-    END LOOP;
-END $$;

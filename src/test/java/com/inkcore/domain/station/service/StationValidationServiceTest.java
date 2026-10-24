@@ -2,6 +2,7 @@ package com.inkcore.domain.station.service;
 
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -17,6 +18,18 @@ class StationValidationServiceTest {
         assertTrue(StationValidationService.isInProgressStatus("IN_PROGRESS_FINISHED_PRODUCTS"));
         assertTrue(StationValidationService.isInProgressStatus("IN_PROGRESS_FINISHING"));
         assertTrue(StationValidationService.isInProgressStatus("in_progress_prepress"));
+        assertTrue(StationValidationService.isInProgressStatus("En Proceso Impresion"));
+        assertTrue(StationValidationService.isInProgressStatus("EN PROCESO PREPRENSA"));
+        assertTrue(StationValidationService.isInProgressStatus("En Proceso Terminados"));
+        assertTrue(StationValidationService.isInProgressStatus("En Proceso · Impresión"));
+        assertEquals(
+                "IN_PROGRESS_PRINTING",
+                StationValidationService.toCanonicalInProgressWire("En Proceso Impresion")
+        );
+        assertEquals(
+                "IN_PROGRESS",
+                StationValidationService.toCanonicalInProgressWire("EN PROCESO")
+        );
     }
 
     @Test

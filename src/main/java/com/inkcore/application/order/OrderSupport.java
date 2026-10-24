@@ -76,8 +76,9 @@ public class OrderSupport {
         return productionOrderRepository;
     }
 
+    /** Nº entrega: ENT-{n} (serie propia; ≠ odpNumber ODP del pedido, ≠ cxcNumber CXC). */
     public String nextDeliveryNumber(String companyId) {
-        return "ODP-" + deliveryRepository.allocateNextDeliverySequence(companyId);
+        return "ENT-" + deliveryRepository.allocateNextDeliverySequence(companyId);
     }
 
     public String nextPaymentNumber(String companyId) {
