@@ -28,4 +28,12 @@ public interface MachineRepositoryPort {
     List<String> findCompanyIdsWithActiveMachines();
 
     List<Machine> findActiveByCompanyId(String companyId);
+
+    /** Preferidas activas de la compañía (a lo sumo una por {@code machine_type}). */
+    List<Machine> findPreferredActiveByCompanyId(String companyId);
+
+    boolean existsPreferredByCompanyIdAndMachineType(String companyId, String machineType);
+
+    /** Quita preferred de las demás del mismo tipo (salvo {@code excludeMachineId}). */
+    int clearPreferredForType(String companyId, String machineType, String excludeMachineId);
 }

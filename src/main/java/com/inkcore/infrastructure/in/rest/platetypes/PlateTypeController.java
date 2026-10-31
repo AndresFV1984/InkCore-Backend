@@ -90,11 +90,11 @@ public class PlateTypeController {
                                       },
                                       "timestamp": "2026-08-04T12:00:00Z",
                                       "data": {
-                                        "plateTypeId": "814ad646-c4fe-42fa-9f13-4a44823e6bee",
+                                        "plateTypeId": "plate-type-seed-001",
                                         "companyId": "company-seed-001",
                                         "name": "Plancha estándar",
-                                        "width": 10.00,
-                                        "height": 5.00,
+                                        "width": 70.00,
+                                        "height": 100.00,
                                         "unit": "cm",
                                         "value": 185000.00,
                                         "state": true,
@@ -120,8 +120,8 @@ public class PlateTypeController {
                                             {
                                               "companyId": "company-seed-001",
                                               "name": "Plancha estándar",
-                                              "width": 10.00,
-                                              "height": 5.00,
+                                              "width": 70.00,
+                                              "height": 100.00,
                                               "unit": "cm",
                                               "value": 185000.00,
                                               "state": true
@@ -167,11 +167,11 @@ public class PlateTypeController {
                                       },
                                       "timestamp": "2026-08-04T12:30:00Z",
                                       "data": {
-                                        "plateTypeId": "814ad646-c4fe-42fa-9f13-4a44823e6bee",
+                                        "plateTypeId": "plate-type-seed-001",
                                         "companyId": "company-seed-001",
                                         "name": "Plancha estándar",
-                                        "width": 10.00,
-                                        "height": 5.00,
+                                        "width": 70.00,
+                                        "height": 100.00,
                                         "unit": "cm",
                                         "value": 190000.00,
                                         "state": true,
@@ -186,7 +186,7 @@ public class PlateTypeController {
     @ApiSecuredErrorResponses
     public ResponseEntity<ApiSuccessEnvelope<PlateTypeResponse>> update(
             @Parameter(description = "Identificador del tipo de plancha", required = true,
-                    example = "814ad646-c4fe-42fa-9f13-4a44823e6bee")
+                    example = "plate-type-seed-001")
             @PathVariable String plateTypeId,
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     required = true,
@@ -199,8 +199,8 @@ public class PlateTypeController {
                                     value = """
                                             {
                                               "name": "Plancha estándar",
-                                              "width": 10.00,
-                                              "height": 5.00,
+                                              "width": 70.00,
+                                              "height": 100.00,
                                               "unit": "cm",
                                               "value": 190000.00,
                                               "state": true
@@ -243,11 +243,11 @@ public class PlateTypeController {
                                       "data": {
                                         "content": [
                                           {
-                                            "plateTypeId": "814ad646-c4fe-42fa-9f13-4a44823e6bee",
+                                            "plateTypeId": "plate-type-seed-001",
                                             "companyId": "company-seed-001",
                                             "name": "Plancha estándar",
-                                            "width": 10.00,
-                                            "height": 5.00,
+                                            "width": 70.00,
+                                            "height": 100.00,
                                             "unit": "cm",
                                             "value": 185000.00,
                                             "state": true,
@@ -312,7 +312,7 @@ public class PlateTypeController {
     @ApiSecuredErrorResponses
     public ResponseEntity<ApiSuccessEnvelope<PlateTypeResponse>> get(
             @Parameter(description = "Identificador del tipo de plancha", required = true,
-                    example = "814ad646-c4fe-42fa-9f13-4a44823e6bee")
+                    example = "plate-type-seed-001")
             @PathVariable String plateTypeId,
             HttpServletRequest httpRequest
     ) {

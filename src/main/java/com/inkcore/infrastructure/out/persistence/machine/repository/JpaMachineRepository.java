@@ -4,6 +4,7 @@ import com.inkcore.infrastructure.out.persistence.machine.entity.MachineEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -46,6 +47,25 @@ public interface JpaMachineRepository extends JpaRepository<MachineEntity, Strin
     );
 
     List<MachineEntity> findAllByCompanyIdAndStateOrderByNameAsc(String companyId, boolean state);
+
+    List<MachineEntity> findAllByCompanyIdAndPreferredTrueAndStateTrueOrderByMachineTypeAsc(String companyId);
+
+    boolean existsByCompanyIdAndMachineTypeAndPreferredTrue(String companyId, String machineType);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE MachineEntity m
+            SET m.preferred = FALSE, m.updatedAt = CURRENT_TIMESTAMP
+            WHERE m.companyId = :companyId
+              AND m.machineType = :machineType
+              AND m.preferred = TRUE
+              AND m.machineId <> :excludeMachineId
+            """)
+    int clearPreferredForType(
+            @Param("companyId") String companyId,
+            @Param("machineType") String machineType,
+            @Param("excludeMachineId") String excludeMachineId
+    );
 
     @Query("SELECT DISTINCT m.companyId FROM MachineEntity m WHERE m.state = true")
     List<String> findCompanyIdsWithActiveMachines();

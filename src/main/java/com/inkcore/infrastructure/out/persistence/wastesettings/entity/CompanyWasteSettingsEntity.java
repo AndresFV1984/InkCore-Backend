@@ -74,6 +74,21 @@ public class CompanyWasteSettingsEntity implements Persistable<String> {
     @Column(name = "operational_makeready_sheets", nullable = false, precision = 12, scale = 2)
     private BigDecimal operationalMakereadySheets;
 
+    @Column(name = "cut_waste_active", nullable = false)
+    private boolean cutWasteActive;
+
+    @Column(name = "operational_waste_active", nullable = false)
+    private boolean operationalWasteActive;
+
+    @Column(name = "prepress_waste_active", nullable = false)
+    private boolean prepressWasteActive;
+
+    @Column(name = "finished_waste_active", nullable = false)
+    private boolean finishedWasteActive;
+
+    @Column(name = "finishing_waste_active", nullable = false)
+    private boolean finishingWasteActive;
+
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
@@ -238,6 +253,46 @@ public class CompanyWasteSettingsEntity implements Persistable<String> {
 
     public void setOperationalMakereadySheets(BigDecimal operationalMakereadySheets) {
         this.operationalMakereadySheets = operationalMakereadySheets;
+    }
+
+    public boolean isCutWasteActive() {
+        return cutWasteActive;
+    }
+
+    public void setCutWasteActive(boolean cutWasteActive) {
+        this.cutWasteActive = cutWasteActive;
+    }
+
+    public boolean isOperationalWasteActive() {
+        return operationalWasteActive;
+    }
+
+    public void setOperationalWasteActive(boolean operationalWasteActive) {
+        this.operationalWasteActive = operationalWasteActive;
+    }
+
+    public boolean isPrepressWasteActive() {
+        return prepressWasteActive;
+    }
+
+    public void setPrepressWasteActive(boolean prepressWasteActive) {
+        this.prepressWasteActive = prepressWasteActive;
+    }
+
+    public boolean isFinishedWasteActive() {
+        return finishedWasteActive;
+    }
+
+    public void setFinishedWasteActive(boolean finishedWasteActive) {
+        this.finishedWasteActive = finishedWasteActive;
+    }
+
+    public boolean isFinishingWasteActive() {
+        return finishingWasteActive;
+    }
+
+    public void setFinishingWasteActive(boolean finishingWasteActive) {
+        this.finishingWasteActive = finishingWasteActive;
     }
 
     public LocalDateTime getUpdatedAt() {

@@ -92,10 +92,10 @@ public class ThousandRateController {
                                       },
                                       "timestamp": "2026-08-08T12:00:00Z",
                                       "data": {
-                                        "thousandRateId": "814ad646-c4fe-42fa-9f13-4a44823e6bee",
+                                        "thousandRateId": "thousand-rate-seed-001",
                                         "companyId": "company-seed-001",
                                         "name": "Color básico",
-                                        "colorCategory": "1 COLOR",
+                                        "colorCategory": "basico",
                                         "thousandUnit": 1000,
                                         "price": 17500.00,
                                         "state": true,
@@ -104,7 +104,7 @@ public class ThousandRateController {
                                         "decimalThreshold": 0.20,
                                         "gripperFlipPrice": 20000.00,
                                         "squareFlipPrice": 20000.00,
-                                        "isDefault": false,
+                                        "isDefault": true,
                                         "creationDate": "2026-08-08"
                                       }
                                     }
@@ -127,7 +127,7 @@ public class ThousandRateController {
                                             {
                                               "companyId": "company-seed-001",
                                               "name": "Color básico",
-                                              "colorCategory": "1 COLOR",
+                                              "colorCategory": "basico",
                                               "thousandUnit": 1000,
                                               "price": 17500.00,
                                               "state": true,
@@ -136,7 +136,7 @@ public class ThousandRateController {
                                               "decimalThreshold": 0.20,
                                               "gripperFlipPrice": 20000.00,
                                               "squareFlipPrice": 20000.00,
-                                              "isDefault": false
+                                              "isDefault": true
                                             }
                                             """
                             )
@@ -180,10 +180,10 @@ public class ThousandRateController {
                                       },
                                       "timestamp": "2026-08-08T12:30:00Z",
                                       "data": {
-                                        "thousandRateId": "814ad646-c4fe-42fa-9f13-4a44823e6bee",
+                                        "thousandRateId": "thousand-rate-seed-001",
                                         "companyId": "company-seed-001",
                                         "name": "Color básico",
-                                        "colorCategory": "1 COLOR",
+                                        "colorCategory": "basico",
                                         "thousandUnit": 1000,
                                         "price": 18000.00,
                                         "state": true,
@@ -204,7 +204,7 @@ public class ThousandRateController {
     @ApiSecuredErrorResponses
     public ResponseEntity<ApiSuccessEnvelope<ThousandRateResponse>> update(
             @Parameter(description = "Identificador de la tarifa por millar", required = true,
-                    example = "814ad646-c4fe-42fa-9f13-4a44823e6bee")
+                    example = "thousand-rate-seed-001")
             @PathVariable String thousandRateId,
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     required = true,
@@ -217,7 +217,7 @@ public class ThousandRateController {
                                     value = """
                                             {
                                               "name": "Color básico",
-                                              "colorCategory": "1 COLOR",
+                                              "colorCategory": "basico",
                                               "thousandUnit": 1000,
                                               "price": 18000.00,
                                               "state": true,
@@ -266,10 +266,10 @@ public class ThousandRateController {
                                       "data": {
                                         "content": [
                                           {
-                                            "thousandRateId": "814ad646-c4fe-42fa-9f13-4a44823e6bee",
+                                            "thousandRateId": "thousand-rate-seed-001",
                                             "companyId": "company-seed-001",
                                             "name": "Color básico",
-                                            "colorCategory": "1 COLOR",
+                                            "colorCategory": "basico",
                                             "thousandUnit": 1000,
                                             "price": 17500.00,
                                             "state": true,
@@ -278,7 +278,7 @@ public class ThousandRateController {
                                             "decimalThreshold": 0.20,
                                             "gripperFlipPrice": 20000.00,
                                             "squareFlipPrice": 20000.00,
-                                            "isDefault": false,
+                                            "isDefault": true,
                                             "creationDate": "2026-08-08"
                                           }
                                         ],
@@ -338,10 +338,10 @@ public class ThousandRateController {
                                       },
                                       "timestamp": "2026-08-08T12:00:00Z",
                                       "data": {
-                                        "thousandRateId": "814ad646-c4fe-42fa-9f13-4a44823e6bee",
+                                        "thousandRateId": "thousand-rate-seed-001",
                                         "companyId": "company-seed-001",
                                         "name": "Color básico",
-                                        "colorCategory": "1 COLOR",
+                                        "colorCategory": "basico",
                                         "thousandUnit": 1000,
                                         "price": 17500.00,
                                         "state": true,
@@ -350,7 +350,7 @@ public class ThousandRateController {
                                         "decimalThreshold": 0.20,
                                         "gripperFlipPrice": 20000.00,
                                         "squareFlipPrice": 20000.00,
-                                        "isDefault": false,
+                                        "isDefault": true,
                                         "creationDate": "2026-08-08"
                                       }
                                     }
@@ -370,7 +370,7 @@ public class ThousandRateController {
     @ApiSecuredErrorResponses
     public ResponseEntity<ApiSuccessEnvelope<ThousandRateResponse>> get(
             @Parameter(description = "Identificador de la tarifa por millar", required = true,
-                    example = "814ad646-c4fe-42fa-9f13-4a44823e6bee")
+                    example = "thousand-rate-seed-001")
             @PathVariable String thousandRateId,
             HttpServletRequest httpRequest
     ) {

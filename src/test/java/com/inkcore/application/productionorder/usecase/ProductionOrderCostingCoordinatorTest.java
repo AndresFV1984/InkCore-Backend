@@ -362,6 +362,21 @@ class ProductionOrderCostingCoordinatorTest {
         public List<com.inkcore.domain.machine.model.Machine> findActiveByCompanyId(String companyId) {
             return List.of();
         }
+
+        @Override
+        public List<com.inkcore.domain.machine.model.Machine> findPreferredActiveByCompanyId(String companyId) {
+            return List.of();
+        }
+
+        @Override
+        public boolean existsPreferredByCompanyIdAndMachineType(String companyId, String machineType) {
+            return false;
+        }
+
+        @Override
+        public int clearPreferredForType(String companyId, String machineType, String excludeMachineId) {
+            return 0;
+        }
     }
 
     private static final class MemorySettings implements CompanyWasteSettingsRepositoryPort {

@@ -12,4 +12,10 @@ public interface JpaPaperRemnantRepository extends JpaRepository<PaperRemnantEnt
 
     List<PaperRemnantEntity> findAllByCompanyIdAndPaperIdAndStateOrderByEntryDateDesc(
             String companyId, String paperId, boolean state);
+
+    List<PaperRemnantEntity> findAllByCompanyIdAndPaperIdAndStatusOrderByEntryDateDesc(
+            String companyId, String paperId, String status);
+
+    List<PaperRemnantEntity> findAllByCompanyIdAndSourceProductionOrderIdOrderByEntryDateDesc(
+            String companyId, String sourceProductionOrderId);
 }

@@ -19,8 +19,11 @@ final class WasteSettingsSwaggerExamples {
               "finishingWasteMinPercentage": 3.00,
               "finishingWasteMaxPercentage": 8.00,
               "finishingWasteDefaultPercentage": 3.00,
-              "cutMakereadySheets": 0.00,
-              "operationalMakereadySheets": 0.00
+              "cutWasteActive": true,
+              "operationalWasteActive": true,
+              "prepressWasteActive": true,
+              "finishedWasteActive": true,
+              "finishingWasteActive": true
             }
             """;
 
@@ -50,8 +53,11 @@ final class WasteSettingsSwaggerExamples {
                 "finishingWasteMinPercentage": 3.00,
                 "finishingWasteMaxPercentage": 8.00,
                 "finishingWasteDefaultPercentage": 3.00,
-                "cutMakereadySheets": 0.00,
-                "operationalMakereadySheets": 0.00
+                "cutWasteActive": true,
+                "operationalWasteActive": true,
+                "prepressWasteActive": true,
+                "finishedWasteActive": true,
+                "finishingWasteActive": true
               }
             }
             """;

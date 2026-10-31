@@ -23,12 +23,12 @@ public record UpdatePlateTypeRequest(
         @Size(max = 150)
         String name,
 
-        @Schema(description = "Ancho de la plancha", example = "10.00", requiredMode = Schema.RequiredMode.REQUIRED)
+        @Schema(description = "Ancho de la plancha", example = "70.00", requiredMode = Schema.RequiredMode.REQUIRED)
         @NotNull(message = "El ancho es obligatorio")
         @DecimalMin(value = "0.01", inclusive = true, message = "El ancho debe ser mayor que 0")
         BigDecimal width,
 
-        @Schema(description = "Alto de la plancha", example = "5.00", requiredMode = Schema.RequiredMode.REQUIRED)
+        @Schema(description = "Alto de la plancha", example = "100.00", requiredMode = Schema.RequiredMode.REQUIRED)
         @NotNull(message = "El alto es obligatorio")
         @DecimalMin(value = "0.01", inclusive = true, message = "El alto debe ser mayor que 0")
         BigDecimal height,

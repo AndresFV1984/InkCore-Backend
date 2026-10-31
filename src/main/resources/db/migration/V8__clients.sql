@@ -51,3 +51,66 @@ COMMENT ON COLUMN indicolors.clients.credit_days IS
     'Días de crédito (Net N) para calcular accounts_receivable.due_date al abrir la CxC; 0=contado';
 COMMENT ON COLUMN indicolors.clients.state IS 'True=Activo, False=Inactivo';
 COMMENT ON COLUMN indicolors.clients.creation_date IS 'Fecha de registro del cliente en el sistema';
+
+-- Datos semilla demo (company-seed-001)
+INSERT INTO indicolors.clients (
+    client_id,
+    company_id,
+    name,
+    document_type,
+    identification,
+    department,
+    city,
+    address,
+    phone,
+    email,
+    contact_person,
+    state,
+    creation_date
+) VALUES
+    (
+        'client-seed-001',
+        'company-seed-001',
+        'Editorial Horizonte Ltda.',
+        'NIT',
+        '800222001-1',
+        'Antioquia',
+        'Medellín',
+        'Calle 10 # 43-20',
+        '6042220001',
+        'compras@editorialhorizonte.com',
+        'María López',
+        TRUE,
+        CURRENT_DATE
+    ),
+    (
+        'client-seed-002',
+        'company-seed-001',
+        'Agencia Visual Branding',
+        'NIT',
+        '800222002-2',
+        'Antioquia',
+        'Envigado',
+        'Carrera 43A # 1 Sur-50',
+        '6042220002',
+        'produccion@visualbranding.com',
+        'Andrés Mejía',
+        TRUE,
+        CURRENT_DATE
+    ),
+    (
+        'client-seed-003',
+        'company-seed-001',
+        'Empaques Industriales del Norte',
+        'NIT',
+        '800222003-3',
+        'Atlántico',
+        'Barranquilla',
+        'Calle 30 # 8-15',
+        '6052220003',
+        'ordenes@empaquesnorte.com',
+        'Sofía Castro',
+        TRUE,
+        CURRENT_DATE
+    )
+ON CONFLICT (client_id) DO NOTHING;

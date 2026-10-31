@@ -43,7 +43,11 @@ final class ProductionOrderSwaggerExamples {
                 "prints": [],
                 "postpressRecords": [],
                 "operators": [],
-                "stageDiscounts": []
+                "stageDiscounts": [],
+                "outsourcedStages": [],
+                "machineUsages": [],
+                "plannedCutMakereadyQuantity": 0.00,
+                "plannedOperationalMakereadyQuantity": 0.00
               }
             }
             """;
@@ -120,7 +124,9 @@ final class ProductionOrderSwaggerExamples {
                     "totalCutValue": 0.00,
                     "plannedWastePercentage": 2.00,
                     "paperRemnantId": "paper-remnant-seed-001",
-                    "remnantQuantityUsed": 12.00
+                    "remnantQuantityUsed": 12.00,
+                    "plantSheetCost": 420.00,
+                    "totalPlantPaperValue": 107100.00
                   }
                 ],
                 "prints": [
@@ -149,7 +155,10 @@ final class ProductionOrderSwaggerExamples {
                   }
                 ],
                 "operators": [],
-                "stageDiscounts": []
+                "stageDiscounts": [],
+                "outsourcedStages": [],
+                "plannedCutMakereadyQuantity": 400.00,
+                "plannedOperationalMakereadyQuantity": 400.00
               }
             }
             """;
@@ -183,7 +192,19 @@ final class ProductionOrderSwaggerExamples {
                     "cantidadDisponible": 500,
                     "status": "IN_PROGRESS",
                     "priorityRank": 1,
-                    "state": true
+                    "state": true,
+                    "outsourcedStages": [
+                      {
+                        "stage": "FINISHED_PRODUCTS",
+                        "enabled": true,
+                        "vendorCost": 200000.00,
+                        "markupPercent": 50.00,
+                        "sellPrice": 300000.00,
+                        "supplierName": "Acabados XYZ",
+                        "quantity": 1000,
+                        "fulfillmentStatus": "PENDING"
+                      }
+                    ]
                   }
                 ],
                 "page": 0,
@@ -219,8 +240,9 @@ final class ProductionOrderSwaggerExamples {
               "proposalQuantity1": 1500,
               "proposalQuantity2": 2000,
               "operators": [
-                { "stage": "PREPRESS", "userId": "11111111-1111-1111-1111-111111111111" },
-                { "stage": "PRINTING", "userId": "22222222-2222-2222-2222-222222222222" }
+                { "stage": "PREPRESS", "userId": "operator-seed-001" },
+                { "stage": "PRINTING", "userId": "operator-seed-002" },
+                { "stage": "FINISHING_PROCESSES", "userId": "operator-seed-003" }
               ]
             }
             """;
@@ -235,7 +257,7 @@ final class ProductionOrderSwaggerExamples {
               "designCost": null,
               "clientSuppliesPlates": false,
               "clientPlateType": null,
-              "assemblyPriceId": null,
+              "assemblyPriceId": "assembly-price-seed-001",
               "dieCutLine": false,
               "uvReserve": false,
               "stamping": false,
@@ -246,12 +268,13 @@ final class ProductionOrderSwaggerExamples {
               "operatorUserId": null,
               "machineUsages": [
                 {
-                  "machineId": "814ad646-c4fe-42fa-9f13-4a44823e6bee",
+                  "machineId": "machine-seed-preprensa-001",
                   "estimatedSetupMinutes": 20,
                   "estimatedRunMinutes": 40
                 }
               ],
               "plannedWastePercentage": 3.00,
+              "outsourcedPricing": null,
               "plates": [
                 {
                   "colors": "4 COLORES",
@@ -277,11 +300,12 @@ final class ProductionOrderSwaggerExamples {
               "operatorUserId": null,
               "machineUsages": [
                 {
-                  "machineId": "814ad646-c4fe-42fa-9f13-4a44823e6bee",
+                  "machineId": "machine-seed-corte-001",
                   "estimatedSetupMinutes": 10,
                   "estimatedRunMinutes": 30
                 }
               ],
+              "outsourcedPricing": null,
               "paperRows": [
                 {
                   "plateId": "plate-of-order-001",
@@ -314,6 +338,7 @@ final class ProductionOrderSwaggerExamples {
                   "estimatedRunMinutes": 120
                 }
               ],
+              "outsourcedPricing": null,
               "prints": [
                 {
                   "plateId": "plate-of-order-001",
@@ -357,12 +382,32 @@ final class ProductionOrderSwaggerExamples {
               "operatorUserId": null,
               "machineUsages": [
                 {
-                  "machineId": "814ad646-c4fe-42fa-9f13-4a44823e6bee",
+                  "machineId": "machine-seed-terminados-001",
                   "estimatedSetupMinutes": 5,
                   "estimatedRunMinutes": 25
                 }
               ],
               "plannedWastePercentage": 3.00,
+              "outsourcedPricing": {
+                "stage": "FINISHED_PRODUCTS",
+                "enabled": true,
+                "vendorCost": 200000.00,
+                "markupPercent": 50.00,
+                "sellPrice": 300000.00,
+                "supplierId": "supplier-seed-001",
+                "supplierName": "Acabados XYZ",
+                "quotedAt": "2026-10-01",
+                "quantity": 1000,
+                "costResponsibleUserId": "operator-seed-001",
+                "costResponsibleUserName": "Operario Preprensa Litografía",
+                "quoteValidUntil": "2026-10-15",
+                "sentAt": null,
+                "sentDescription": null,
+                "expectedReturnAt": null,
+                "receivedAt": null,
+                "receivedByUserId": null,
+                "fulfillmentStatus": "PENDING"
+              },
               "records": [
                 {
                   "plateId": "plate-of-order-001",
@@ -400,17 +445,18 @@ final class ProductionOrderSwaggerExamples {
                 "machineUsages": [
                   {
                     "phase": "preprensa",
-                    "machineId": "814ad646-c4fe-42fa-9f13-4a44823e6bee",
-                    "machineNameSnapshot": "CTP",
-                    "costPerHourSnapshot": 60000.00,
+                    "machineId": "machine-seed-preprensa-001",
+                    "machineNameSnapshot": "CTP Kodak Trendsetter",
+                    "costPerHourSnapshot": 32500.00,
                     "estimatedSetupMinutes": 20,
                     "estimatedRunMinutes": 40,
-                    "estimatedMachineCost": 60000.00,
+                    "estimatedMachineCost": 32500.00,
                     "actualSetupMinutes": null,
                     "actualRunMinutes": null,
                     "actualMachineCost": null
                   }
                 ],
+                "outsourcedStages": [],
                 "wasteRecords": [
                   {
                     "phase": "preprensa",
@@ -425,7 +471,7 @@ final class ProductionOrderSwaggerExamples {
                     "note": null
                   }
                 ],
-                "estimatedMachineCost": 60000.00,
+                "estimatedMachineCost": 32500.00,
                 "estimatedWasteCost": 1800.00
               }
             }
@@ -451,15 +497,37 @@ final class ProductionOrderSwaggerExamples {
                 "machineUsages": [
                   {
                     "phase": "terminados",
-                    "machineId": "814ad646-c4fe-42fa-9f13-4a44823e6bee",
-                    "machineNameSnapshot": "Guillotina",
-                    "costPerHourSnapshot": 45000.00,
+                    "machineId": "machine-seed-terminados-001",
+                    "machineNameSnapshot": "Plegadora Stahlfolder",
+                    "costPerHourSnapshot": 22125.00,
                     "estimatedSetupMinutes": 5,
                     "estimatedRunMinutes": 25,
-                    "estimatedMachineCost": 22500.00,
+                    "estimatedMachineCost": 11062.50,
                     "actualSetupMinutes": null,
                     "actualRunMinutes": null,
                     "actualMachineCost": null
+                  }
+                ],
+                "outsourcedStages": [
+                  {
+                    "stage": "FINISHED_PRODUCTS",
+                    "enabled": true,
+                    "vendorCost": 200000.00,
+                    "markupPercent": 50.00,
+                    "sellPrice": 300000.00,
+                    "supplierId": "supplier-seed-001",
+                    "supplierName": "Acabados XYZ",
+                    "quotedAt": "2026-10-01",
+                    "quantity": 1000,
+                    "costResponsibleUserId": "operator-seed-001",
+                    "costResponsibleUserName": "Operario Preprensa Litografía",
+                    "quoteValidUntil": "2026-10-15",
+                    "sentAt": "2026-10-20",
+                    "sentDescription": "1200 pliegos impresos para barniz UV",
+                    "expectedReturnAt": "2026-10-25",
+                    "receivedAt": null,
+                    "receivedByUserId": null,
+                    "fulfillmentStatus": "DISPATCHED"
                   }
                 ],
                 "wasteRecords": [
@@ -476,7 +544,7 @@ final class ProductionOrderSwaggerExamples {
                     "note": null
                   }
                 ],
-                "estimatedMachineCost": 22500.00,
+                "estimatedMachineCost": 11062.50,
                 "estimatedWasteCost": 3000.00
               }
             }
@@ -502,17 +570,18 @@ final class ProductionOrderSwaggerExamples {
                 "machineUsages": [
                   {
                     "phase": "acabados",
-                    "machineId": "814ad646-c4fe-42fa-9f13-4a44823e6bee",
-                    "machineNameSnapshot": "Barnizadora",
-                    "costPerHourSnapshot": 45000.00,
+                    "machineId": "machine-seed-acabados-001",
+                    "machineNameSnapshot": "Laminadora Autobond",
+                    "costPerHourSnapshot": 20750.00,
                     "estimatedSetupMinutes": 5,
                     "estimatedRunMinutes": 25,
-                    "estimatedMachineCost": 22500.00,
+                    "estimatedMachineCost": 10375.00,
                     "actualSetupMinutes": null,
                     "actualRunMinutes": null,
                     "actualMachineCost": null
                   }
                 ],
+                "outsourcedStages": [],
                 "wasteRecords": [
                   {
                     "phase": "acabados",
@@ -527,7 +596,7 @@ final class ProductionOrderSwaggerExamples {
                     "note": null
                   }
                 ],
-                "estimatedMachineCost": 22500.00,
+                "estimatedMachineCost": 10375.00,
                 "estimatedWasteCost": 3000.00
               }
             }
@@ -549,7 +618,29 @@ final class ProductionOrderSwaggerExamples {
               "deliveryStartDate": "2026-08-20",
               "deliveryEndDate": "2026-08-25",
               "completed": true,
-              "operatorUserId": null
+              "operatorUserId": null,
+              "outsourcedStages": [
+                {
+                  "stage": "FINISHED_PRODUCTS",
+                  "enabled": true,
+                  "vendorCost": 200000.00,
+                  "markupPercent": 50.00,
+                  "sellPrice": 300000.00,
+                  "supplierId": "supplier-seed-001",
+                  "supplierName": "Acabados XYZ",
+                  "quotedAt": "2026-10-01",
+                  "quantity": 1000,
+                  "costResponsibleUserId": "operator-seed-001",
+                  "costResponsibleUserName": "Operario Preprensa Litografía",
+                  "quoteValidUntil": "2026-10-15",
+                  "sentAt": "2026-10-20",
+                  "sentDescription": "1200 pliegos impresos para barniz UV",
+                  "expectedReturnAt": "2026-10-25",
+                  "receivedAt": "2026-10-24",
+                  "receivedByUserId": "operator-seed-003",
+                  "fulfillmentStatus": "COMPLETED"
+                }
+              ]
             }
             """;
 
@@ -652,7 +743,9 @@ final class ProductionOrderSwaggerExamples {
                 "prints": [],
                 "postpressRecords": [],
                 "operators": [],
-                "stageDiscounts": []
+                "stageDiscounts": [],
+                "outsourcedStages": [],
+                "machineUsages": []
               }
             }
             """;
@@ -687,7 +780,9 @@ final class ProductionOrderSwaggerExamples {
                 "prints": [],
                 "postpressRecords": [],
                 "operators": [],
-                "stageDiscounts": []
+                "stageDiscounts": [],
+                "outsourcedStages": [],
+                "machineUsages": []
               }
             }
             """;

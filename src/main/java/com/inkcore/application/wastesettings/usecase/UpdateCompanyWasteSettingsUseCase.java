@@ -45,8 +45,11 @@ public class UpdateCompanyWasteSettingsUseCase {
             BigDecimal finishingMin,
             BigDecimal finishingMax,
             BigDecimal finishingDefault,
-            BigDecimal cutMakereadySheets,
-            BigDecimal operationalMakereadySheets,
+            boolean cutWasteActive,
+            boolean operationalWasteActive,
+            boolean prepressWasteActive,
+            boolean finishedWasteActive,
+            boolean finishingWasteActive,
             Authentication authentication
     ) {
         String companyId = support.companyId(authentication);
@@ -57,7 +60,8 @@ public class UpdateCompanyWasteSettingsUseCase {
                 prepressMin, prepressMax, prepressDefault,
                 finishedMin, finishedMax, finishedDefault,
                 finishingMin, finishingMax, finishingDefault,
-                cutMakereadySheets, operationalMakereadySheets,
+                cutWasteActive, operationalWasteActive, prepressWasteActive,
+                finishedWasteActive, finishingWasteActive,
                 LocalDateTime.now(clock)
         ));
     }

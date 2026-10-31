@@ -2,12 +2,17 @@ package com.inkcore.application.station.usecase;
 
 import com.inkcore.application.station.StationIntervalService;
 import com.inkcore.application.station.StationOrderCompletionService;
+import com.inkcore.application.station.StationOrderProgressService;
 import com.inkcore.application.station.StationSupport;
+import com.inkcore.domain.productionorder.model.OutsourcedFulfillmentStatus;
+import com.inkcore.domain.productionorder.model.OutsourcedStage;
 import com.inkcore.domain.productionorder.model.ProductionOrder;
+import com.inkcore.domain.productionorder.model.ProductionOrderStage;
 import com.inkcore.domain.productionorder.model.ProductionOrderStatus;
 import com.inkcore.domain.station.exception.StationBusinessRuleException;
 import com.inkcore.domain.station.model.StationEventType;
 import com.inkcore.domain.station.model.StationOperationEvent;
+import com.inkcore.domain.station.model.StationPhase;
 import com.inkcore.domain.station.model.StationProcessStatus;
 import com.inkcore.domain.station.ports.out.StationOperationEventRepositoryPort;
 import com.inkcore.domain.station.ports.out.StationOperationIntervalRepositoryPort;
@@ -17,8 +22,12 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Cierre administrativo de todas las etapas incompletas de una OP:
@@ -37,6 +46,7 @@ public class AdminCloseOrderStagesUseCase {
     private final StationOperationIntervalRepositoryPort intervalRepository;
     private final StationIntervalService intervalService;
     private final StationOrderCompletionService orderCompletionService;
+    private final StationOrderProgressService orderProgressService;
 
     public AdminCloseOrderStagesUseCase(
             StationSupport support,
@@ -45,7 +55,8 @@ public class AdminCloseOrderStagesUseCase {
             StationOperationEventRepositoryPort eventRepository,
             StationOperationIntervalRepositoryPort intervalRepository,
             StationIntervalService intervalService,
-            StationOrderCompletionService orderCompletionService
+            StationOrderCompletionService orderCompletionService,
+            StationOrderProgressService orderProgressService
     ) {
         this.support = support;
         this.processesUseCase = processesUseCase;
@@ -54,6 +65,7 @@ public class AdminCloseOrderStagesUseCase {
         this.intervalRepository = intervalRepository;
         this.intervalService = intervalService;
         this.orderCompletionService = orderCompletionService;
+        this.orderProgressService = orderProgressService;
     }
 
     @Transactional
@@ -75,6 +87,8 @@ public class AdminCloseOrderStagesUseCase {
         validation.requireExecutionAllowed(order);
 
         String observation = NOTE_PREFIX + ": " + trimmedNote;
+        String actorUserId = support.userId(authentication);
+        LocalDateTime now = support.now();
         List<ListStationOrderProcessesUseCase.StationProcessRow> rows =
                 processesUseCase.executeInternal(productionOrderId, companyId);
 
@@ -82,8 +96,28 @@ public class AdminCloseOrderStagesUseCase {
                 eventRepository.findAllByProductionOrderId(companyId, productionOrderId);
 
         List<ClosedStage> closed = new ArrayList<>();
+        Set<ProductionOrderStage> outsourcedClosedStages = new HashSet<>();
         for (ListStationOrderProcessesUseCase.StationProcessRow row : rows) {
+            boolean outsourced = isOutsourcedEnabledForRow(order, row);
             boolean openWork = hasOpenWork(companyId, productionOrderId, row, existingEvents);
+
+            if (outsourced) {
+                // Tercerizada: no inventa avance de planta; el cierre es fulfillment COMPLETED.
+                if (isOutsourcedFulfillmentCompleteForRow(order, row) && !openWork) {
+                    continue;
+                }
+                if (openWork) {
+                    sealOpenStage(order, row, observation, authentication);
+                    existingEvents = eventRepository.findAllByProductionOrderId(companyId, productionOrderId);
+                }
+                ProductionOrderStage stage = resolveOrderStage(row);
+                if (stage != null) {
+                    outsourcedClosedStages.add(stage);
+                }
+                closed.add(new ClosedStage(row.phase(), row.processKey(), row.catalogItemLabel()));
+                continue;
+            }
+
             if (isFullyClosed(row) && !openWork) {
                 continue;
             }
@@ -108,18 +142,132 @@ public class AdminCloseOrderStagesUseCase {
                                 : left)
                 .ifPresent(intervalService::closeAllOpenWorkIntervalsForOrder);
 
-        // Tras completar cupos/entregas, la OP queda Finalizada (COMPLETED).
+        // Marca todas las etapas tercerizadas habilitadas incompletas (también las que no
+        // aparecen en filas de estación, p. ej. terminados solo con proveedor).
         ProductionOrder latest = support.requireOrder(productionOrderId, companyId);
+        List<ClosedStage> outsourcedOnlyClosed = markEnabledOutsourcedStagesCompleted(
+                latest,
+                actorUserId,
+                now,
+                outsourcedClosedStages
+        );
+        if (!outsourcedOnlyClosed.isEmpty() || !outsourcedClosedStages.isEmpty()) {
+            latest = support.productionOrderRepository().save(latest);
+            for (ClosedStage extra : outsourcedOnlyClosed) {
+                boolean already = closed.stream().anyMatch(item ->
+                        item.phase().equals(extra.phase()) && item.processKey().equals(extra.processKey()));
+                if (!already) {
+                    closed.add(extra);
+                }
+            }
+        }
+
+        // Tercerización COMPLETED sin AVANCE: recalcular cantidadDisponible del listado OP.
+        orderProgressService.recalculateFromPersistedEvents(latest, now);
+
+        // Tras completar cupos/entregas (y tercerización), la OP queda Finalizada (COMPLETED).
         boolean completed = orderCompletionService.completeIfAllStagesProcessed(
                 latest,
-                support.userId(authentication),
-                support.now()
+                actorUserId,
+                now
         );
         if (!completed) {
             forceCompletedAfterAdminClose(latest, authentication);
         }
 
         return new Result(order.getProductionOrderId(), observation, closed);
+    }
+
+    /**
+     * Cierra el ciclo de proveedor (COMPLETED) en etapas tercerizadas habilitadas.
+     * @return etapas que no estaban en filas de estación y se agregaron al resultado
+     */
+    private List<ClosedStage> markEnabledOutsourcedStagesCompleted(
+            ProductionOrder order,
+            String actorUserId,
+            LocalDateTime now,
+            Set<ProductionOrderStage> alreadyCounted
+    ) {
+        LocalDate today = now.toLocalDate();
+        List<ClosedStage> extras = new ArrayList<>();
+        if (order.getOutsourcedStages() == null || order.getOutsourcedStages().isEmpty()) {
+            return extras;
+        }
+        for (OutsourcedStage stageRow : order.getOutsourcedStages()) {
+            if (stageRow == null || !stageRow.isEnabled() || stageRow.isFulfillmentComplete()) {
+                continue;
+            }
+            if (stageRow.getSentAt() == null) {
+                stageRow.setSentAt(today);
+            }
+            if (stageRow.getReceivedAt() == null) {
+                stageRow.setReceivedAt(today);
+            }
+            if (stageRow.getReceivedByUserId() == null || stageRow.getReceivedByUserId().isBlank()) {
+                stageRow.setReceivedByUserId(actorUserId);
+            }
+            String priorNote = stageRow.getSentDescription();
+            String adminNote = NOTE_PREFIX + " (estación)";
+            if (priorNote == null || priorNote.isBlank()) {
+                stageRow.setSentDescription(adminNote);
+            } else if (!priorNote.contains(NOTE_PREFIX)) {
+                stageRow.setSentDescription(priorNote + " · " + adminNote);
+            }
+            stageRow.setFulfillmentStatus(OutsourcedFulfillmentStatus.COMPLETED);
+
+            ProductionOrderStage stage = stageRow.getStage();
+            if (stage != null && (alreadyCounted == null || !alreadyCounted.contains(stage))) {
+                String phase = stationPhaseApiValue(stage);
+                extras.add(new ClosedStage(phase, phase, stageRow.getSupplierName()));
+            }
+        }
+        return extras;
+    }
+
+    private static boolean isOutsourcedEnabledForRow(
+            ProductionOrder order,
+            ListStationOrderProcessesUseCase.StationProcessRow row
+    ) {
+        ProductionOrderStage stage = resolveOrderStage(row);
+        if (stage == null || order.getOutsourcedStages() == null) {
+            return false;
+        }
+        return order.getOutsourcedStages().stream()
+                .anyMatch(item -> item != null && item.isEnabled() && item.getStage() == stage);
+    }
+
+    private static boolean isOutsourcedFulfillmentCompleteForRow(
+            ProductionOrder order,
+            ListStationOrderProcessesUseCase.StationProcessRow row
+    ) {
+        ProductionOrderStage stage = resolveOrderStage(row);
+        if (stage == null || order.getOutsourcedStages() == null) {
+            return false;
+        }
+        return order.getOutsourcedStages().stream()
+                .anyMatch(item -> item != null && item.getStage() == stage && item.isFulfillmentComplete());
+    }
+
+    private static ProductionOrderStage resolveOrderStage(
+            ListStationOrderProcessesUseCase.StationProcessRow row
+    ) {
+        if (row == null || row.phase() == null || row.phase().isBlank()) {
+            return null;
+        }
+        try {
+            return StationPhase.fromApiValue(row.phase()).getOrderStage().orElse(null);
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+    }
+
+    private static String stationPhaseApiValue(ProductionOrderStage stage) {
+        for (StationPhase phase : StationPhase.values()) {
+            if (phase.getOrderStage().map(s -> s == stage).orElse(false)) {
+                return phase.getApiValue();
+            }
+        }
+        return stage.name();
     }
 
     /**
@@ -287,8 +435,7 @@ public class AdminCloseOrderStagesUseCase {
                         null,
                         null,
                         null,
-                        null,
-                        true
+                        null
                 ),
                 authentication
         );

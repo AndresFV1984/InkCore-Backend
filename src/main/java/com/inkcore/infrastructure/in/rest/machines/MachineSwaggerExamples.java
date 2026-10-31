@@ -16,6 +16,8 @@ final class MachineSwaggerExamples {
               "monthlyOperatorCost": 2500000.00,
               "energyCostPerHour": 15000.00,
               "productiveHoursPerYear": 1600.00,
+              "setupMinutes": 15,
+              "preferred": true,
               "state": true
             }
             """;
@@ -32,6 +34,8 @@ final class MachineSwaggerExamples {
               "monthlyOperatorCost": 2500000.00,
               "energyCostPerHour": 15000.00,
               "productiveHoursPerYear": 1600.00,
+              "setupMinutes": 20,
+              "preferred": true,
               "state": true
             }
             """;
@@ -59,6 +63,8 @@ final class MachineSwaggerExamples {
                 "energyCostPerHour": 15000.00,
                 "productiveHoursPerYear": 1600.00,
                 "costPerHour": 54375.00,
+                "setupMinutes": 15,
+                "preferred": true,
                 "state": true,
                 "creationDate": "2026-09-24",
                 "updatedAt": "2026-09-24T12:00:00"
@@ -89,6 +95,8 @@ final class MachineSwaggerExamples {
                 "energyCostPerHour": 15000.00,
                 "productiveHoursPerYear": 1600.00,
                 "costPerHour": 54687.50,
+                "setupMinutes": 20,
+                "preferred": true,
                 "state": true,
                 "creationDate": "2026-09-24",
                 "updatedAt": "2026-09-24T12:30:00"
@@ -121,6 +129,8 @@ final class MachineSwaggerExamples {
                     "energyCostPerHour": 15000.00,
                     "productiveHoursPerYear": 1600.00,
                     "costPerHour": 54375.00,
+                    "setupMinutes": 15,
+                    "preferred": true,
                     "state": true,
                     "creationDate": "2026-09-24",
                     "updatedAt": "2026-09-24T12:00:00"
@@ -153,6 +163,8 @@ final class MachineSwaggerExamples {
                     "name": "Offset Heidelberg 4 colores",
                     "machineType": "impresion",
                     "costPerHour": 54375.00,
+                    "setupMinutes": 15,
+                    "preferred": true,
                     "state": true
                   }
                 ]

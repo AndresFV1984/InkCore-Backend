@@ -1,6 +1,7 @@
 package com.inkcore.application.paper.usecase;
 
 import com.inkcore.domain.paper.model.PaperRemnant;
+import com.inkcore.domain.paper.model.PaperRemnantStatus;
 import com.inkcore.domain.paper.ports.out.PaperRemnantRepositoryPort;
 import com.inkcore.domain.shared.exception.ResourceNotFoundException;
 import org.springframework.security.core.Authentication;
@@ -43,6 +44,7 @@ public class UpdatePaperRemnantUseCase {
                 .filter(r -> companyId.equals(r.getCompanyId()) && paperId.equals(r.getPaperId()))
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "PAPER_REMNANT_NOT_FOUND", "Remanente de papel no encontrado"));
+        PaperRemnantStatus status = resolveStatus(command, existing.getStatus());
         PaperRemnant updated = existing.update(
                 command.width(),
                 command.height(),
@@ -54,9 +56,22 @@ public class UpdatePaperRemnantUseCase {
                 command.sourcePaperRowId(),
                 command.entryDate(),
                 command.note(),
-                command.state(),
+                status,
                 LocalDateTime.now(clock)
         );
         return repository.save(updated);
+    }
+
+    private static PaperRemnantStatus resolveStatus(
+            PaperCommands.UpdatePaperRemnantCommand command,
+            PaperRemnantStatus current
+    ) {
+        if (command.status() != null && !command.status().isBlank()) {
+            return PaperRemnantStatus.fromWire(command.status());
+        }
+        if (command.state() != null) {
+            return PaperRemnantStatus.fromLegacyState(command.state());
+        }
+        return current;
     }
 }

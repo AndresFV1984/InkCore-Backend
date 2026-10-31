@@ -4,6 +4,7 @@ import com.inkcore.domain.paper.model.Paper;
 import com.inkcore.domain.paper.model.PaperCutLayout;
 import com.inkcore.domain.paper.model.PaperPriceHistory;
 import com.inkcore.domain.paper.model.PaperRemnant;
+import com.inkcore.domain.paper.model.PaperRemnantStatus;
 import com.inkcore.domain.paper.model.PaperStock;
 import com.inkcore.domain.paper.model.PaperSupplierPrice;
 import com.inkcore.infrastructure.out.persistence.paper.entity.PaperCutLayoutEntity;
@@ -214,12 +215,14 @@ public class PaperPersistenceMapper {
         entity.setSourcePaperRowId(remnant.getSourcePaperRowId());
         entity.setEntryDate(remnant.getEntryDate());
         entity.setNote(remnant.getNote());
+        entity.setStatus(remnant.getStatus().getWireValue());
         entity.setState(remnant.isState());
         entity.setCreatedAt(remnant.getCreatedAt());
         entity.setUpdatedAt(remnant.getUpdatedAt());
     }
 
     public PaperRemnant toRemnantDomain(PaperRemnantEntity entity) {
+        PaperRemnantStatus status = resolveRemnantStatus(entity);
         return PaperRemnant.reconstitute(
                 entity.getPaperRemnantId(),
                 entity.getCompanyId(),
@@ -234,9 +237,16 @@ public class PaperPersistenceMapper {
                 entity.getSourcePaperRowId(),
                 entity.getEntryDate(),
                 entity.getNote(),
-                entity.isState(),
+                status,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
+    }
+
+    private static PaperRemnantStatus resolveRemnantStatus(PaperRemnantEntity entity) {
+        if (entity.getStatus() != null && !entity.getStatus().isBlank()) {
+            return PaperRemnantStatus.fromWire(entity.getStatus());
+        }
+        return PaperRemnantStatus.fromLegacyState(entity.isState());
     }
 }

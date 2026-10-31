@@ -35,6 +35,10 @@ public record MachineResponse(
         BigDecimal productiveHoursPerYear,
         @Schema(description = "Calculado por la base. El backend no lo escribe.", example = "54375.00")
         BigDecimal costPerHour,
+        @Schema(description = "Minutos de arranque por defecto al precargar en OP", example = "15")
+        int setupMinutes,
+        @Schema(description = "true=preferida de la fase (solo una por machineType)", example = "true")
+        boolean preferred,
         @Schema(description = "true=activa, false=inactiva", example = "true")
         boolean state,
         LocalDate creationDate,
@@ -55,6 +59,8 @@ public record MachineResponse(
                 machine.getEnergyCostPerHour(),
                 machine.getProductiveHoursPerYear(),
                 machine.getCostPerHour(),
+                machine.getSetupMinutes(),
+                machine.isPreferred(),
                 machine.isState(),
                 machine.getCreationDate(),
                 machine.getUpdatedAt()

@@ -40,10 +40,9 @@ import java.time.LocalDateTime;
 @RequestMapping("/api/v1/station/events")
 @Tag(
         name = "Estación",
-        description = "Bitácora de planta: inbox, eventos (inicio/pausa/avance), intervalos y reportes. "
-                + "complete-if-ready → COMPLETED; admin-close-stages (solo ADMIN; "
-                + "normaliza status legacy → IN_PROGRESS_*). "
-                + "Roles OPERADOR|ADMINISTRADOR. occurredAt sin zona (sin Z)."
+        description = "Bitácora de planta: inbox, eventos, intervalos y reportes. "
+                + "complete-if-ready y admin-close-stages solo ADMIN "
+                + "(no auto-finaliza al operar). occurredAt sin zona (sin Z)."
 )
 @SecurityRequirement(name = "bearerAuth")
 public class StationEventController {
@@ -471,8 +470,7 @@ public class StationEventController {
                 payload.actualSetupMinutes(),
                 payload.actualRunMinutes(),
                 payload.machineId(),
-                payload.wasteReason(),
-                null
+                payload.wasteReason()
         ), authentication);
         return responseFactory.created(
                 httpRequest,

@@ -14,15 +14,18 @@ public class UpdateProductionOrderStatusUseCase {
     private final ProductionOrderSupport support;
     private final CustomerOrderRepositoryPort customerOrderRepository;
     private final PaperRemnantStockSync remnantStockSync;
+    private final PaperRemnantStatusSync remnantStatusSync;
 
     public UpdateProductionOrderStatusUseCase(
             ProductionOrderSupport support,
             CustomerOrderRepositoryPort customerOrderRepository,
-            PaperRemnantStockSync remnantStockSync
+            PaperRemnantStockSync remnantStockSync,
+            PaperRemnantStatusSync remnantStatusSync
     ) {
         this.support = support;
         this.customerOrderRepository = customerOrderRepository;
         this.remnantStockSync = remnantStockSync;
+        this.remnantStatusSync = remnantStatusSync;
     }
 
     @Transactional
@@ -62,6 +65,11 @@ public class UpdateProductionOrderStatusUseCase {
         ProductionOrder saved = cancelling
                 ? support.repository().save(order)
                 : support.repository().saveRoot(order);
+
+        if (targetStatus != null) {
+            remnantStatusSync.syncFromProductionOrder(
+                    companyId, saved.getProductionOrderId(), targetStatus, now);
+        }
 
         CustomerOrder customerOrder;
         if (shouldCreateOrder(previousStatus, targetStatus)) {

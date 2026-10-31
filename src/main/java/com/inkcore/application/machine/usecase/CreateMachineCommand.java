@@ -15,6 +15,8 @@ public record CreateMachineCommand(
         BigDecimal monthlyOperatorCost,
         BigDecimal energyCostPerHour,
         BigDecimal productiveHoursPerYear,
+        Integer setupMinutes,
+        Boolean preferred,
         Boolean state
 ) {
     public MachineType type() {

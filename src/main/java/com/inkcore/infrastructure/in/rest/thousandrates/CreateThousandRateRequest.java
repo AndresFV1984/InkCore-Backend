@@ -30,7 +30,7 @@ public record CreateThousandRateRequest(
         @Size(max = 150)
         String name,
 
-        @Schema(description = "Categoría de color de la tarifa", example = "1 COLOR", requiredMode = Schema.RequiredMode.REQUIRED)
+        @Schema(description = "Categoría de color de la tarifa", example = "basico", requiredMode = Schema.RequiredMode.REQUIRED)
         @NotBlank(message = "La categoría de color es obligatoria")
         @Size(max = 50)
         String colorCategory,
@@ -71,7 +71,7 @@ public record CreateThousandRateRequest(
         @DecimalMin(value = "0.0", inclusive = true, message = "El precio de volteo por escuadra no puede ser negativo")
         BigDecimal squareFlipPrice,
 
-        @Schema(description = "Indica si es la tarifa por defecto (default false)", example = "false")
+        @Schema(description = "Indica si es la tarifa por defecto (default false)", example = "true")
         Boolean isDefault
 ) {
 }

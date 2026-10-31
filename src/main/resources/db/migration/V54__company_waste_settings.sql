@@ -17,6 +17,11 @@ CREATE TABLE indicolors.company_waste_settings (
     finishing_waste_default_percentage      NUMERIC(5,2)          NOT NULL DEFAULT 3,
     cut_makeready_sheets                    NUMERIC(12,2)         NOT NULL DEFAULT 0,
     operational_makeready_sheets            NUMERIC(12,2)         NOT NULL DEFAULT 0,
+    cut_waste_active                        BOOLEAN               NOT NULL DEFAULT TRUE,
+    operational_waste_active                BOOLEAN               NOT NULL DEFAULT TRUE,
+    prepress_waste_active                   BOOLEAN               NOT NULL DEFAULT TRUE,
+    finished_waste_active                   BOOLEAN               NOT NULL DEFAULT TRUE,
+    finishing_waste_active                  BOOLEAN               NOT NULL DEFAULT TRUE,
     updated_at                              TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
     CONSTRAINT company_waste_settings_pkey PRIMARY KEY (company_id),
     CONSTRAINT company_waste_settings_company_fk
@@ -74,6 +79,16 @@ COMMENT ON COLUMN indicolors.company_waste_settings.finishing_waste_max_percenta
 COMMENT ON COLUMN indicolors.company_waste_settings.finishing_waste_default_percentage IS 'Porcentaje aplicado en Acabados si el usuario no lo cambia';
 COMMENT ON COLUMN indicolors.company_waste_settings.cut_makeready_sheets IS 'Pliegos fijos de arranque de Corte de papel. Default 0 para no cambiar la cantidad planificada de las órdenes actuales; el ejemplo de UI 400 + 2% no se siembra aquí';
 COMMENT ON COLUMN indicolors.company_waste_settings.operational_makeready_sheets IS 'Pliegos fijos de arranque de Impresión. Default 0 para no cambiar la cantidad planificada de las órdenes actuales; el ejemplo de UI 400 + 2% no se siembra aquí';
+COMMENT ON COLUMN indicolors.company_waste_settings.cut_waste_active IS
+    'Si false, el rango de corte no se sugiere ni se aplica por defecto en OP.';
+COMMENT ON COLUMN indicolors.company_waste_settings.operational_waste_active IS
+    'Si false, el rango de impresión no se sugiere ni se aplica por defecto en OP.';
+COMMENT ON COLUMN indicolors.company_waste_settings.prepress_waste_active IS
+    'Si false, el rango de preprensa no se sugiere ni se aplica por defecto en OP.';
+COMMENT ON COLUMN indicolors.company_waste_settings.finished_waste_active IS
+    'Si false, el rango de terminados no se sugiere ni se aplica por defecto en OP.';
+COMMENT ON COLUMN indicolors.company_waste_settings.finishing_waste_active IS
+    'Si false, el rango de acabados no se sugiere ni se aplica por defecto en OP.';
 
 GRANT ALL PRIVILEGES ON TABLE indicolors.company_waste_settings TO indicolors_owner;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.company_waste_settings TO indicolors_app;

@@ -4,6 +4,7 @@ import com.inkcore.domain.productionorder.model.ProductionOrder;
 import com.inkcore.domain.station.model.StationEventType;
 import com.inkcore.domain.station.model.StationOperationEvent;
 import com.inkcore.domain.station.model.StationOrderProgress;
+import com.inkcore.domain.station.ports.out.StationOperationEventRepositoryPort;
 import com.inkcore.domain.station.ports.out.StationOrderProgressRepositoryPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,12 +25,13 @@ import static org.mockito.Mockito.when;
 class StationOrderProgressServiceTest {
 
     @Mock StationOrderProgressRepositoryPort repository;
+    @Mock StationOperationEventRepositoryPort eventRepository;
 
     private StationOrderProgressService service;
 
     @BeforeEach
     void setUp() {
-        service = new StationOrderProgressService(repository);
+        service = new StationOrderProgressService(repository, eventRepository);
     }
 
     @Test

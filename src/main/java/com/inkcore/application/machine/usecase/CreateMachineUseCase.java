@@ -2,6 +2,7 @@ package com.inkcore.application.machine.usecase;
 
 import com.inkcore.domain.machine.exception.MachineAlreadyExistsException;
 import com.inkcore.domain.machine.model.Machine;
+import com.inkcore.domain.machine.model.MachineType;
 import com.inkcore.domain.machine.ports.out.MachineRepositoryPort;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -33,10 +34,13 @@ public class CreateMachineUseCase {
         if (machineRepository.existsByCompanyIdAndNameIgnoreCase(companyId, name)) {
             throw new MachineAlreadyExistsException(name);
         }
+        MachineType type = command.type();
+        boolean state = Objects.requireNonNullElse(command.state(), true);
+        boolean preferred = resolvePreferred(companyId, type, command.preferred(), state);
         Machine machine = Machine.createNew(
                 companyId,
                 name,
-                command.type(),
+                type,
                 command.manufacturer(),
                 command.model(),
                 command.purchaseCost(),
@@ -45,11 +49,28 @@ public class CreateMachineUseCase {
                 command.monthlyOperatorCost(),
                 command.energyCostPerHour(),
                 command.productiveHoursPerYear(),
-                Objects.requireNonNullElse(command.state(), true),
+                command.setupMinutes(),
+                preferred,
+                state,
                 LocalDate.now(clock),
                 LocalDateTime.now(clock)
         );
+        if (machine.isPreferred()) {
+            machineRepository.clearPreferredForType(
+                    companyId, type.getApiValue(), machine.getMachineId());
+        }
         return machineRepository.save(machine, userId);
+    }
+
+    private boolean resolvePreferred(String companyId, MachineType type, Boolean requested, boolean state) {
+        if (!state) {
+            return false;
+        }
+        if (requested != null) {
+            return requested;
+        }
+        // Primera del tipo → preferida (siempre hay un preferido por etapa cuando existe máquina).
+        return !machineRepository.existsPreferredByCompanyIdAndMachineType(companyId, type.getApiValue());
     }
 
     private static String requireName(String name) {

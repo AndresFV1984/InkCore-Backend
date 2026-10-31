@@ -42,6 +42,62 @@ public final class ProductionOrderRequests {
     }
 
     @Schema(
+            name = "ProductionOrderOutsourcedStageRequest",
+            description = "Etapa tercerizada. Cobro al cliente = sellPrice o vendorCost × (1 + markupPercent/100). "
+                    + "null en el PUT del paso = no modifica esa etapa."
+    )
+    public record OutsourcedStageRequest(
+            @Schema(
+                    description = "Etapa",
+                    example = "FINISHED_PRODUCTS",
+                    allowableValues = {
+                            "PREPRESS", "CUTTING", "PRINTING",
+                            "FINISHED_PRODUCTS", "FINISHING_PROCESSES"
+                    }
+            )
+            String stage,
+            @Schema(description = "Si true, sustituye el cobro interno de la etapa en totalToCharge", example = "true")
+            Boolean enabled,
+            @Schema(description = "Costo pactado con el proveedor", example = "200000.00")
+            BigDecimal vendorCost,
+            @Schema(description = "Markup % sobre vendorCost", example = "50.00")
+            BigDecimal markupPercent,
+            @Schema(description = "Cobro al cliente (opcional; si se omite se calcula)", example = "300000.00")
+            BigDecimal sellPrice,
+            @Schema(description = "Id del proveedor en directorio (opcional)", example = "supplier-seed-001")
+            String supplierId,
+            @Schema(description = "Nombre del proveedor (opcional)", example = "Acabados XYZ")
+            String supplierName,
+            @Schema(description = "Fecha del acuerdo/cotización (YYYY-MM-DD)", example = "2026-10-01")
+            java.time.LocalDate quotedAt,
+            @Schema(description = "Cantidad a tercerizar", example = "1000")
+            Integer quantity,
+            @Schema(description = "Usuario litografía que autoriza/gestiona el costo", example = "user-001")
+            String costResponsibleUserId,
+            @Schema(description = "Nombre del responsable del costo", example = "Ana Pérez")
+            String costResponsibleUserName,
+            @Schema(description = "Vigencia de la cotización del proveedor", example = "2026-10-15")
+            java.time.LocalDate quoteValidUntil,
+            @Schema(description = "Fecha de envío al proveedor", example = "2026-10-20")
+            java.time.LocalDate sentAt,
+            @Schema(description = "Qué se entrega de la etapa al proveedor", example = "1200 pliegos impresos para barniz UV")
+            String sentDescription,
+            @Schema(description = "Fecha límite esperada de retorno", example = "2026-10-25")
+            java.time.LocalDate expectedReturnAt,
+            @Schema(description = "Fecha de recepción en planta", example = "2026-10-24")
+            java.time.LocalDate receivedAt,
+            @Schema(description = "Usuario (producción/admin) que registró la recepción", example = "user-admin")
+            String receivedByUserId,
+            @Schema(
+                    description = "Estado operativo: PENDING|DISPATCHED|IN_PROGRESS|COMPLETED",
+                    example = "PENDING",
+                    allowableValues = {"PENDING", "DISPATCHED", "IN_PROGRESS", "COMPLETED"}
+            )
+            String fulfillmentStatus
+    ) {
+    }
+
+    @Schema(
             name = "RegisterProductionOrderRequest",
             description = "Especificaciones iniciales. No incluir orderNumber: lo asigna el backend."
     )
@@ -60,7 +116,7 @@ public final class ProductionOrderRequests {
             Integer proposalQuantity1,
             @Schema(description = "Cantidad propuesta 2", example = "2000")
             Integer proposalQuantity2,
-            @Schema(description = "Operador opcional de la etapa PREPRESS (legacy)", example = "user-seed-001")
+            @Schema(description = "Operador opcional de la etapa PREPRESS (legacy)", example = "operator-seed-001")
             String operatorUserId
     ) {
     }
@@ -146,15 +202,21 @@ public final class ProductionOrderRequests {
             @Schema(description = "Máquinas de preprensa. null no modifica; [] quita las máquinas de la fase.")
             List<MachineUsageRequest> machineUsages,
             @Schema(description = "Porcentaje de merma operativa sobre las planchas. Si se omite, se usa el default de la compañía (sugerencia inicial 3%).", example = "3.00")
-            BigDecimal plannedWastePercentage
+            BigDecimal plannedWastePercentage,
+            @Schema(description = "Tercerización de preprensa. null = no modifica.")
+            OutsourcedStageRequest outsourcedPricing
     ) {
     }
 
     @Schema(name = "ProductionOrderMachineUsageRequest")
     public record MachineUsageRequest(
-            @Schema(description = "Máquina activa de la fase", example = "814ad646-c4fe-42fa-9f13-4a44823e6bee")
+            @Schema(
+                    description = "Máquina activa de la fase (semilla impresión: 814ad646-…; "
+                            + "preprensa/corte/terminados/acabados: machine-seed-*)",
+                    example = "814ad646-c4fe-42fa-9f13-4a44823e6bee"
+            )
             String machineId,
-            @Schema(description = "Minutos estimados de arranque", example = "15")
+            @Schema(description = "Minutos estimados de arranque (default: setupMinutes del catálogo)", example = "15")
             Integer estimatedSetupMinutes,
             @Schema(description = "Minutos estimados de producción", example = "120")
             Integer estimatedRunMinutes
@@ -202,7 +264,9 @@ public final class ProductionOrderRequests {
             @Schema(description = "Máquinas de corte de papel. null no modifica; [] quita las máquinas de la fase.")
             List<MachineUsageRequest> machineUsages,
             @Schema(description = "Pliegos fijos de arranque. Si se omite, se usan los de la compañía (inicial 0). Se suman al porcentaje, no lo reemplazan.", example = "0.00")
-            BigDecimal plannedMakereadyQuantity
+            BigDecimal plannedMakereadyQuantity,
+            @Schema(description = "Tercerización de corte. null = no modifica.")
+            OutsourcedStageRequest outsourcedPricing
     ) {
     }
 
@@ -262,7 +326,9 @@ public final class ProductionOrderRequests {
             List<MachineUsageRequest> machineUsages,
             List<PrintRequest> prints,
             @Schema(description = "Pliegos fijos de arranque. Si se omite, se usan los de la compañía (inicial 0). Se suman al porcentaje, no lo reemplazan.", example = "0.00")
-            BigDecimal plannedMakereadyQuantity
+            BigDecimal plannedMakereadyQuantity,
+            @Schema(description = "Tercerización de impresión. null = no modifica.")
+            OutsourcedStageRequest outsourcedPricing
     ) {
     }
 
@@ -317,7 +383,9 @@ public final class ProductionOrderRequests {
             @Schema(description = "Máquinas de la fase (terminados o acabados). null no modifica; [] quita las máquinas de la fase.")
             List<MachineUsageRequest> machineUsages,
             @Schema(description = "Porcentaje de merma operativa sobre las piezas. Si se omite, se usa el default de la compañía (sugerencia inicial 3%).", example = "3.00")
-            BigDecimal plannedWastePercentage
+            BigDecimal plannedWastePercentage,
+            @Schema(description = "Tercerización de terminados/acabados. null = no modifica. Si stage se omite, se infiere del endpoint.")
+            OutsourcedStageRequest outsourcedPricing
     ) {
     }
 
@@ -368,7 +436,9 @@ public final class ProductionOrderRequests {
             String bankAccountId,
             Boolean completed,
             @Valid List<OperatorRequest> operators,
-            String operatorUserId
+            String operatorUserId,
+            @Schema(description = "Replace-all de etapas tercerizadas. null = no modifica; [] limpia todas.")
+            @Valid List<OutsourcedStageRequest> outsourcedStages
     ) {
     }
 

@@ -34,6 +34,7 @@ import com.inkcore.infrastructure.out.persistence.productionorder.repository.Jpa
 import com.inkcore.infrastructure.out.persistence.productionorder.repository.JpaProductionOrderPrintEntryRepository;
 import com.inkcore.infrastructure.out.persistence.productionorder.repository.JpaProductionOrderPrintRepository;
 import com.inkcore.infrastructure.out.persistence.productionorder.repository.JpaProductionOrderRepository;
+import com.inkcore.infrastructure.out.persistence.productionorder.repository.JpaProductionOrderOutsourcedStageRepository;
 import com.inkcore.infrastructure.out.persistence.productionorder.repository.JpaProductionOrderStageDiscountRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -69,6 +70,7 @@ public class ProductionOrderPersistenceAdapter implements ProductionOrderReposit
     private final JpaProductionOrderBillingDetailsRepository billingRepository;
     private final JpaProductionOrderOperatorRepository operatorRepository;
     private final JpaProductionOrderStageDiscountRepository stageDiscountRepository;
+    private final JpaProductionOrderOutsourcedStageRepository outsourcedStageRepository;
     private final JpaProductionOrderPlateRepository plateRepository;
     private final JpaProductionOrderPaperRowRepository paperRowRepository;
     private final JpaProductionOrderPrintRepository printRepository;
@@ -90,6 +92,7 @@ public class ProductionOrderPersistenceAdapter implements ProductionOrderReposit
             JpaProductionOrderBillingDetailsRepository billingRepository,
             JpaProductionOrderOperatorRepository operatorRepository,
             JpaProductionOrderStageDiscountRepository stageDiscountRepository,
+            JpaProductionOrderOutsourcedStageRepository outsourcedStageRepository,
             JpaProductionOrderPlateRepository plateRepository,
             JpaProductionOrderPaperRowRepository paperRowRepository,
             JpaProductionOrderPrintRepository printRepository,
@@ -107,6 +110,7 @@ public class ProductionOrderPersistenceAdapter implements ProductionOrderReposit
         this.billingRepository = billingRepository;
         this.operatorRepository = operatorRepository;
         this.stageDiscountRepository = stageDiscountRepository;
+        this.outsourcedStageRepository = outsourcedStageRepository;
         this.plateRepository = plateRepository;
         this.paperRowRepository = paperRowRepository;
         this.printRepository = printRepository;
@@ -144,6 +148,7 @@ public class ProductionOrderPersistenceAdapter implements ProductionOrderReposit
         // con el mismo @Id y el re-persist falla o deja el agregado inconsistente.
         clearOperators(orderId);
         clearStageDiscounts(orderId);
+        clearOutsourcedStages(orderId);
         clearPostpress(orderId);
         clearPrints(orderId);
         clearPaperRows(orderId);
@@ -152,6 +157,7 @@ public class ProductionOrderPersistenceAdapter implements ProductionOrderReposit
 
         insertOperators(order, now);
         insertStageDiscounts(order, now);
+        insertOutsourcedStages(order, now);
         insertPlates(order, now);
         insertPaperRows(order, now);
         insertPrints(order, now);
@@ -313,7 +319,8 @@ public class ProductionOrderPersistenceAdapter implements ProductionOrderReposit
     }
 
     /**
-     * Ítems de listado: raíz + operadores + preprensa (nombre diseño) + suma ADN.
+     * Ítems de listado: raíz + operadores + preprensa (nombre diseño) + etapas tercerizadas + suma ADN.
+     * Incluye {@code outsourcedStages} para el dashboard de Tercerización sin GET por OP.
      * {@code totalToCharge} sale de {@code production_order_cost_summary.quoted_price}
      * en el controller (sin recalcular el agregado).
      */
@@ -332,6 +339,14 @@ public class ProductionOrderPersistenceAdapter implements ProductionOrderReposit
                     .add(mapper.toDomain(entity));
         }
 
+        Map<String, List<com.inkcore.domain.productionorder.model.OutsourcedStage>> outsourcedByOrder =
+                new LinkedHashMap<>();
+        for (var entity : outsourcedStageRepository.findAllByProductionOrderIdIn(ids)) {
+            outsourcedByOrder
+                    .computeIfAbsent(entity.getProductionOrderId(), key -> new ArrayList<>())
+                    .add(mapper.toDomain(entity));
+        }
+
         Map<String, com.inkcore.domain.productionorder.model.PrepressDetails> prepressByOrder =
                 new LinkedHashMap<>();
         for (var entity : prepressRepository.findAllById(ids)) {
@@ -346,6 +361,7 @@ public class ProductionOrderPersistenceAdapter implements ProductionOrderReposit
             String orderId = root.getProductionOrderId();
             ProductionOrder order = mapper.toDomain(root);
             order.setOperators(operatorsByOrder.getOrDefault(orderId, List.of()));
+            order.setOutsourcedStages(outsourcedByOrder.getOrDefault(orderId, List.of()));
             order.setPrepress(prepressByOrder.get(orderId));
             order.setNegotiatedAdditionsTotal(
                     additionsByOrder.getOrDefault(orderId, java.math.BigDecimal.ZERO.setScale(2))
@@ -370,6 +386,8 @@ public class ProductionOrderPersistenceAdapter implements ProductionOrderReposit
                 operatorRepository.findAllByProductionOrderId(orderId), mapper::toDomain));
         order.setStageDiscounts(mapper.mapAll(
                 stageDiscountRepository.findAllByProductionOrderId(orderId), mapper::toDomain));
+        order.setOutsourcedStages(mapper.mapAll(
+                outsourcedStageRepository.findAllByProductionOrderId(orderId), mapper::toDomain));
         order.setPlates(mapper.mapAll(
                 plateRepository.findAllByProductionOrderIdOrderByCreatedAtAsc(orderId), mapper::toDomain));
         order.setPaperRows(mapper.mapAll(
@@ -477,6 +495,20 @@ public class ProductionOrderPersistenceAdapter implements ProductionOrderReposit
         }
         stageDiscountRepository.saveAll(order.getStageDiscounts().stream()
                 .map(discount -> mapper.toEntity(discount, now))
+                .toList());
+    }
+
+    private void clearOutsourcedStages(String orderId) {
+        outsourcedStageRepository.deleteAllByProductionOrderId(orderId);
+        outsourcedStageRepository.flush();
+    }
+
+    private void insertOutsourcedStages(ProductionOrder order, LocalDateTime now) {
+        if (order.getOutsourcedStages().isEmpty()) {
+            return;
+        }
+        outsourcedStageRepository.saveAll(order.getOutsourcedStages().stream()
+                .map(row -> mapper.toEntity(row, now))
                 .toList());
     }
 

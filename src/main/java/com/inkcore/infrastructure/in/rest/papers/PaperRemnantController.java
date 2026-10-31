@@ -41,11 +41,11 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/papers/{paperId}/remnants")
-@Tag(name = "Papeles", description = "Catálogo (acceptsRemnants + minRemnant W/H/unit), precios, despieces, stock y remanentes.")
+@Tag(name = "Papeles", description = "Catálogo (acceptsRemnants + minRemnant), precios, despieces, stock y remanentes (status alineado a OP; AVAILABLE usable en corte).")
 @SecurityRequirement(name = "bearerAuth")
 public class PaperRemnantController {
 
-    private static final String REMNANT_EXAMPLE = """
+    private static final String REMNANT_CREATED_EXAMPLE = """
             {
               "headers": {
                 "correlationId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
@@ -67,6 +67,35 @@ public class PaperRemnantController {
                 "sourcePaperRowId": null,
                 "entryDate": "2026-10-06",
                 "note": "Sobrante de corte Bond 70x100",
+                "status": "PENDING",
+                "state": false
+              }
+            }
+            """;
+
+    private static final String REMNANT_OK_EXAMPLE = """
+            {
+              "headers": {
+                "correlationId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "statusCode": 200,
+                "code": "OK",
+                "description": "Success"
+              },
+              "timestamp": "2026-10-06T12:00:00Z",
+              "data": {
+                "paperRemnantId": "paper-remnant-seed-001",
+                "paperId": "paper-seed-001",
+                "width": 35.00,
+                "height": 50.00,
+                "unit": "cm",
+                "quantityInitial": 12.00,
+                "quantityAvailable": 12.00,
+                "unitCost": 0.00,
+                "sourceProductionOrderId": null,
+                "sourcePaperRowId": null,
+                "entryDate": "2026-10-06",
+                "note": "Sobrante de corte Bond 70x100",
+                "status": "AVAILABLE",
                 "state": true
               }
             }
@@ -103,7 +132,9 @@ public class PaperRemnantController {
             description = "Mismo material del papel origen con medidas propias del sobrante de corte. "
                     + "acceptsRemnants / minRemnantWidth/Height/Unit del papel son guía de UI; "
                     + "el backend no bloquea medidas por debajo del mínimo (casos especiales). "
-                    + "Solo exige que el papel exista."
+                    + "Solo exige que el papel exista. "
+                    + "status se alinea a la OP origen (COMPLETED→AVAILABLE); si no hay OP, default PENDING "
+                    + "(igual que OP nueva). state es legacy (true solo si status=AVAILABLE)."
     )
     @ApiResponse(
             responseCode = "201",
@@ -111,7 +142,7 @@ public class PaperRemnantController {
             content = @Content(
                     mediaType = MediaType.APPLICATION_JSON_VALUE,
                     schema = @Schema(implementation = PaperRemnantSuccessEnvelope.class),
-                    examples = @ExampleObject(name = "RemanenteCreado", value = REMNANT_EXAMPLE)
+                    examples = @ExampleObject(name = "RemanenteCreado", value = REMNANT_CREATED_EXAMPLE)
             )
     )
     @ApiErrorResponses
@@ -134,8 +165,7 @@ public class PaperRemnantController {
                                               "quantityInitial": 12.00,
                                               "quantityAvailable": 12.00,
                                               "unitCost": 0.00,
-                                              "note": "Sobrante de corte Bond 70x100",
-                                              "state": true
+                                              "note": "Sobrante de corte Bond 70x100"
                                             }
                                             """
                             )
@@ -158,6 +188,7 @@ public class PaperRemnantController {
                         request.sourcePaperRowId(),
                         request.entryDate(),
                         request.note(),
+                        request.status(),
                         request.state()),
                 authentication);
         return responseFactory.created(
@@ -167,13 +198,18 @@ public class PaperRemnantController {
 
     @PutMapping("/update/{paperRemnantId}")
     @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
-    @Operation(operationId = "updatePaperRemnant", summary = "Actualiza un remanente reutilizable.")
+    @Operation(
+            operationId = "updatePaperRemnant",
+            summary = "Actualiza un remanente (vínculo a OP, cantidades, status).",
+            description = "Puede cambiar status (canónico) o state (legacy: true→AVAILABLE, false→INACTIVE). "
+                    + "Si se envían ambos, status tiene prioridad. Operador usa el vínculo a OP al crear la orden.")
     @ApiResponse(
             responseCode = "200",
             description = "Remanente actualizado",
             content = @Content(
                     mediaType = MediaType.APPLICATION_JSON_VALUE,
-                    schema = @Schema(implementation = PaperRemnantSuccessEnvelope.class)
+                    schema = @Schema(implementation = PaperRemnantSuccessEnvelope.class),
+                    examples = @ExampleObject(name = "RemanenteActualizado", value = REMNANT_OK_EXAMPLE)
             )
     )
     @ApiErrorResponses
@@ -182,6 +218,29 @@ public class PaperRemnantController {
             @PathVariable String paperId,
             @Parameter(description = "Identificador del remanente", required = true, example = "paper-remnant-seed-001")
             @PathVariable String paperRemnantId,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = PaperRequests.UpdatePaperRemnantRequest.class),
+                            examples = @ExampleObject(
+                                    name = "ActualizarRemanente",
+                                    value = """
+                                            {
+                                              "width": 35.00,
+                                              "height": 50.00,
+                                              "unit": "cm",
+                                              "quantityInitial": 12.00,
+                                              "quantityAvailable": 10.00,
+                                              "unitCost": 0.00,
+                                              "note": "Sobrante de corte Bond 70x100",
+                                              "status": "AVAILABLE",
+                                              "state": true
+                                            }
+                                            """
+                            )
+                    )
+            )
             @Valid @RequestBody PaperRequests.UpdatePaperRemnantRequest request,
             Authentication authentication,
             HttpServletRequest httpRequest
@@ -200,6 +259,7 @@ public class PaperRemnantController {
                         request.sourcePaperRowId(),
                         request.entryDate(),
                         request.note(),
+                        request.status(),
                         request.state()),
                 authentication);
         return responseFactory.success(
@@ -214,7 +274,8 @@ public class PaperRemnantController {
             description = "Remanente encontrado",
             content = @Content(
                     mediaType = MediaType.APPLICATION_JSON_VALUE,
-                    schema = @Schema(implementation = PaperRemnantSuccessEnvelope.class)
+                    schema = @Schema(implementation = PaperRemnantSuccessEnvelope.class),
+                    examples = @ExampleObject(name = "Remanente", value = REMNANT_OK_EXAMPLE)
             )
     )
     @ApiErrorResponses
@@ -236,7 +297,7 @@ public class PaperRemnantController {
     @Operation(
             operationId = "listPaperRemnants",
             summary = "Lista remanentes del papel.",
-            description = "Filtro opcional state=true|false."
+            description = "Filtro opcional state=true|false (legacy; true ≈ status AVAILABLE)."
     )
     @ApiResponse(
             responseCode = "200",
@@ -250,7 +311,7 @@ public class PaperRemnantController {
     @ApiSecuredErrorResponses
     public ResponseEntity<ApiSuccessEnvelope<List<PaperNestedResponses.PaperRemnantResponse>>> list(
             @PathVariable String paperId,
-            @Parameter(description = "Filtrar por estado (true=activo)")
+            @Parameter(description = "Filtrar por state legacy (true=AVAILABLE / usable en corte)")
             @RequestParam(required = false) Boolean state,
             Authentication authentication,
             HttpServletRequest httpRequest

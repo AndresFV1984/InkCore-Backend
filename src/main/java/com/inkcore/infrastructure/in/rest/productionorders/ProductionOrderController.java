@@ -54,7 +54,9 @@ import com.inkcore.infrastructure.in.rest.productionorders.ProductionOrderReques
 import com.inkcore.infrastructure.in.rest.productionorders.ProductionOrderRequests.PrintEntryRequest;
 import com.inkcore.infrastructure.in.rest.productionorders.ProductionOrderRequests.PrintRequest;
 import com.inkcore.infrastructure.in.rest.productionorders.ProductionOrderRequests.RegisterRequest;
+import com.inkcore.infrastructure.in.rest.productionorders.ProductionOrderRequests.OutsourcedStageRequest;
 import com.inkcore.infrastructure.in.rest.productionorders.ProductionOrderRequests.UpdateBillingRequest;
+import com.inkcore.application.productionorder.usecase.OutsourcedStageCommand;
 import com.inkcore.infrastructure.in.rest.productionorders.ProductionOrderRequests.UpdatePaperCuttingRequest;
 import com.inkcore.infrastructure.in.rest.productionorders.ProductionOrderRequests.UpdatePostpressRequest;
 import com.inkcore.infrastructure.in.rest.productionorders.ProductionOrderRequests.UpdatePrepressRequest;
@@ -100,10 +102,10 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(
         name = "Órdenes de producción",
         description = "Wizard OP (OP-{n}). Detalle recalcula totalToCharge; listado lo lee de "
-                + "cost_summary.quoted_price. negotiatedAdditionsTotal y amountToCollect "
-                + "(cobro + ADN vigentes). Al pasar a IN_PROGRESS* crea customer_orders "
-                + "(customerOrderId + odpNumber ODP-{n}) y Abonos (abonosNumber ABN-{n}). "
-                + "ANULADA reemplaza CANCELLED."
+                + "cost_summary.quoted_price. Tercerización (outsourcedStages): "
+                + "PENDING→DISPATCHED→IN_PROGRESS→COMPLETED. "
+                + "negotiatedAdditionsTotal / amountToCollect. IN_PROGRESS* crea "
+                + "customer_orders (ODP/ABN). ANULADA reemplaza CANCELLED."
 )
 @SecurityRequirement(name = "bearerAuth")
 public class ProductionOrderController {
@@ -189,7 +191,9 @@ public class ProductionOrderController {
             summary = "Crea una OP con Especificaciones.",
             description = "Crea el núcleo de la Orden de Producción. companyId y createdBy salen del JWT. "
                     + "No enviar orderNumber: el backend genera un consecutivo corto único por empresa "
-                    + "(OP-1, OP-2, OP-42, …). Requiere clientId, workName y requestedQuantity (>0)."
+                    + "(OP-1, OP-2, OP-42, …). Requiere clientId, workName y requestedQuantity (>0). "
+                    + "Precarga machineUsages con la máquina preferred activa de cada fase "
+                    + "(estimatedSetupMinutes = setupMinutes del catálogo; estimatedRunMinutes = 0)."
     )
     @ApiResponse(
             responseCode = "201",
@@ -254,6 +258,8 @@ public class ProductionOrderController {
     ) {
         ProductionOrder order = getUseCase.execute(productionOrderId, authentication);
         String companyId = companyResolver.resolveCompanyId(authentication);
+        // Autorepara cantidadDisponible (p. ej. tercerización COMPLETED sin AVANCE previo al fix).
+        orderProgressService.recalculateFromPersistedEvents(order, java.time.LocalDateTime.now());
         int cantidad = orderProgressService.getCantidadDisponible(companyId, order.getProductionOrderId());
         CustomerOrder linkedOrder = customerOrderRepository
                 .findByProductionOrderId(companyId, order.getProductionOrderId())
@@ -276,7 +282,8 @@ public class ProductionOrderController {
                     + "Cada ítem incluye customerOrderId/odpNumber/abonosNumber cuando la OP ya tiene pedido, "
                     + "totalToCharge (= production_order_cost_summary.quoted_price; null si aún no se cotizó), "
                     + "negotiatedAdditionsTotal (suma ADN vigentes) y amountToCollect. "
-                    + "Listado liviano: no hidrata corte/impresión/postprensa. "
+                    + "Listado liviano: no hidrata corte/impresión/postprensa; sí incluye outsourcedStages "
+                    + "(ciclo de Tercerización) para no forzar GET por OP. "
                     + "Siempre acotado al companyId del JWT. Las respuestas nunca devuelven CANCELLED."
     )
     @ApiResponse(
@@ -448,6 +455,9 @@ public class ProductionOrderController {
                     + "supplierId y priceRule (PREFERRED|REPLACEMENT|BEST_COST) definen el precio snapshot. "
                     + "cutLayoutId = despiece de catálogo; paperCutLayoutId (opcional) resuelve cutLayoutId desde paper_cut_layouts. "
                     + "Totales (sheets/paper/cut) calculados en servidor. "
+                    + "Dual pricing (solo response): sheetValue/totalPaperValue = cobro lista; "
+                    + "plantSheetCost/totalPlantPaperValue = costo planta "
+                    + "(con remanente: unitCost del remanente; sin remanente: igual a lista; cliente aporta: 0). "
                     + "plannedWastePercentage genera merma_corte vía company_waste_settings (NO usa wastePercentage del paper_cut_layout; ese campo es solo sugerencia UI). "
                     + "Si se omite plannedWastePercentage se usa el default de la compañía. "
                     + "plannedMakereadyQuantity suma pliegos fijos de arranque a esa merma; si se omite se usan los de la compañía (inicial 0). "
@@ -653,7 +663,8 @@ public class ProductionOrderController {
                         request.clientProfitabilityType(), request.clientProfitabilityValue(),
                         request.clientVolumeCosting(), request.deliveryStartDate(), request.deliveryEndDate(),
                         request.advancePercentage(), request.clientSignatureName(), request.bankAccountId(),
-                        request.completed(), toOperatorCommands(request.operators()), request.operatorUserId()
+                        request.completed(), toOperatorCommands(request.operators()), request.operatorUserId(),
+                        toOutsourcedCommands(request.outsourcedStages())
                 ),
                 authentication
         );
@@ -671,7 +682,9 @@ public class ProductionOrderController {
                     + "Si el status pasa de un estado no-progreso a cualquier IN_PROGRESS*, el backend crea "
                     + "(idempotente) customer_orders con customerOrderId + odpNumber=ODP-{n} y la cuenta "
                     + "de Abonos abonosNumber=ABN-{n}; ambos se devuelven en la respuesta. "
-                    + "Distinto de order_deliveries.deliveryNumber (ENT-{n}), cxcNumber (CXC) y paymentNumber LIQ-{n}."
+                    + "Distinto de order_deliveries.deliveryNumber (ENT-{n}), cxcNumber (CXC) y paymentNumber LIQ-{n}. "
+                    + "Remanentes con sourceProductionOrderId=esta OP: su status se sincroniza "
+                    + "(COMPLETED de OP → AVAILABLE; el resto hereda el wire de la OP; state legacy se recalcula)."
     )
     @ApiResponse(
             responseCode = "200",
@@ -1004,7 +1017,8 @@ public class ProductionOrderController {
                 request.dieCutLine(), request.uvReserve(), request.stamping(), request.embossing(),
                 request.prepressDiscountType(), request.prepressDiscountValue(), request.completed(),
                 toOperatorCommands(request.operators()), request.operatorUserId(), plates,
-                toMachineUsages(request.machineUsages()), request.plannedWastePercentage()
+                toMachineUsages(request.machineUsages()), request.plannedWastePercentage(),
+                toOutsourcedCommand(request.outsourcedPricing())
         );
     }
 
@@ -1024,7 +1038,8 @@ public class ProductionOrderController {
                 request.version(), request.clientSuppliesPaperDefault(), request.roundingMargin(),
                 request.completed(), toOperatorCommands(request.operators()), request.operatorUserId(),
                 request.discountType(), request.discountValue(), rows,
-                toMachineUsages(request.machineUsages()), request.plannedMakereadyQuantity()
+                toMachineUsages(request.machineUsages()), request.plannedMakereadyQuantity(),
+                toOutsourcedCommand(request.outsourcedPricing())
         );
     }
 
@@ -1048,7 +1063,8 @@ public class ProductionOrderController {
                 request.plannedOperationalWastePercentage(),
                 toMachineUsages(request.machineUsages()),
                 prints,
-                request.plannedMakereadyQuantity()
+                request.plannedMakereadyQuantity(),
+                toOutsourcedCommand(request.outsourcedPricing())
         );
     }
 
@@ -1079,7 +1095,8 @@ public class ProductionOrderController {
                 request.version(), request.completed(),
                 toOperatorCommands(request.operators()), request.operatorUserId(),
                 request.discountType(), request.discountValue(), records,
-                toMachineUsages(request.machineUsages()), request.plannedWastePercentage()
+                toMachineUsages(request.machineUsages()), request.plannedWastePercentage(),
+                toOutsourcedCommand(request.outsourcedPricing())
         );
     }
 
@@ -1146,6 +1163,39 @@ public class ProductionOrderController {
         return operators.stream()
                 .map(o -> new OperatorAssignmentCommand(o.stage(), o.userId(), o.roleCode()))
                 .toList();
+    }
+
+    private static OutsourcedStageCommand toOutsourcedCommand(OutsourcedStageRequest request) {
+        if (request == null) {
+            return null;
+        }
+        return new OutsourcedStageCommand(
+                request.stage(),
+                request.enabled(),
+                request.vendorCost(),
+                request.markupPercent(),
+                request.sellPrice(),
+                request.supplierId(),
+                request.supplierName(),
+                request.quotedAt(),
+                request.quantity(),
+                request.costResponsibleUserId(),
+                request.costResponsibleUserName(),
+                request.quoteValidUntil(),
+                request.sentAt(),
+                request.sentDescription(),
+                request.expectedReturnAt(),
+                request.receivedAt(),
+                request.receivedByUserId(),
+                request.fulfillmentStatus()
+        );
+    }
+
+    private static List<OutsourcedStageCommand> toOutsourcedCommands(List<OutsourcedStageRequest> rows) {
+        if (rows == null) {
+            return null;
+        }
+        return rows.stream().map(ProductionOrderController::toOutsourcedCommand).toList();
     }
 
     private static List<MachineUsageInput> toMachineUsages(List<MachineUsageRequest> machines) {

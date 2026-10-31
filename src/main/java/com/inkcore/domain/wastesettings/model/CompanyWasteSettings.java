@@ -30,6 +30,11 @@ public final class CompanyWasteSettings {
     private final BigDecimal finishingWasteDefaultPercentage;
     private final BigDecimal cutMakereadySheets;
     private final BigDecimal operationalMakereadySheets;
+    private final boolean cutWasteActive;
+    private final boolean operationalWasteActive;
+    private final boolean prepressWasteActive;
+    private final boolean finishedWasteActive;
+    private final boolean finishingWasteActive;
     private final LocalDateTime updatedAt;
     private final boolean persisted;
 
@@ -52,6 +57,11 @@ public final class CompanyWasteSettings {
             BigDecimal finishingWasteDefaultPercentage,
             BigDecimal cutMakereadySheets,
             BigDecimal operationalMakereadySheets,
+            boolean cutWasteActive,
+            boolean operationalWasteActive,
+            boolean prepressWasteActive,
+            boolean finishedWasteActive,
+            boolean finishingWasteActive,
             LocalDateTime updatedAt,
             boolean persisted
     ) {
@@ -73,6 +83,11 @@ public final class CompanyWasteSettings {
         this.finishingWasteDefaultPercentage = finishingWasteDefaultPercentage;
         this.cutMakereadySheets = cutMakereadySheets;
         this.operationalMakereadySheets = operationalMakereadySheets;
+        this.cutWasteActive = cutWasteActive;
+        this.operationalWasteActive = operationalWasteActive;
+        this.prepressWasteActive = prepressWasteActive;
+        this.finishedWasteActive = finishedWasteActive;
+        this.finishingWasteActive = finishingWasteActive;
         this.updatedAt = updatedAt;
         this.persisted = persisted;
     }
@@ -103,6 +118,11 @@ public final class CompanyWasteSettings {
                 operationalDefault,
                 scale(BigDecimal.ZERO),
                 scale(BigDecimal.ZERO),
+                true,
+                true,
+                true,
+                true,
+                true,
                 null,
                 false
         );
@@ -127,6 +147,11 @@ public final class CompanyWasteSettings {
             BigDecimal finishingWasteDefaultPercentage,
             BigDecimal cutMakereadySheets,
             BigDecimal operationalMakereadySheets,
+            boolean cutWasteActive,
+            boolean operationalWasteActive,
+            boolean prepressWasteActive,
+            boolean finishedWasteActive,
+            boolean finishingWasteActive,
             LocalDateTime updatedAt
     ) {
         return new CompanyWasteSettings(
@@ -148,6 +173,11 @@ public final class CompanyWasteSettings {
                 finishingWasteDefaultPercentage,
                 cutMakereadySheets,
                 operationalMakereadySheets,
+                cutWasteActive,
+                operationalWasteActive,
+                prepressWasteActive,
+                finishedWasteActive,
+                finishingWasteActive,
                 updatedAt,
                 true
         );
@@ -169,8 +199,11 @@ public final class CompanyWasteSettings {
             BigDecimal finishingMin,
             BigDecimal finishingMax,
             BigDecimal finishingDefault,
-            BigDecimal cutMakeready,
-            BigDecimal operationalMakeready,
+            boolean cutActive,
+            boolean operationalActive,
+            boolean prepressActive,
+            boolean finishedActive,
+            boolean finishingActive,
             LocalDateTime updatedAt
     ) {
         BigDecimal[] cut = band(cutMin, cutDefault, cutMax, "merma de corte");
@@ -178,6 +211,8 @@ public final class CompanyWasteSettings {
         BigDecimal[] prepress = band(prepressMin, prepressDefault, prepressMax, "merma de preprensa");
         BigDecimal[] finished = band(finishedMin, finishedDefault, finishedMax, "merma de terminados");
         BigDecimal[] finishing = band(finishingMin, finishingDefault, finishingMax, "merma de acabados");
+        // Pliegos fijos de compañía ya no se configuran; se conservan en 0.
+        BigDecimal zeroSheets = scale(BigDecimal.ZERO);
         return new CompanyWasteSettings(
                 this.companyId,
                 cut[0], cut[1], cut[2],
@@ -185,17 +220,48 @@ public final class CompanyWasteSettings {
                 prepress[0], prepress[1], prepress[2],
                 finished[0], finished[1], finished[2],
                 finishing[0], finishing[1], finishing[2],
-                sheets(cutMakeready, "Los pliegos fijos de arranque de corte"),
-                sheets(operationalMakeready, "Los pliegos fijos de arranque de impresión"),
+                zeroSheets,
+                zeroSheets,
+                cutActive,
+                operationalActive,
+                prepressActive,
+                finishedActive,
+                finishingActive,
                 updatedAt,
                 true
         );
     }
 
     /**
+     * Indica si la merma del proceso está activa para sugerir y aplicar por defecto.
+     */
+    public boolean isPhaseActive(String phase) {
+        if ("preprensa".equals(phase)) {
+            return prepressWasteActive;
+        }
+        if ("corte-papel".equals(phase)) {
+            return cutWasteActive;
+        }
+        if ("impresion".equals(phase)) {
+            return operationalWasteActive;
+        }
+        if ("terminados".equals(phase)) {
+            return finishedWasteActive;
+        }
+        if ("acabados".equals(phase)) {
+            return finishingWasteActive;
+        }
+        throw new IllegalArgumentException("Fase de merma no reconocida");
+    }
+
+    /**
      * Porcentaje que se aplica al cotizar el proceso si el paso no envía uno.
+     * Si el proceso está inactivo, retorna 0.
      */
     public BigDecimal defaultPercentage(String phase) {
+        if (!isPhaseActive(phase)) {
+            return scale(BigDecimal.ZERO);
+        }
         if ("preprensa".equals(phase)) {
             return prepressWasteDefaultPercentage;
         }
@@ -220,16 +286,6 @@ public final class CompanyWasteSettings {
         BigDecimal normalizedValue = percentage(value, "El porcentaje por defecto de " + label);
         assertRange(normalizedMin, normalizedValue, normalizedMax, label);
         return new BigDecimal[] {normalizedMin, normalizedMax, normalizedValue};
-    }
-
-    private static BigDecimal sheets(BigDecimal value, String label) {
-        if (value == null) {
-            throw new IllegalArgumentException(label + " son obligatorios");
-        }
-        if (value.signum() < 0) {
-            throw new IllegalArgumentException(label + " no pueden ser negativos");
-        }
-        return scale(value);
     }
 
     private static void assertRange(BigDecimal min, BigDecimal value, BigDecimal max, String label) {
@@ -323,6 +379,26 @@ public final class CompanyWasteSettings {
 
     public BigDecimal getOperationalMakereadySheets() {
         return operationalMakereadySheets;
+    }
+
+    public boolean isCutWasteActive() {
+        return cutWasteActive;
+    }
+
+    public boolean isOperationalWasteActive() {
+        return operationalWasteActive;
+    }
+
+    public boolean isPrepressWasteActive() {
+        return prepressWasteActive;
+    }
+
+    public boolean isFinishedWasteActive() {
+        return finishedWasteActive;
+    }
+
+    public boolean isFinishingWasteActive() {
+        return finishingWasteActive;
     }
 
     public LocalDateTime getUpdatedAt() {

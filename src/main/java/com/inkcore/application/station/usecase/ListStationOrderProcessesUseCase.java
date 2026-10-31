@@ -90,12 +90,16 @@ public class ListStationOrderProcessesUseCase {
             }
         }
 
-        // Igual que el FE: Terminados/Acabados solo si la OP los tiene (líneas o operador).
+        // Igual que el FE: Terminados/Acabados si hay líneas, operador o tercerización activa.
         // No inventar etapas vacías con cupo completo: bloqueaban el paso a Finalizada.
-        if (!hasFinishedProductLines && hasOperatorForStage(order, ProductionOrderStage.FINISHED_PRODUCTS)) {
+        if (!hasFinishedProductLines && (
+                hasOperatorForStage(order, ProductionOrderStage.FINISHED_PRODUCTS)
+                        || isOutsourcedEnabled(order, ProductionOrderStage.FINISHED_PRODUCTS))) {
             rows.add(buildBaseRow(order, StationPhase.TERMINADOS, events, stored, intervalRepository, intervalService));
         }
-        if (!hasFinishingProcessLines && hasOperatorForStage(order, ProductionOrderStage.FINISHING_PROCESSES)) {
+        if (!hasFinishingProcessLines && (
+                hasOperatorForStage(order, ProductionOrderStage.FINISHING_PROCESSES)
+                        || isOutsourcedEnabled(order, ProductionOrderStage.FINISHING_PROCESSES))) {
             rows.add(buildBaseRow(order, StationPhase.ACABADOS, events, stored, intervalRepository, intervalService));
         }
 
@@ -104,6 +108,22 @@ public class ListStationOrderProcessesUseCase {
 
     private static boolean hasOperatorForStage(ProductionOrder order, ProductionOrderStage stage) {
         return order.getOperators().stream().anyMatch(op -> op.getStage() == stage);
+    }
+
+    private static boolean isOutsourcedEnabled(ProductionOrder order, ProductionOrderStage stage) {
+        if (order.getOutsourcedStages() == null || stage == null) {
+            return false;
+        }
+        return order.getOutsourcedStages().stream()
+                .anyMatch(item -> item != null && item.isEnabled() && item.getStage() == stage);
+    }
+
+    private static boolean isOutsourcedFulfillmentComplete(ProductionOrder order, ProductionOrderStage stage) {
+        if (order.getOutsourcedStages() == null || stage == null) {
+            return false;
+        }
+        return order.getOutsourcedStages().stream()
+                .anyMatch(item -> item != null && item.getStage() == stage && item.isFulfillmentComplete());
     }
 
     private static StationProcessRow buildBaseRow(
@@ -116,13 +136,24 @@ public class ListStationOrderProcessesUseCase {
     ) {
         String processKey = phase.getApiValue();
         int total = order.getRequestedQuantity();
-        int completed = StationValidationService.sumUnits(events, StationEventType.AVANCE_UNIDADES, processKey);
-        int delivered = StationValidationService.sumDeliveryUnits(events, processKey);
-        StationProcessStatus status = stored.stream()
-                .filter(p -> processKey.equals(p.getProcessKey()))
-                .map(StationProcessProgress::getStatus)
-                .findFirst()
-                .orElse(resolveStatus(completed, delivered, total));
+        ProductionOrderStage orderStage = phase.getOrderStage().orElse(null);
+        int completed;
+        int delivered;
+        StationProcessStatus status;
+        if (isOutsourcedFulfillmentComplete(order, orderStage)) {
+            // Proveedor finalizado: cuenta como cupo cumplido sin captura de estación.
+            completed = total;
+            delivered = total;
+            status = StationProcessStatus.TERMINADO;
+        } else {
+            completed = StationValidationService.sumUnits(events, StationEventType.AVANCE_UNIDADES, processKey);
+            delivered = StationValidationService.sumDeliveryUnits(events, processKey);
+            status = stored.stream()
+                    .filter(p -> processKey.equals(p.getProcessKey()))
+                    .map(StationProcessProgress::getStatus)
+                    .findFirst()
+                    .orElse(resolveStatus(completed, delivered, total));
+        }
         List<StationOperationInterval> intervals =
                 intervalRepository.findByProductionOrderIdAndProcessKey(
                         order.getCompanyId(), order.getProductionOrderId(), processKey);
@@ -158,20 +189,29 @@ public class ListStationOrderProcessesUseCase {
     ) {
         // Misma regla que StationProcessKeyResolver: cupo por ítem = cantidad solicitada de la OP.
         int total = order.getRequestedQuantity();
-        int completed = StationValidationService.sumUnits(
-                events, StationEventType.AVANCE_UNIDADES, processKey, line.getCatalogItemId());
-        int delivered = StationValidationService.sumDeliveryUnits(events, processKey, line.getCatalogItemId());
-        StationProcessStatus status = stored.stream()
-                .filter(p -> processKey.equals(p.getProcessKey()))
-                .map(StationProcessProgress::getStatus)
-                .findFirst()
-                .orElse(resolveStatus(completed, delivered, total));
-        List<StationOperationInterval> intervals =
-                intervalRepository.findByProductionOrderIdAndProcessKey(
-                        order.getCompanyId(), order.getProductionOrderId(), processKey);
         ProductionOrderStage stage = phase == StationPhase.TERMINADOS
                 ? ProductionOrderStage.FINISHED_PRODUCTS
                 : ProductionOrderStage.FINISHING_PROCESSES;
+        int completed;
+        int delivered;
+        StationProcessStatus status;
+        if (isOutsourcedFulfillmentComplete(order, stage)) {
+            completed = total;
+            delivered = total;
+            status = StationProcessStatus.TERMINADO;
+        } else {
+            completed = StationValidationService.sumUnits(
+                    events, StationEventType.AVANCE_UNIDADES, processKey, line.getCatalogItemId());
+            delivered = StationValidationService.sumDeliveryUnits(events, processKey, line.getCatalogItemId());
+            status = stored.stream()
+                    .filter(p -> processKey.equals(p.getProcessKey()))
+                    .map(StationProcessProgress::getStatus)
+                    .findFirst()
+                    .orElse(resolveStatus(completed, delivered, total));
+        }
+        List<StationOperationInterval> intervals =
+                intervalRepository.findByProductionOrderIdAndProcessKey(
+                        order.getCompanyId(), order.getProductionOrderId(), processKey);
         String operatorId = order.getOperators().stream()
                 .filter(op -> op.getStage() == stage)
                 .map(op -> op.getUserId())

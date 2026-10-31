@@ -1,16 +1,21 @@
 package com.inkcore.infrastructure.config;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
 /**
- * Activa Redis solo cuando {@code security.refresh-token.store.type=redis}.
- * Con el default {@code memory}, Redis no se conecta ni se exige en arranque.
+ * Activa Redis cuando cualquier store/cache lo pide.
+ * Antes solo miraba refresh-token: si ICC_CACHE_TYPE=redis y refresh=memory
+ * no había {@code StringRedisTemplate} y el arranque fallaba (equipos nuevos con .env).
  */
 @Configuration
-@ConditionalOnProperty(name = "security.refresh-token.store.type", havingValue = "redis")
+@ConditionalOnExpression(
+        "'${security.refresh-token.store.type:memory}'.equalsIgnoreCase('redis')"
+                + " or '${security.token-version-cache.type:memory}'.equalsIgnoreCase('redis')"
+                + " or '${inkcore.color-conversion.icc-cache.type:memory}'.equalsIgnoreCase('redis')"
+)
 @Import(RedisAutoConfiguration.class)
 public class RedisStoreConfig {
 }

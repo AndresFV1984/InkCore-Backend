@@ -13,5 +13,7 @@ public interface PaperRemnantRepositoryPort {
 
     List<PaperRemnant> findByPaperId(String companyId, String paperId, Boolean state);
 
+    List<PaperRemnant> findBySourceProductionOrderId(String companyId, String productionOrderId);
+
     void deleteById(String paperRemnantId);
 }

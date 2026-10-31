@@ -42,7 +42,7 @@ COMMENT ON COLUMN indicolors.users.city IS 'Ciudad/municipio de ubicación del u
 COMMENT ON COLUMN indicolors.users.token_version IS 'Versión de sesión para invalidar tokens (claim tv en JWT)';
 COMMENT ON COLUMN indicolors.users.state IS 'True=Activo, False=Inactivo';
 
--- Usuario semilla administrador (password: Indicore2026!)
+-- Usuarios semilla (password: Indicore2026! — mismo hash para admin y operadores)
 INSERT INTO indicolors.users (
     user_id,
     company_id,
@@ -60,23 +60,78 @@ INSERT INTO indicolors.users (
     token_version,
     force_password_change,
     failed_attempts
-) VALUES (
-    'seed-cfg-9f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c',
-    'company-seed-001',
-    '9001234567',
-    'NIT',
-    'Administrador InkCore',
-    'admin@indicolors.com',
-    '3001234567',
-    'Antioquia',
-    'Medellín',
-    'Medellín, Colombia',
-    '$2a$10$WGGWmu2DjL2BnBljv70Gzu7TShx6GHdIu/.ivtnSklhahp1zWJwQi',
-    CURRENT_DATE,
-    TRUE,
-    1,
-    FALSE,
-    0
-)
+) VALUES
+    (
+        'seed-cfg-9f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c',
+        'company-seed-001',
+        '9001234567',
+        'NIT',
+        'Administrador InkCore',
+        'admin@indicolors.com',
+        '3001234567',
+        'Antioquia',
+        'Medellín',
+        'Medellín, Colombia',
+        '$2a$10$WGGWmu2DjL2BnBljv70Gzu7TShx6GHdIu/.ivtnSklhahp1zWJwQi',
+        CURRENT_DATE,
+        TRUE,
+        1,
+        FALSE,
+        0
+    ),
+    (
+        'operator-seed-001',
+        'company-seed-001',
+        '1001001001',
+        'CC',
+        'Operario Preprensa Litografía',
+        'operario.preprensa@indicolors.com',
+        '3001001001',
+        'Antioquia',
+        'Medellín',
+        'Planta Litografía, Medellín',
+        '$2a$10$WGGWmu2DjL2BnBljv70Gzu7TShx6GHdIu/.ivtnSklhahp1zWJwQi',
+        CURRENT_DATE,
+        TRUE,
+        1,
+        FALSE,
+        0
+    ),
+    (
+        'operator-seed-002',
+        'company-seed-001',
+        '1001001002',
+        'CC',
+        'Operario Impresión Litografía',
+        'operario.impresion@indicolors.com',
+        '3001001002',
+        'Antioquia',
+        'Medellín',
+        'Planta Litografía, Medellín',
+        '$2a$10$WGGWmu2DjL2BnBljv70Gzu7TShx6GHdIu/.ivtnSklhahp1zWJwQi',
+        CURRENT_DATE,
+        TRUE,
+        1,
+        FALSE,
+        0
+    ),
+    (
+        'operator-seed-003',
+        'company-seed-001',
+        '1001001003',
+        'CC',
+        'Operario Acabados Litografía',
+        'operario.acabados@indicolors.com',
+        '3001001003',
+        'Antioquia',
+        'Medellín',
+        'Planta Litografía, Medellín',
+        '$2a$10$WGGWmu2DjL2BnBljv70Gzu7TShx6GHdIu/.ivtnSklhahp1zWJwQi',
+        CURRENT_DATE,
+        TRUE,
+        1,
+        FALSE,
+        0
+    )
 ON CONFLICT (user_id) DO NOTHING;
 

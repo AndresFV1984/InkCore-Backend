@@ -12,7 +12,8 @@ public record UpdateProductionOrderPrintingCommand(
         BigDecimal plannedOperationalWastePercentage,
         List<MachineUsageInput> machineUsages,
         List<PrintInput> prints,
-        BigDecimal plannedMakereadyQuantity
+        BigDecimal plannedMakereadyQuantity,
+        OutsourcedStageCommand outsourcedPricing
 ) {
     public record PrintInput(
             String printId,

@@ -6,6 +6,8 @@ import com.inkcore.domain.productionorder.model.ClientPlateType;
 import com.inkcore.domain.productionorder.model.DiscountType;
 import com.inkcore.domain.productionorder.model.FlipType;
 import com.inkcore.domain.productionorder.model.OperatorAssignment;
+import com.inkcore.domain.productionorder.model.OutsourcedFulfillmentStatus;
+import com.inkcore.domain.productionorder.model.OutsourcedStage;
 import com.inkcore.domain.productionorder.model.PaperRow;
 import com.inkcore.domain.productionorder.model.Plate;
 import com.inkcore.domain.productionorder.model.PostpressLine;
@@ -28,6 +30,7 @@ import com.inkcore.infrastructure.out.persistence.productionorder.entity.Product
 import com.inkcore.infrastructure.out.persistence.productionorder.entity.ProductionOrderPrepressDetailsEntity;
 import com.inkcore.infrastructure.out.persistence.productionorder.entity.ProductionOrderPrintEntity;
 import com.inkcore.infrastructure.out.persistence.productionorder.entity.ProductionOrderPrintEntryEntity;
+import com.inkcore.infrastructure.out.persistence.productionorder.entity.ProductionOrderOutsourcedStageEntity;
 import com.inkcore.infrastructure.out.persistence.productionorder.entity.ProductionOrderStageDiscountEntity;
 import org.springframework.stereotype.Component;
 
@@ -271,6 +274,60 @@ public class ProductionOrderPersistenceMapper {
         return entity;
     }
 
+    public OutsourcedStage toDomain(ProductionOrderOutsourcedStageEntity entity) {
+        OutsourcedStage row = new OutsourcedStage();
+        row.setOutsourcedStageId(entity.getProductionOrderOutsourcedStageId());
+        row.setCompanyId(entity.getCompanyId());
+        row.setProductionOrderId(entity.getProductionOrderId());
+        row.setStage(ProductionOrderStage.fromValue(entity.getStage()));
+        row.setEnabled(entity.isEnabled());
+        row.setVendorCost(entity.getVendorCost());
+        row.setMarkupPercent(entity.getMarkupPercent());
+        row.setSellPrice(entity.getSellPrice());
+        row.setSupplierId(entity.getSupplierId());
+        row.setSupplierName(entity.getSupplierName());
+        row.setQuotedAt(entity.getQuotedAt());
+        row.setQuantity(entity.getQuantity());
+        row.setCostResponsibleUserId(entity.getCostResponsibleUserId());
+        row.setCostResponsibleUserName(entity.getCostResponsibleUserName());
+        row.setQuoteValidUntil(entity.getQuoteValidUntil());
+        row.setSentAt(entity.getSentAt());
+        row.setSentDescription(entity.getSentDescription());
+        row.setExpectedReturnAt(entity.getExpectedReturnAt());
+        row.setReceivedAt(entity.getReceivedAt());
+        row.setReceivedByUserId(entity.getReceivedByUserId());
+        row.setFulfillmentStatus(OutsourcedFulfillmentStatus.fromValue(entity.getFulfillmentStatus()));
+        return row;
+    }
+
+    public ProductionOrderOutsourcedStageEntity toEntity(OutsourcedStage row, LocalDateTime now) {
+        ProductionOrderOutsourcedStageEntity entity = new ProductionOrderOutsourcedStageEntity();
+        entity.setProductionOrderOutsourcedStageId(row.getOutsourcedStageId());
+        entity.setCompanyId(row.getCompanyId());
+        entity.setProductionOrderId(row.getProductionOrderId());
+        entity.setStage(row.getStage() == null ? null : row.getStage().name());
+        entity.setEnabled(row.isEnabled());
+        entity.setVendorCost(row.getVendorCost());
+        entity.setMarkupPercent(row.getMarkupPercent());
+        entity.setSellPrice(row.resolveSellPrice());
+        entity.setSupplierId(row.getSupplierId());
+        entity.setSupplierName(row.getSupplierName());
+        entity.setQuotedAt(row.getQuotedAt());
+        entity.setQuantity(row.getQuantity());
+        entity.setCostResponsibleUserId(row.getCostResponsibleUserId());
+        entity.setCostResponsibleUserName(row.getCostResponsibleUserName());
+        entity.setQuoteValidUntil(row.getQuoteValidUntil());
+        entity.setSentAt(row.getSentAt());
+        entity.setSentDescription(row.getSentDescription());
+        entity.setExpectedReturnAt(row.getExpectedReturnAt());
+        entity.setReceivedAt(row.getReceivedAt());
+        entity.setReceivedByUserId(row.getReceivedByUserId());
+        entity.setFulfillmentStatus(row.getFulfillmentStatus().name());
+        entity.setCreatedAt(now);
+        entity.setUpdatedAt(now);
+        return entity;
+    }
+
     public Plate toDomain(ProductionOrderPlateEntity entity) {
         Plate plate = new Plate();
         plate.setPlateId(entity.getProductionOrderPlateId());
@@ -367,6 +424,8 @@ public class ProductionOrderPersistenceMapper {
         row.setPlannedWastePercentage(entity.getPlannedWastePercentage());
         row.setPaperRemnantId(entity.getPaperRemnantId());
         row.setRemnantQuantityUsed(entity.getRemnantQuantityUsed());
+        row.setPlantSheetCost(entity.getPlantSheetCost());
+        row.setTotalPlantPaperValue(entity.getTotalPlantPaperValue());
         return row;
     }
 
@@ -414,6 +473,8 @@ public class ProductionOrderPersistenceMapper {
                 : row.getPlannedWastePercentage());
         entity.setPaperRemnantId(row.getPaperRemnantId());
         entity.setRemnantQuantityUsed(row.getRemnantQuantityUsed());
+        entity.setPlantSheetCost(row.getPlantSheetCost());
+        entity.setTotalPlantPaperValue(row.getTotalPlantPaperValue());
         entity.setCreatedAt(now);
         entity.setUpdatedAt(now);
         return entity;

@@ -122,6 +122,30 @@ public class MachinePersistenceAdapter implements MachineRepositoryPort {
                 .toList();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<Machine> findPreferredActiveByCompanyId(String companyId) {
+        return repository.findAllByCompanyIdAndPreferredTrueAndStateTrueOrderByMachineTypeAsc(companyId).stream()
+                .map(mapper::toDomain)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean existsPreferredByCompanyIdAndMachineType(String companyId, String machineType) {
+        return companyId != null && machineType != null
+                && repository.existsByCompanyIdAndMachineTypeAndPreferredTrue(companyId, machineType);
+    }
+
+    @Override
+    @Transactional
+    public int clearPreferredForType(String companyId, String machineType, String excludeMachineId) {
+        if (companyId == null || machineType == null || excludeMachineId == null) {
+            return 0;
+        }
+        return repository.clearPreferredForType(companyId, machineType, excludeMachineId);
+    }
+
     private void bindSession(String changedBy, boolean forceHistory) {
         entityManager.createNativeQuery("SELECT set_config('inkcore.changed_by', :changedBy, true)")
                 .setParameter("changedBy", changedBy == null ? "" : changedBy)

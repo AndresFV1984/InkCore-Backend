@@ -6,9 +6,11 @@ import com.inkcore.domain.cutlayout.model.CutLayout;
 import com.inkcore.domain.cutlayout.ports.out.CutLayoutRepositoryPort;
 import com.inkcore.domain.paper.model.Paper;
 import com.inkcore.domain.paper.model.PaperCutLayout;
+import com.inkcore.domain.paper.model.PaperRemnant;
 import com.inkcore.domain.paper.model.PaperSupplierPrice;
 import com.inkcore.domain.paper.model.PriceRule;
 import com.inkcore.domain.paper.ports.out.PaperCutLayoutRepositoryPort;
+import com.inkcore.domain.paper.ports.out.PaperRemnantRepositoryPort;
 import com.inkcore.domain.paper.ports.out.PaperRepositoryPort;
 import com.inkcore.domain.paper.ports.out.PaperSupplierPriceRepositoryPort;
 import com.inkcore.domain.productionorder.model.PaperRow;
@@ -57,6 +59,7 @@ class UpdateProductionOrderPaperCuttingUseCaseTest {
     @Mock UserRepositoryPort userRepository;
     @Mock ProductionOrderCostingCoordinator costing;
     @Mock PaperRemnantStockSync remnantStockSync;
+    @Mock PaperRemnantRepositoryPort remnantRepository;
 
     private UpdateProductionOrderPaperCuttingUseCase useCase;
 
@@ -70,13 +73,16 @@ class UpdateProductionOrderPaperCuttingUseCaseTest {
         useCase = new UpdateProductionOrderPaperCuttingUseCase(
                 support,
                 new ProductionOrderOperatorsApplier(userRepository),
+                new OutsourcedStagesApplier(org.mockito.Mockito.mock(
+                        com.inkcore.application.station.StationOrderProgressService.class)),
                 paperRepository,
                 paperPriceRepository,
                 paperCutLayoutRepository,
                 cutLayoutRepository,
                 new PaperPricingSettings(30, new BigDecimal("19"), true),
                 costing,
-                remnantStockSync
+                remnantStockSync,
+                remnantRepository
         );
     }
 
@@ -127,6 +133,61 @@ class UpdateProductionOrderPaperCuttingUseCaseTest {
         assertEquals(Boolean.FALSE, saved.getCoatedSnapshot());
         assertNotNull(saved.getFreightPerSheetSnapshot());
         assertEquals(PriceRule.PREFERRED, saved.getPriceRule());
+        // Cliente suministra: cobro papel 0 y costo planta 0
+        assertEquals(0, BigDecimal.ZERO.compareTo(saved.getPlantSheetCost()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(saved.getTotalPlantPaperValue()));
+    }
+
+    @Test
+    void execute_withRemnant_keepsListSheetValueAndSnapshotsPlantCostFromUnitCost() {
+        var auth = new UsernamePasswordAuthenticationToken("user-1", "n/a", List.of());
+        when(companyResolver.resolveCompanyId(auth)).thenReturn("company-1");
+        when(companyResolver.resolveUserId(auth)).thenReturn("user-1");
+        when(costing.resolveCutPercentage(eq("company-1"), any(), anyBoolean()))
+                .thenReturn(new BigDecimal("2.00"));
+        when(costing.settingsFor("company-1")).thenReturn(CompanyWasteSettings.initialSuggestion("company-1"));
+        when(costing.afterCutting(any(), any(), any())).thenAnswer(inv -> inv.getArgument(0));
+
+        ProductionOrder order = baseOrder();
+        when(repository.findById("order-1")).thenReturn(Optional.of(order));
+        when(repository.save(any(ProductionOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        stubPaperCatalog("papel-1", "Bond", false, "sup-1", new BigDecimal("1000"), true);
+        when(paperCutLayoutRepository.findByPaperId("company-1", "papel-1")).thenReturn(List.of(
+                paperCut("pcl-1", "papel-1", "corte-1")
+        ));
+        when(cutLayoutRepository.findById("corte-1")).thenReturn(Optional.of(cutLayout("corte-1", "2x2", 4)));
+        when(remnantRepository.findById("rem-1")).thenReturn(Optional.of(
+                PaperRemnant.reconstitute(
+                        "rem-1", "company-1", "papel-1",
+                        new BigDecimal("35"), new BigDecimal("50"), "cm",
+                        new BigDecimal("20"), new BigDecimal("20"), new BigDecimal("420.00"),
+                        null, null, LocalDate.of(2026, 1, 1), "retazo",
+                        com.inkcore.domain.paper.model.PaperRemnantStatus.AVAILABLE,
+                        LocalDateTime.of(2026, 1, 1, 0, 0), LocalDateTime.of(2026, 1, 1, 0, 0)
+                )
+        ));
+
+        useCase.execute(
+                "order-1",
+                command(List.of(new UpdateProductionOrderPaperCuttingCommand.PaperRowInput(
+                        null, "plate-srv-1", null, "plate-srv-1",
+                        false, null, false,
+                        "papel-1", "sup-1", "corte-1", null, null,
+                        null, null, null, null, null, "rem-1"
+                ))),
+                auth
+        );
+
+        ArgumentCaptor<ProductionOrder> captor = ArgumentCaptor.forClass(ProductionOrder.class);
+        verify(repository).save(captor.capture());
+        PaperRow saved = captor.getValue().getPaperRows().get(0);
+        assertEquals("rem-1", saved.getPaperRemnantId());
+        assertEquals(0, new BigDecimal("1000").compareTo(saved.getSheetValue()));
+        assertEquals(0, new BigDecimal("420.00").compareTo(saved.getPlantSheetCost()));
+        assertNotNull(saved.getTotalPaperValue());
+        assertNotNull(saved.getTotalPlantPaperValue());
+        assertTrue(saved.getTotalPlantPaperValue().compareTo(saved.getTotalPaperValue()) < 0);
     }
 
     @Test
@@ -175,9 +236,11 @@ class UpdateProductionOrderPaperCuttingUseCaseTest {
         PaperRow saved = captor.getValue().getPaperRows().get(0);
         assertEquals("sup-pref", saved.getSupplierId());
         assertEquals(0, new BigDecimal("150").compareTo(saved.getSheetValue()));
+        assertEquals(0, new BigDecimal("150").compareTo(saved.getPlantSheetCost()));
         assertEquals(PriceRule.PREFERRED, saved.getPriceRule());
         assertNotNull(saved.getCalculatedSheetsCount());
         assertNotNull(saved.getTotalPaperValue());
+        assertEquals(0, saved.getTotalPaperValue().compareTo(saved.getTotalPlantPaperValue()));
         assertNotNull(saved.getTotalCutValue());
     }
 
@@ -248,7 +311,7 @@ class UpdateProductionOrderPaperCuttingUseCaseTest {
             List<UpdateProductionOrderPaperCuttingCommand.PaperRowInput> rows
     ) {
         return new UpdateProductionOrderPaperCuttingCommand(
-                2L, false, 2, true, null, null, "%", BigDecimal.ZERO, rows, null, null
+                2L, false, 2, true, null, null, "%", BigDecimal.ZERO, rows, null, null, null
         );
     }
 

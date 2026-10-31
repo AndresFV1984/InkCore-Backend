@@ -45,3 +45,62 @@ COMMENT ON COLUMN indicolors.sellers.city IS 'Ciudad/municipio de ubicación';
 COMMENT ON COLUMN indicolors.sellers.address IS 'Dirección (calle, barrio, referencia)';
 COMMENT ON COLUMN indicolors.sellers.state IS 'True=Activo, False=Inactivo';
 COMMENT ON COLUMN indicolors.sellers.creation_date IS 'Fecha de registro del vendedor en el sistema';
+
+-- Datos semilla demo (company-seed-001)
+INSERT INTO indicolors.sellers (
+    seller_id,
+    company_id,
+    full_name,
+    document_type,
+    identification,
+    email,
+    phone,
+    department,
+    city,
+    address,
+    state,
+    creation_date
+) VALUES
+    (
+        'seller-seed-001',
+        'company-seed-001',
+        'Juan Camilo Restrepo',
+        'CC',
+        '1033001001',
+        'juan.restrepo@indicolors.com',
+        '3003001001',
+        'Antioquia',
+        'Medellín',
+        'Medellín, Colombia',
+        TRUE,
+        CURRENT_DATE
+    ),
+    (
+        'seller-seed-002',
+        'company-seed-001',
+        'Valentina Hoyos',
+        'CC',
+        '1033001002',
+        'valentina.hoyos@indicolors.com',
+        '3003001002',
+        'Antioquia',
+        'Medellín',
+        'Medellín, Colombia',
+        TRUE,
+        CURRENT_DATE
+    ),
+    (
+        'seller-seed-003',
+        'company-seed-001',
+        'Diego Alejandro Quintero',
+        'CC',
+        '1033001003',
+        'diego.quintero@indicolors.com',
+        '3003001003',
+        'Antioquia',
+        'Bello',
+        'Bello, Colombia',
+        TRUE,
+        CURRENT_DATE
+    )
+ON CONFLICT (seller_id) DO NOTHING;

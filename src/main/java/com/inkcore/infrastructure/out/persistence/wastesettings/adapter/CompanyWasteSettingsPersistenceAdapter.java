@@ -52,6 +52,11 @@ public class CompanyWasteSettingsPersistenceAdapter implements CompanyWasteSetti
         entity.setFinishingWasteDefaultPercentage(settings.getFinishingWasteDefaultPercentage());
         entity.setCutMakereadySheets(settings.getCutMakereadySheets());
         entity.setOperationalMakereadySheets(settings.getOperationalMakereadySheets());
+        entity.setCutWasteActive(settings.isCutWasteActive());
+        entity.setOperationalWasteActive(settings.isOperationalWasteActive());
+        entity.setPrepressWasteActive(settings.isPrepressWasteActive());
+        entity.setFinishedWasteActive(settings.isFinishedWasteActive());
+        entity.setFinishingWasteActive(settings.isFinishingWasteActive());
         entity.setUpdatedAt(settings.getUpdatedAt());
     }
 
@@ -75,6 +80,11 @@ public class CompanyWasteSettingsPersistenceAdapter implements CompanyWasteSetti
                 entity.getFinishingWasteDefaultPercentage(),
                 entity.getCutMakereadySheets(),
                 entity.getOperationalMakereadySheets(),
+                entity.isCutWasteActive(),
+                entity.isOperationalWasteActive(),
+                entity.isPrepressWasteActive(),
+                entity.isFinishedWasteActive(),
+                entity.isFinishingWasteActive(),
                 entity.getUpdatedAt()
         );
     }

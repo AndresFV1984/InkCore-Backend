@@ -5,9 +5,11 @@ import com.inkcore.domain.cutlayout.model.CutLayout;
 import com.inkcore.domain.cutlayout.ports.out.CutLayoutRepositoryPort;
 import com.inkcore.domain.paper.model.Paper;
 import com.inkcore.domain.paper.model.PaperCutLayout;
+import com.inkcore.domain.paper.model.PaperRemnant;
 import com.inkcore.domain.paper.model.PaperSupplierPrice;
 import com.inkcore.domain.paper.model.PriceRule;
 import com.inkcore.domain.paper.ports.out.PaperCutLayoutRepositoryPort;
+import com.inkcore.domain.paper.ports.out.PaperRemnantRepositoryPort;
 import com.inkcore.domain.paper.ports.out.PaperRepositoryPort;
 import com.inkcore.domain.paper.ports.out.PaperSupplierPriceRepositoryPort;
 import com.inkcore.domain.paper.service.PaperCostCalculator;
@@ -37,6 +39,7 @@ public class UpdateProductionOrderPaperCuttingUseCase {
 
     private final ProductionOrderSupport support;
     private final ProductionOrderOperatorsApplier operatorsApplier;
+    private final OutsourcedStagesApplier outsourcedStagesApplier;
     private final PaperRepositoryPort paperRepository;
     private final PaperSupplierPriceRepositoryPort paperPriceRepository;
     private final PaperCutLayoutRepositoryPort paperCutLayoutRepository;
@@ -44,20 +47,24 @@ public class UpdateProductionOrderPaperCuttingUseCase {
     private final PaperPricingSettings pricingSettings;
     private final ProductionOrderCostingCoordinator costing;
     private final PaperRemnantStockSync remnantStockSync;
+    private final PaperRemnantRepositoryPort remnantRepository;
 
     public UpdateProductionOrderPaperCuttingUseCase(
             ProductionOrderSupport support,
             ProductionOrderOperatorsApplier operatorsApplier,
+            OutsourcedStagesApplier outsourcedStagesApplier,
             PaperRepositoryPort paperRepository,
             PaperSupplierPriceRepositoryPort paperPriceRepository,
             PaperCutLayoutRepositoryPort paperCutLayoutRepository,
             CutLayoutRepositoryPort cutLayoutRepository,
             PaperPricingSettings pricingSettings,
             ProductionOrderCostingCoordinator costing,
-            PaperRemnantStockSync remnantStockSync
+            PaperRemnantStockSync remnantStockSync,
+            PaperRemnantRepositoryPort remnantRepository
     ) {
         this.support = support;
         this.operatorsApplier = operatorsApplier;
+        this.outsourcedStagesApplier = outsourcedStagesApplier;
         this.paperRepository = paperRepository;
         this.paperPriceRepository = paperPriceRepository;
         this.paperCutLayoutRepository = paperCutLayoutRepository;
@@ -65,6 +72,7 @@ public class UpdateProductionOrderPaperCuttingUseCase {
         this.pricingSettings = pricingSettings;
         this.costing = costing;
         this.remnantStockSync = remnantStockSync;
+        this.remnantRepository = remnantRepository;
     }
 
     @Transactional
@@ -90,6 +98,7 @@ public class UpdateProductionOrderPaperCuttingUseCase {
         List<PaperRow> previousRows = List.copyOf(order.getPaperRows());
         List<PaperRow> rows = buildRows(order, companyId, command.paperRows());
         applyRemnantUsageSnapshots(rows);
+        applyPlantCostSnapshots(companyId, rows);
         var now = support.now();
         // Primero devolver lo previo, luego descontar lo nuevo (mismo remanente = neto correcto).
         remnantStockSync.releaseUsages(previousRows, now);
@@ -107,6 +116,10 @@ public class UpdateProductionOrderPaperCuttingUseCase {
                 command.operatorUserId(),
                 ProductionOrderStage.CUTTING
         );
+        outsourcedStagesApplier.applySingle(
+                order,
+                withDefaultStage(command.outsourcedPricing(), ProductionOrderStage.CUTTING)
+        );
         if (Boolean.TRUE.equals(command.completed())) {
             order.setCuttingCompletedAt(now);
         }
@@ -114,6 +127,16 @@ public class UpdateProductionOrderPaperCuttingUseCase {
         order.setUpdatedBy(userId);
         ProductionOrder saved = support.repository().save(order);
         return costing.afterCutting(saved, command.machineUsages(), command.plannedMakereadyQuantity());
+    }
+
+    private static OutsourcedStageCommand withDefaultStage(
+            OutsourcedStageCommand command,
+            ProductionOrderStage stage
+    ) {
+        if (command == null) {
+            return null;
+        }
+        return command.withStageIfMissing(stage.name());
     }
 
     private static void applyRemnantUsageSnapshots(List<PaperRow> rows) {
@@ -132,6 +155,42 @@ public class UpdateProductionOrderPaperCuttingUseCase {
                 row.setRemnantQuantityUsed(row.getTotalSheets().setScale(2, RoundingMode.HALF_UP));
             } else {
                 row.setRemnantQuantityUsed(null);
+            }
+        }
+    }
+
+    /**
+     * Dual pricing: {@code sheetValue}/{@code totalPaperValue} = cobro lista;
+     * {@code plantSheetCost}/{@code totalPlantPaperValue} = costo planta (remanente o compra).
+     */
+    private void applyPlantCostSnapshots(String companyId, List<PaperRow> rows) {
+        for (PaperRow row : rows) {
+            if (row.isClientSuppliesPaper() && !row.isMissingSupply()) {
+                row.setPlantSheetCost(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+                row.setTotalPlantPaperValue(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+                continue;
+            }
+            String remnantId = blankToNull(row.getPaperRemnantId());
+            if (remnantId == null) {
+                row.setPlantSheetCost(row.getSheetValue());
+                row.setTotalPlantPaperValue(row.getTotalPaperValue());
+                continue;
+            }
+            PaperRemnant remnant = remnantRepository.findById(remnantId)
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "PAPER_REMNANT_NOT_FOUND", "Remanente no encontrado"));
+            if (!companyId.equals(remnant.getCompanyId())) {
+                throw new ResourceNotFoundException("PAPER_REMNANT_NOT_FOUND", "Remanente no encontrado");
+            }
+            BigDecimal plantCost = remnant.getUnitCost() == null
+                    ? BigDecimal.ZERO
+                    : remnant.getUnitCost().setScale(2, RoundingMode.HALF_UP);
+            row.setPlantSheetCost(plantCost);
+            Integer sheets = row.getCalculatedSheetsCount();
+            if (sheets != null && sheets > 0) {
+                row.setTotalPlantPaperValue(ProductionOrderCalculator.calculateLineTotal(sheets, plantCost));
+            } else {
+                row.setTotalPlantPaperValue(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
             }
         }
     }

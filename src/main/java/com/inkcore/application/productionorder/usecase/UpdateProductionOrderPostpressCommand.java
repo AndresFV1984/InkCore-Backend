@@ -12,7 +12,8 @@ public record UpdateProductionOrderPostpressCommand(
         BigDecimal discountValue,
         List<PostpressRecordInput> records,
         List<MachineUsageInput> machineUsages,
-        BigDecimal plannedWastePercentage
+        BigDecimal plannedWastePercentage,
+        OutsourcedStageCommand outsourcedPricing
 ) {
     public record PostpressRecordInput(
             String recordId,

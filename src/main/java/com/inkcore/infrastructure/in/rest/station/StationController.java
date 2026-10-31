@@ -48,10 +48,9 @@ import java.util.Map;
 @RequestMapping("/api/v1/station")
 @Tag(
         name = "Estación",
-        description = "Bitácora de planta: inbox, eventos (inicio/pausa/avance), intervalos y reportes. "
-                + "complete-if-ready → COMPLETED; admin-close-stages (solo ADMIN; "
-                + "normaliza status legacy → IN_PROGRESS_*). "
-                + "Roles OPERADOR|ADMINISTRADOR. occurredAt sin zona (sin Z)."
+        description = "Bitácora de planta: inbox, eventos, intervalos y reportes. "
+                + "complete-if-ready y admin-close-stages solo ADMIN "
+                + "(no auto-finaliza al operar). occurredAt sin zona (sin Z)."
 )
 @SecurityRequirement(name = "bearerAuth")
 public class StationController {
@@ -152,13 +151,14 @@ public class StationController {
     }
 
     @PostMapping("/orders/{productionOrderId}/complete-if-ready")
-    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     @Operation(
             operationId = "completeStationOrderIfReady",
-            summary = "Finalizar OP si todas las etapas están cumplidas",
+            summary = "Finalizar OP si todas las etapas están cumplidas (administrador)",
             description = """
-                    Si el cupo de cada etapa real de la OP ya está procesado o entregado,
-                    pasa el estado a COMPLETED (Finalizada). Idempotente: si ya estaba COMPLETED,
+                    Acción explícita del administrador: si el cupo de cada etapa real de la OP
+                    ya está procesado o entregado, pasa el estado a COMPLETED (Finalizada).
+                    No ocurre automáticamente al operar etapas. Idempotente: si ya estaba COMPLETED,
                     completed=true y status=COMPLETED.
                     """
     )

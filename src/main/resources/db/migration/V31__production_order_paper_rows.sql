@@ -49,6 +49,9 @@ CREATE TABLE indicolors.production_order_paper_rows (
 
     paper_remnant_id              CHARACTER VARYING(64),
     remnant_quantity_used         NUMERIC(12,2),
+    -- Dual pricing: cobro lista (sheet_value / total_paper_value) vs costo planta del origen.
+    plant_sheet_cost              NUMERIC(12,2),
+    total_plant_paper_value       NUMERIC(12,2),
 
     created_at                    TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
     updated_at                    TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
@@ -66,7 +69,11 @@ CREATE TABLE indicolors.production_order_paper_rows (
     CONSTRAINT production_order_paper_rows_price_rule_check
         CHECK (price_rule IS NULL OR price_rule IN ('PREFERRED', 'REPLACEMENT', 'BEST_COST')),
     CONSTRAINT production_order_paper_rows_remnant_qty_check
-        CHECK (remnant_quantity_used IS NULL OR remnant_quantity_used >= 0)
+        CHECK (remnant_quantity_used IS NULL OR remnant_quantity_used >= 0),
+    CONSTRAINT production_order_paper_rows_plant_sheet_cost_check
+        CHECK (plant_sheet_cost IS NULL OR plant_sheet_cost >= 0),
+    CONSTRAINT production_order_paper_rows_total_plant_paper_value_check
+        CHECK (total_plant_paper_value IS NULL OR total_plant_paper_value >= 0)
 );
 
 CREATE INDEX idx_production_order_paper_rows_company_id ON indicolors.production_order_paper_rows (company_id);
@@ -87,6 +94,8 @@ COMMENT ON COLUMN indicolors.production_order_paper_rows.paper_size IS 'Snapshot
 COMMENT ON COLUMN indicolors.production_order_paper_rows.planned_waste_percentage IS 'Merma de corte aplicada (company_waste_settings u override de OP; no del waste sugerido del papel-despiece)';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.paper_remnant_id IS 'Remanente usado como origen del corte (opcional; FK paper_remnants)';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.remnant_quantity_used IS 'Unidades descontadas de quantity_available del remanente al guardar el corte';
+COMMENT ON COLUMN indicolors.production_order_paper_rows.plant_sheet_cost IS 'Costo planta por hoja. Con remanente: unit_cost congelado. Sin remanente: igual a sheet_value';
+COMMENT ON COLUMN indicolors.production_order_paper_rows.total_plant_paper_value IS 'Total costo planta de papel (hojas × plant_sheet_cost); distinto del cobro total_paper_value';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.created_at IS 'Fecha y hora de creación del registro';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.updated_at IS 'Fecha y hora de la última actualización del registro';
 

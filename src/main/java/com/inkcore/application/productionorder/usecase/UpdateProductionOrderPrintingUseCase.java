@@ -32,6 +32,7 @@ public class UpdateProductionOrderPrintingUseCase {
 
     private final ProductionOrderSupport support;
     private final ProductionOrderOperatorsApplier operatorsApplier;
+    private final OutsourcedStagesApplier outsourcedStagesApplier;
     private final ThousandRateRepositoryPort thousandRateRepository;
     private final InkEstimateAssetRelocationService inkEstimateAssetRelocation;
     private final ProductionOrderCostingCoordinator costing;
@@ -39,12 +40,14 @@ public class UpdateProductionOrderPrintingUseCase {
     public UpdateProductionOrderPrintingUseCase(
             ProductionOrderSupport support,
             ProductionOrderOperatorsApplier operatorsApplier,
+            OutsourcedStagesApplier outsourcedStagesApplier,
             ThousandRateRepositoryPort thousandRateRepository,
             InkEstimateAssetRelocationService inkEstimateAssetRelocation,
             ProductionOrderCostingCoordinator costing
     ) {
         this.support = support;
         this.operatorsApplier = operatorsApplier;
+        this.outsourcedStagesApplier = outsourcedStagesApplier;
         this.thousandRateRepository = thousandRateRepository;
         this.inkEstimateAssetRelocation = inkEstimateAssetRelocation;
         this.costing = costing;
@@ -70,6 +73,10 @@ public class UpdateProductionOrderPrintingUseCase {
                 command.operatorUserId(),
                 ProductionOrderStage.PRINTING
         );
+        outsourcedStagesApplier.applySingle(
+                order,
+                withDefaultStage(command.outsourcedPricing(), ProductionOrderStage.PRINTING)
+        );
         if (Boolean.TRUE.equals(command.completed())) {
             order.setPrintingCompletedAt(support.now());
         }
@@ -82,6 +89,16 @@ public class UpdateProductionOrderPrintingUseCase {
                 command.plannedOperationalWastePercentage(),
                 command.plannedMakereadyQuantity()
         );
+    }
+
+    private static OutsourcedStageCommand withDefaultStage(
+            OutsourcedStageCommand command,
+            ProductionOrderStage stage
+    ) {
+        if (command == null) {
+            return null;
+        }
+        return command.withStageIfMissing(stage.name());
     }
 
     private List<PrintConfig> buildPrints(

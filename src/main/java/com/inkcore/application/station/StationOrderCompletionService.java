@@ -10,8 +10,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Cuando todas las etapas de estación tienen procesada la cantidad solicitada,
- * pasa la OP a {@link ProductionOrderStatus#COMPLETED} (Finalizada).
+ * Cierre explícito a {@link ProductionOrderStatus#COMPLETED} (Finalizada) cuando
+ * todas las etapas tienen el cupo procesado. Lo invoca el administrador
+ * (complete-if-ready / admin-close), no el flujo operativo de estación.
  */
 @Component
 public class StationOrderCompletionService {

@@ -59,6 +59,7 @@ public final class ProductionOrder {
     private BillingDetails billing;
     private List<OperatorAssignment> operators = new ArrayList<>();
     private List<StageDiscount> stageDiscounts = new ArrayList<>();
+    private List<OutsourcedStage> outsourcedStages = new ArrayList<>();
     private List<Plate> plates = new ArrayList<>();
     private List<PaperRow> paperRows = new ArrayList<>();
     private List<PrintConfig> prints = new ArrayList<>();
@@ -209,6 +210,24 @@ public final class ProductionOrder {
             return;
         }
         stageDiscounts.add(StageDiscount.of(companyId, productionOrderId, stage, type, value));
+    }
+
+    /**
+     * Deja una única configuración de tercerización por etapa (UNIQUE order_id, stage).
+     */
+    public void upsertOutsourcedStage(OutsourcedStage stageRow) {
+        if (stageRow == null || stageRow.getStage() == null || stageRow.getStage() == ProductionOrderStage.BILLING) {
+            return;
+        }
+        ProductionOrderStage stage = stageRow.getStage();
+        outsourcedStages.removeIf(row -> row.getStage() == stage);
+        stageRow.setCompanyId(companyId);
+        stageRow.setProductionOrderId(productionOrderId);
+        outsourcedStages.add(stageRow);
+    }
+
+    public void replaceOutsourcedStages(List<OutsourcedStage> next) {
+        this.outsourcedStages = next == null ? new ArrayList<>() : new ArrayList<>(next);
     }
 
     public Optional<Plate> findPlate(String plateId) {
@@ -476,6 +495,14 @@ public final class ProductionOrder {
 
     public void setStageDiscounts(List<StageDiscount> stageDiscounts) {
         this.stageDiscounts = stageDiscounts == null ? new ArrayList<>() : new ArrayList<>(stageDiscounts);
+    }
+
+    public List<OutsourcedStage> getOutsourcedStages() {
+        return outsourcedStages;
+    }
+
+    public void setOutsourcedStages(List<OutsourcedStage> outsourcedStages) {
+        this.outsourcedStages = outsourcedStages == null ? new ArrayList<>() : new ArrayList<>(outsourcedStages);
     }
 
     public List<Plate> getPlates() {

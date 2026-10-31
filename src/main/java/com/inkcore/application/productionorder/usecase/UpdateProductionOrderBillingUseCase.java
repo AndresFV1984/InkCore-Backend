@@ -22,17 +22,20 @@ public class UpdateProductionOrderBillingUseCase {
 
     private final ProductionOrderSupport support;
     private final ProductionOrderOperatorsApplier operatorsApplier;
+    private final OutsourcedStagesApplier outsourcedStagesApplier;
     private final BankAccountRepositoryPort bankAccountRepository;
     private final ProductionOrderCostingCoordinator costing;
 
     public UpdateProductionOrderBillingUseCase(
             ProductionOrderSupport support,
             ProductionOrderOperatorsApplier operatorsApplier,
+            OutsourcedStagesApplier outsourcedStagesApplier,
             BankAccountRepositoryPort bankAccountRepository,
             ProductionOrderCostingCoordinator costing
     ) {
         this.support = support;
         this.operatorsApplier = operatorsApplier;
+        this.outsourcedStagesApplier = outsourcedStagesApplier;
         this.bankAccountRepository = bankAccountRepository;
         this.costing = costing;
     }
@@ -78,6 +81,7 @@ public class UpdateProductionOrderBillingUseCase {
                 command.operatorUserId(),
                 ProductionOrderStage.BILLING
         );
+        outsourcedStagesApplier.applyReplaceAll(order, command.outsourcedStages());
         order.setUpdatedAt(support.now());
         order.setUpdatedBy(userId);
         ProductionOrder saved = support.repository().save(order);

@@ -8,7 +8,7 @@ import java.time.LocalDate;
 
 @Schema(name = "ThousandRateResponse", description = "Tarifa por millar del catálogo (formulario Nueva tarifa por millar)")
 public record ThousandRateResponse(
-        @Schema(description = "Identificador único de la tarifa", example = "a1b2c3d4-e5f6-7890-abcd-ef1234567890")
+        @Schema(description = "Identificador único de la tarifa", example = "thousand-rate-seed-001")
         String thousandRateId,
 
         @Schema(description = "Identificador de empresa", example = "company-seed-001")
@@ -17,7 +17,7 @@ public record ThousandRateResponse(
         @Schema(description = "Nombre de la tarifa", example = "Color básico")
         String name,
 
-        @Schema(description = "Categoría de color de la tarifa", example = "1 COLOR")
+        @Schema(description = "Categoría de color de la tarifa", example = "basico")
         String colorCategory,
 
         @Schema(description = "Unidad de millar", example = "1000")
@@ -44,7 +44,7 @@ public record ThousandRateResponse(
         @Schema(description = "Precio por millar con volteo por escuadra; null si no aplica", example = "20000.00")
         BigDecimal squareFlipPrice,
 
-        @Schema(description = "Indica si es la tarifa por defecto", example = "false")
+        @Schema(description = "Indica si es la tarifa por defecto", example = "true")
         boolean isDefault,
 
         @Schema(description = "Fecha de registro", example = "2026-08-08")

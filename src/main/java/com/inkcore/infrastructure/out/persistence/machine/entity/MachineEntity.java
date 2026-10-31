@@ -60,6 +60,12 @@ public class MachineEntity implements Persistable<String> {
     @Column(name = "cost_per_hour", precision = 12, scale = 2, insertable = false, updatable = false)
     private BigDecimal costPerHour;
 
+    @Column(name = "setup_minutes", nullable = false)
+    private int setupMinutes;
+
+    @Column(nullable = false)
+    private boolean preferred;
+
     @Column(nullable = false)
     private boolean state;
 
@@ -190,6 +196,22 @@ public class MachineEntity implements Persistable<String> {
 
     public void setCostPerHour(BigDecimal costPerHour) {
         this.costPerHour = costPerHour;
+    }
+
+    public int getSetupMinutes() {
+        return setupMinutes;
+    }
+
+    public void setSetupMinutes(int setupMinutes) {
+        this.setupMinutes = setupMinutes;
+    }
+
+    public boolean isPreferred() {
+        return preferred;
+    }
+
+    public void setPreferred(boolean preferred) {
+        this.preferred = preferred;
     }
 
     public boolean isState() {

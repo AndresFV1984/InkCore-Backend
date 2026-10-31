@@ -8,6 +8,7 @@ import com.inkcore.domain.productionorder.model.DiscountType;
 import com.inkcore.domain.productionorder.model.FlipType;
 import com.inkcore.domain.productionorder.model.MachineUsage;
 import com.inkcore.domain.productionorder.model.OperatorAssignment;
+import com.inkcore.domain.productionorder.model.OutsourcedStage;
 import com.inkcore.domain.productionorder.model.PaperRow;
 import com.inkcore.domain.productionorder.model.Plate;
 import com.inkcore.domain.productionorder.model.PostpressLine;
@@ -144,6 +145,8 @@ public record ProductionOrderResponse(
         BillingResponse billing,
         List<OperatorResponse> operators,
         List<StageDiscountResponse> stageDiscounts,
+        @Schema(description = "Etapas tercerizadas (brokered). Si enabled, totalToCharge usa sellPrice de esa etapa.")
+        List<OutsourcedStageResponse> outsourcedStages,
         List<PlateResponse> plates,
         List<PaperRowResponse> paperRows,
         List<PrintResponse> prints,
@@ -247,6 +250,7 @@ public record ProductionOrderResponse(
                 BillingResponse.from(order.getBilling()),
                 order.getOperators().stream().map(OperatorResponse::from).toList(),
                 order.getStageDiscounts().stream().map(StageDiscountResponse::from).toList(),
+                order.getOutsourcedStages().stream().map(OutsourcedStageResponse::from).toList(),
                 order.getPlates().stream().map(PlateResponse::from).toList(),
                 order.getPaperRows().stream().map(PaperRowResponse::from).toList(),
                 order.getPrints().stream().map(PrintResponse::from).toList(),
@@ -279,6 +283,7 @@ public record ProductionOrderResponse(
             Boolean clientSuppliesPlates,
             String clientPlateType,
             BigDecimal newPlateCost,
+            @Schema(description = "Precio de montaje del catálogo", example = "assembly-price-seed-001")
             String assemblyPriceId,
             String assemblyPriceName,
             BigDecimal assemblyPriceCost,
@@ -364,6 +369,64 @@ public record ProductionOrderResponse(
         }
     }
 
+    @Schema(name = "ProductionOrderOutsourcedStageResponse",
+            description = "Etapa tercerizada. Ciclo fulfillmentStatus: PENDING→DISPATCHED→IN_PROGRESS→COMPLETED.")
+    public record OutsourcedStageResponse(
+            @Schema(example = "FINISHED_PRODUCTS")
+            String stage,
+            boolean enabled,
+            @Schema(example = "200000.00")
+            BigDecimal vendorCost,
+            @Schema(example = "50.00")
+            BigDecimal markupPercent,
+            @Schema(example = "300000.00")
+            BigDecimal sellPrice,
+            @Schema(example = "supplier-seed-001")
+            String supplierId,
+            @Schema(example = "Acabados XYZ")
+            String supplierName,
+            java.time.LocalDate quotedAt,
+            @Schema(example = "1000")
+            int quantity,
+            String costResponsibleUserId,
+            String costResponsibleUserName,
+            java.time.LocalDate quoteValidUntil,
+            java.time.LocalDate sentAt,
+            String sentDescription,
+            java.time.LocalDate expectedReturnAt,
+            java.time.LocalDate receivedAt,
+            String receivedByUserId,
+            @Schema(
+                    description = "Estado operativo de la tercerización",
+                    example = "PENDING",
+                    allowableValues = {"PENDING", "DISPATCHED", "IN_PROGRESS", "COMPLETED"}
+            )
+            String fulfillmentStatus
+    ) {
+        static OutsourcedStageResponse from(OutsourcedStage row) {
+            return new OutsourcedStageResponse(
+                    row.getStage() == null ? null : row.getStage().name(),
+                    row.isEnabled(),
+                    row.getVendorCost(),
+                    row.getMarkupPercent(),
+                    row.resolveSellPrice(),
+                    row.getSupplierId(),
+                    row.getSupplierName(),
+                    row.getQuotedAt(),
+                    row.getQuantity(),
+                    row.getCostResponsibleUserId(),
+                    row.getCostResponsibleUserName(),
+                    row.getQuoteValidUntil(),
+                    row.getSentAt(),
+                    row.getSentDescription(),
+                    row.getExpectedReturnAt(),
+                    row.getReceivedAt(),
+                    row.getReceivedByUserId(),
+                    row.getFulfillmentStatus().name()
+            );
+        }
+    }
+
     public record StageDiscountResponse(String stage, String discountType, BigDecimal discountValue) {
         static StageDiscountResponse from(StageDiscount d) {
             return new StageDiscountResponse(
@@ -378,6 +441,7 @@ public record ProductionOrderResponse(
             @Schema(description = "ID de plancha en servidor (usar como plateId en corte/impresión/postprensa)")
             String productionOrderPlateId,
             String colors,
+            @Schema(description = "Tipo de plancha del catálogo", example = "plate-type-seed-001")
             String plateTypeId,
             String plateName,
             String plateSize,
@@ -438,6 +502,8 @@ public record ProductionOrderResponse(
             String paperName,
             @Schema(description = "Snapshot del formato (width×height unit)")
             String paperSize,
+            @Schema(description = "Valor hoja de lista (cobro al cliente). Distinto de plantSheetCost (costo planta).",
+                    example = "1500.00")
             BigDecimal sheetValue,
             @Schema(description = "Snapshot de unidad de empaque del precio del proveedor")
             Integer packageUnit,
@@ -465,6 +531,8 @@ public record ProductionOrderResponse(
             Integer manualGoodSizes,
             Integer manualSurplus,
             Integer calculatedSheetsCount,
+            @Schema(description = "Total cobro papel (hojas × sheetValue). Distinto de totalPlantPaperValue.",
+                    example = "382500.00")
             BigDecimal totalPaperValue,
             BigDecimal totalCutValue,
             @Schema(description = "Merma de corte aplicada (OP / company_waste_settings). No es el waste% sugerido del despiece.",
@@ -473,7 +541,13 @@ public record ProductionOrderResponse(
             @Schema(description = "Remanente usado como origen del corte", example = "paper-remnant-seed-001")
             String paperRemnantId,
             @Schema(description = "Unidades descontadas del remanente al guardar el corte")
-            BigDecimal remnantQuantityUsed
+            BigDecimal remnantQuantityUsed,
+            @Schema(description = "Costo planta por hoja. Con remanente: unitCost congelado. Sin remanente: igual a sheetValue.",
+                    example = "420.00")
+            BigDecimal plantSheetCost,
+            @Schema(description = "Total costo planta de papel (hojas × plantSheetCost). Distinto de totalPaperValue (cobro).",
+                    example = "107100.00")
+            BigDecimal totalPlantPaperValue
     ) {
         static PaperRowResponse from(PaperRow r) {
             return new PaperRowResponse(
@@ -514,7 +588,9 @@ public record ProductionOrderResponse(
                     r.getTotalCutValue(),
                     r.getPlannedWastePercentage(),
                     r.getPaperRemnantId(),
-                    r.getRemnantQuantityUsed()
+                    r.getRemnantQuantityUsed(),
+                    r.getPlantSheetCost(),
+                    r.getTotalPlantPaperValue()
             );
         }
     }
@@ -555,6 +631,7 @@ public record ProductionOrderResponse(
             Integer reverseInkCount,
             List<String> reverseInks,
             String basicFlipType,
+            @Schema(description = "Tarifa por millar del catálogo (grupo básico)", example = "thousand-rate-seed-001")
             String basicThousandRateId,
             String basicRateName,
             BigDecimal basicRatePrice,

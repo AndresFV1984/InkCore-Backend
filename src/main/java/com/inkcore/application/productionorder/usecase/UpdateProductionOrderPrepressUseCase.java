@@ -27,6 +27,7 @@ public class UpdateProductionOrderPrepressUseCase {
 
     private final ProductionOrderSupport support;
     private final ProductionOrderOperatorsApplier operatorsApplier;
+    private final OutsourcedStagesApplier outsourcedStagesApplier;
     private final PlateTypeRepositoryPort plateTypeRepository;
     private final AssemblyPriceRepositoryPort assemblyPriceRepository;
     private final ProductionOrderCostingCoordinator costing;
@@ -34,12 +35,14 @@ public class UpdateProductionOrderPrepressUseCase {
     public UpdateProductionOrderPrepressUseCase(
             ProductionOrderSupport support,
             ProductionOrderOperatorsApplier operatorsApplier,
+            OutsourcedStagesApplier outsourcedStagesApplier,
             PlateTypeRepositoryPort plateTypeRepository,
             AssemblyPriceRepositoryPort assemblyPriceRepository,
             ProductionOrderCostingCoordinator costing
     ) {
         this.support = support;
         this.operatorsApplier = operatorsApplier;
+        this.outsourcedStagesApplier = outsourcedStagesApplier;
         this.plateTypeRepository = plateTypeRepository;
         this.assemblyPriceRepository = assemblyPriceRepository;
         this.costing = costing;
@@ -117,10 +120,24 @@ public class UpdateProductionOrderPrepressUseCase {
                 command.operatorUserId(),
                 ProductionOrderStage.PREPRESS
         );
+        outsourcedStagesApplier.applySingle(
+                order,
+                withDefaultStage(command.outsourcedPricing(), ProductionOrderStage.PREPRESS)
+        );
         order.setUpdatedAt(support.now());
         order.setUpdatedBy(userId);
         ProductionOrder saved = support.repository().save(order);
         return costing.afterPrepress(saved, command.machineUsages(), command.plannedWastePercentage());
+    }
+
+    private static OutsourcedStageCommand withDefaultStage(
+            OutsourcedStageCommand command,
+            ProductionOrderStage stage
+    ) {
+        if (command == null) {
+            return null;
+        }
+        return command.withStageIfMissing(stage.name());
     }
 
     private void validateRules(UpdateProductionOrderPrepressCommand command, String companyId) {

@@ -189,7 +189,17 @@ public final class PaperNestedResponses {
             @Schema(example = "2026-10-06")
             LocalDate entryDate,
             String note,
-            @Schema(example = "true")
+            @Schema(description = "Estado canónico. Default PENDING (alta sin OP). "
+                    + "AVAILABLE = usable en corte (OP Finalizada → AVAILABLE).",
+                    example = "PENDING",
+                    allowableValues = {
+                            "PENDING", "PAUSED", "UNDER_REVIEW", "IN_PROGRESS",
+                            "IN_PROGRESS_PREPRESS", "IN_PROGRESS_CUTTING", "IN_PROGRESS_PRINTING",
+                            "IN_PROGRESS_FINISHED_PRODUCTS", "IN_PROGRESS_FINISHING",
+                            "AVAILABLE", "ANULADA", "INACTIVE"
+                    })
+            String status,
+            @Schema(description = "Legacy: true solo si status=AVAILABLE", example = "false")
             boolean state
     ) {
         public static PaperRemnantResponse from(PaperRemnant remnant) {
@@ -206,6 +216,7 @@ public final class PaperNestedResponses {
                     remnant.getSourcePaperRowId(),
                     remnant.getEntryDate(),
                     remnant.getNote(),
+                    remnant.getStatus().getWireValue(),
                     remnant.isState()
             );
         }

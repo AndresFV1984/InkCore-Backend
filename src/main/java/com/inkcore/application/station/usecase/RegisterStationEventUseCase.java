@@ -2,7 +2,6 @@ package com.inkcore.application.station.usecase;
 
 import com.inkcore.application.productionorder.usecase.ProductionOrderCostingCoordinator;
 import com.inkcore.application.station.StationIntervalService;
-import com.inkcore.application.station.StationOrderCompletionService;
 import com.inkcore.application.station.StationOrderProgressService;
 import com.inkcore.application.station.StationProgressService;
 import com.inkcore.application.station.StationSupport;
@@ -32,7 +31,6 @@ public class RegisterStationEventUseCase {
     private final StationIntervalService intervalService;
     private final StationProgressService progressService;
     private final StationOrderProgressService orderProgressService;
-    private final StationOrderCompletionService orderCompletionService;
     private final StationValidationService validationService;
     private final UserRepositoryPort userRepository;
     private final ProductionOrderCostingCoordinator costing;
@@ -43,7 +41,6 @@ public class RegisterStationEventUseCase {
             StationIntervalService intervalService,
             StationProgressService progressService,
             StationOrderProgressService orderProgressService,
-            StationOrderCompletionService orderCompletionService,
             UserRepositoryPort userRepository,
             ProductionOrderCostingCoordinator costing
     ) {
@@ -52,7 +49,6 @@ public class RegisterStationEventUseCase {
         this.intervalService = intervalService;
         this.progressService = progressService;
         this.orderProgressService = orderProgressService;
-        this.orderCompletionService = orderCompletionService;
         this.validationService = new StationValidationService();
         this.userRepository = userRepository;
         this.costing = costing;
@@ -166,13 +162,8 @@ public class RegisterStationEventUseCase {
                         command.wasteReason()
                 );
             }
-            if (!Boolean.TRUE.equals(command.deferOrderCompletion())
-                    && (command.eventType() == StationEventType.AVANCE_UNIDADES
-                    || command.eventType() == StationEventType.ENTREGA_TOTAL
-                    || command.eventType() == StationEventType.ENTREGA_PARCIAL
-                    || command.eventType() == StationEventType.FIN_FASE)) {
-                orderCompletionService.completeIfAllStagesProcessed(order, actorUserId, now);
-            }
+            // No auto-pasar a Finalizada al completar cupos: lo decide el administrador
+            // (cambio de estado o admin-close-stages / complete-if-ready).
         }
 
         return saved;

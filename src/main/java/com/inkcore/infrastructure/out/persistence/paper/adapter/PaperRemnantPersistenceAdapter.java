@@ -1,6 +1,7 @@
 package com.inkcore.infrastructure.out.persistence.paper.adapter;
 
 import com.inkcore.domain.paper.model.PaperRemnant;
+import com.inkcore.domain.paper.model.PaperRemnantStatus;
 import com.inkcore.domain.paper.ports.out.PaperRemnantRepositoryPort;
 import com.inkcore.infrastructure.out.persistence.paper.entity.PaperRemnantEntity;
 import com.inkcore.infrastructure.out.persistence.paper.mapper.PaperPersistenceMapper;
@@ -42,10 +43,28 @@ public class PaperRemnantPersistenceAdapter implements PaperRemnantRepositoryPor
     @Override
     @Transactional(readOnly = true)
     public List<PaperRemnant> findByPaperId(String companyId, String paperId, Boolean state) {
-        List<PaperRemnantEntity> entities = state == null
-                ? repository.findAllByCompanyIdAndPaperIdOrderByEntryDateDesc(companyId, paperId)
-                : repository.findAllByCompanyIdAndPaperIdAndStateOrderByEntryDateDesc(companyId, paperId, state);
+        List<PaperRemnantEntity> entities;
+        if (state == null) {
+            entities = repository.findAllByCompanyIdAndPaperIdOrderByEntryDateDesc(companyId, paperId);
+        } else if (state) {
+            // Usables en corte = AVAILABLE
+            entities = repository.findAllByCompanyIdAndPaperIdAndStatusOrderByEntryDateDesc(
+                    companyId, paperId, PaperRemnantStatus.AVAILABLE.getWireValue());
+        } else {
+            entities = repository.findAllByCompanyIdAndPaperIdAndStateOrderByEntryDateDesc(
+                    companyId, paperId, false);
+        }
         return entities.stream().map(mapper::toRemnantDomain).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PaperRemnant> findBySourceProductionOrderId(String companyId, String productionOrderId) {
+        return repository
+                .findAllByCompanyIdAndSourceProductionOrderIdOrderByEntryDateDesc(companyId, productionOrderId)
+                .stream()
+                .map(mapper::toRemnantDomain)
+                .toList();
     }
 
     @Override

@@ -14,6 +14,8 @@ public record UpdateMachineCommand(
         BigDecimal monthlyOperatorCost,
         BigDecimal energyCostPerHour,
         BigDecimal productiveHoursPerYear,
+        Integer setupMinutes,
+        Boolean preferred,
         boolean state
 ) {
 }

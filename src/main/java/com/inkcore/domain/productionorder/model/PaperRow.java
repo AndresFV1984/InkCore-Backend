@@ -61,6 +61,13 @@ public final class PaperRow {
     private String paperRemnantId;
     /** Unidades descontadas de {@code paper_remnants.quantity_available}. */
     private BigDecimal remnantQuantityUsed;
+    /**
+     * Costo planta por hoja del origen real.
+     * Con remanente: {@code paper_remnants.unit_cost} congelado; sin remanente: igual a {@link #sheetValue}.
+     */
+    private BigDecimal plantSheetCost;
+    /** Total costo planta de papel (hojas × {@link #plantSheetCost}). */
+    private BigDecimal totalPlantPaperValue;
 
     public PaperRow() {
         this.paperRowId = UUID.randomUUID().toString();
@@ -384,6 +391,22 @@ public final class PaperRow {
 
     public void setRemnantQuantityUsed(BigDecimal remnantQuantityUsed) {
         this.remnantQuantityUsed = remnantQuantityUsed;
+    }
+
+    public BigDecimal getPlantSheetCost() {
+        return plantSheetCost;
+    }
+
+    public void setPlantSheetCost(BigDecimal plantSheetCost) {
+        this.plantSheetCost = plantSheetCost;
+    }
+
+    public BigDecimal getTotalPlantPaperValue() {
+        return totalPlantPaperValue;
+    }
+
+    public void setTotalPlantPaperValue(BigDecimal totalPlantPaperValue) {
+        this.totalPlantPaperValue = totalPlantPaperValue;
     }
 
     @Override

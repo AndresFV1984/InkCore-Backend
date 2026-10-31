@@ -14,7 +14,8 @@ public record UpdateProductionOrderPaperCuttingCommand(
         BigDecimal discountValue,
         List<PaperRowInput> paperRows,
         List<MachineUsageInput> machineUsages,
-        BigDecimal plannedMakereadyQuantity
+        BigDecimal plannedMakereadyQuantity,
+        OutsourcedStageCommand outsourcedPricing
 ) {
     /**
      * @param paperCutLayoutId  si viene, resuelve cutLayoutId desde paper_cut_layouts

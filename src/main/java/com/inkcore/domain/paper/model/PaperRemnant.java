@@ -25,7 +25,7 @@ public final class PaperRemnant {
     private final String sourcePaperRowId;
     private final LocalDate entryDate;
     private final String note;
-    private final boolean state;
+    private final PaperRemnantStatus status;
     private final LocalDateTime createdAt;
     private final LocalDateTime updatedAt;
 
@@ -43,7 +43,7 @@ public final class PaperRemnant {
             String sourcePaperRowId,
             LocalDate entryDate,
             String note,
-            boolean state,
+            PaperRemnantStatus status,
             LocalDateTime createdAt,
             LocalDateTime updatedAt
     ) {
@@ -60,7 +60,7 @@ public final class PaperRemnant {
         this.sourcePaperRowId = sourcePaperRowId;
         this.entryDate = entryDate;
         this.note = note;
-        this.state = state;
+        this.status = Objects.requireNonNull(status, "status es obligatorio");
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -78,7 +78,7 @@ public final class PaperRemnant {
             String sourcePaperRowId,
             LocalDate entryDate,
             String note,
-            Boolean state,
+            PaperRemnantStatus status,
             LocalDateTime now
     ) {
         requireNotBlank(companyId, "La empresa es obligatoria");
@@ -105,7 +105,7 @@ public final class PaperRemnant {
                 blankToNull(sourcePaperRowId),
                 entryDate,
                 blankToNull(note),
-                state == null || state,
+                status == null ? PaperRemnantStatus.PENDING : status,
                 now,
                 now
         );
@@ -113,8 +113,14 @@ public final class PaperRemnant {
 
     /**
      * Descuenta unidades disponibles (consumo desde corte de papel).
+     * Solo remanentes {@link PaperRemnantStatus#AVAILABLE}.
      */
     public PaperRemnant consume(BigDecimal quantity, LocalDateTime updatedAt) {
+        if (!status.isUsableInCutting()) {
+            throw new IllegalArgumentException(
+                    "El remanente no está Disponible (status=" + status.getWireValue() + ")"
+            );
+        }
         BigDecimal qty = nonNegativeQty(quantity, "La cantidad a descontar no puede ser negativa");
         if (qty.compareTo(BigDecimal.ZERO) == 0) {
             return this;
@@ -127,24 +133,7 @@ public final class PaperRemnant {
                             + qty.toPlainString()
             );
         }
-        return new PaperRemnant(
-                paperRemnantId,
-                companyId,
-                paperId,
-                width,
-                height,
-                unit,
-                quantityInitial,
-                quantityAvailable.subtract(qty).setScale(2, RoundingMode.HALF_UP),
-                unitCost,
-                sourceProductionOrderId,
-                sourcePaperRowId,
-                entryDate,
-                note,
-                state,
-                createdAt,
-                Objects.requireNonNull(updatedAt, "updatedAt es obligatorio")
-        );
+        return copyWithQuantity(quantityAvailable.subtract(qty).setScale(2, RoundingMode.HALF_UP), updatedAt);
     }
 
     /**
@@ -160,24 +149,7 @@ public final class PaperRemnant {
         if (next.compareTo(quantityInitial) > 0) {
             next = quantityInitial;
         }
-        return new PaperRemnant(
-                paperRemnantId,
-                companyId,
-                paperId,
-                width,
-                height,
-                unit,
-                quantityInitial,
-                next.setScale(2, RoundingMode.HALF_UP),
-                unitCost,
-                sourceProductionOrderId,
-                sourcePaperRowId,
-                entryDate,
-                note,
-                state,
-                createdAt,
-                Objects.requireNonNull(updatedAt, "updatedAt es obligatorio")
-        );
+        return copyWithQuantity(next.setScale(2, RoundingMode.HALF_UP), updatedAt);
     }
 
     public PaperRemnant update(
@@ -191,7 +163,7 @@ public final class PaperRemnant {
             String sourcePaperRowId,
             LocalDate entryDate,
             String note,
-            Boolean state,
+            PaperRemnantStatus status,
             LocalDateTime updatedAt
     ) {
         BigDecimal initial = nonNegativeQty(quantityInitial, "La cantidad inicial no puede ser negativa");
@@ -213,9 +185,35 @@ public final class PaperRemnant {
                 blankToNull(sourcePaperRowId),
                 Objects.requireNonNullElse(entryDate, this.entryDate),
                 blankToNull(note),
-                state == null ? this.state : state,
+                status == null ? this.status : status,
                 createdAt,
                 updatedAt
+        );
+    }
+
+    /** Cambia solo el estado (sync desde OP o edición admin). */
+    public PaperRemnant withStatus(PaperRemnantStatus newStatus, LocalDateTime updatedAt) {
+        Objects.requireNonNull(newStatus, "status es obligatorio");
+        if (newStatus == this.status) {
+            return this;
+        }
+        return new PaperRemnant(
+                paperRemnantId,
+                companyId,
+                paperId,
+                width,
+                height,
+                unit,
+                quantityInitial,
+                quantityAvailable,
+                unitCost,
+                sourceProductionOrderId,
+                sourcePaperRowId,
+                entryDate,
+                note,
+                newStatus,
+                createdAt,
+                Objects.requireNonNull(updatedAt, "updatedAt es obligatorio")
         );
     }
 
@@ -233,15 +231,36 @@ public final class PaperRemnant {
             String sourcePaperRowId,
             LocalDate entryDate,
             String note,
-            boolean state,
+            PaperRemnantStatus status,
             LocalDateTime createdAt,
             LocalDateTime updatedAt
     ) {
         return new PaperRemnant(
                 paperRemnantId, companyId, paperId, width, height, unit,
                 quantityInitial, quantityAvailable, unitCost,
-                sourceProductionOrderId, sourcePaperRowId, entryDate, note, state,
+                sourceProductionOrderId, sourcePaperRowId, entryDate, note, status,
                 createdAt, updatedAt
+        );
+    }
+
+    private PaperRemnant copyWithQuantity(BigDecimal nextAvailable, LocalDateTime updatedAt) {
+        return new PaperRemnant(
+                paperRemnantId,
+                companyId,
+                paperId,
+                width,
+                height,
+                unit,
+                quantityInitial,
+                nextAvailable,
+                unitCost,
+                sourceProductionOrderId,
+                sourcePaperRowId,
+                entryDate,
+                note,
+                status,
+                createdAt,
+                Objects.requireNonNull(updatedAt, "updatedAt es obligatorio")
         );
     }
 
@@ -328,8 +347,13 @@ public final class PaperRemnant {
         return note;
     }
 
+    public PaperRemnantStatus getStatus() {
+        return status;
+    }
+
+    /** Legacy: {@code true} solo si el remanente está {@link PaperRemnantStatus#AVAILABLE}. */
     public boolean isState() {
-        return state;
+        return status.toLegacyState();
     }
 
     public LocalDateTime getCreatedAt() {

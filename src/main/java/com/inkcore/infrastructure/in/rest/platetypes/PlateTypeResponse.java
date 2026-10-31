@@ -8,7 +8,7 @@ import java.time.LocalDate;
 
 @Schema(name = "PlateTypeResponse", description = "Tipo de plancha del catálogo (formulario Nuevo tipo de plancha)")
 public record PlateTypeResponse(
-        @Schema(description = "Identificador único del tipo de plancha", example = "a1b2c3d4-e5f6-7890-abcd-ef1234567890")
+        @Schema(description = "Identificador único del tipo de plancha", example = "plate-type-seed-001")
         String plateTypeId,
 
         @Schema(description = "Identificador de empresa", example = "company-seed-001")
@@ -17,10 +17,10 @@ public record PlateTypeResponse(
         @Schema(description = "Nombre del tipo de plancha", example = "Plancha estándar")
         String name,
 
-        @Schema(description = "Ancho de la plancha", example = "10.00")
+        @Schema(description = "Ancho de la plancha", example = "70.00")
         BigDecimal width,
 
-        @Schema(description = "Alto de la plancha", example = "5.00")
+        @Schema(description = "Alto de la plancha", example = "100.00")
         BigDecimal height,
 
         @Schema(description = "Unidad de medida", example = "cm", allowableValues = {"cm", "mm", "in"})

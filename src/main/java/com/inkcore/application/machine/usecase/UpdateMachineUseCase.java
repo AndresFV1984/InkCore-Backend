@@ -39,9 +39,14 @@ public class UpdateMachineUseCase {
         if (machineRepository.existsByCompanyIdAndNameIgnoreCaseExcludingId(companyId, name, existing.getMachineId())) {
             throw new MachineAlreadyExistsException(name);
         }
+        MachineType type = MachineType.fromApiValue(command.machineType());
+        boolean preferred = resolvePreferred(existing, type, command.preferred(), command.state());
+        Integer setupMinutes = command.setupMinutes() != null
+                ? command.setupMinutes()
+                : existing.getSetupMinutes();
         Machine updated = existing.update(
                 name,
-                MachineType.fromApiValue(command.machineType()),
+                type,
                 command.manufacturer(),
                 command.model(),
                 command.purchaseCost(),
@@ -50,9 +55,35 @@ public class UpdateMachineUseCase {
                 command.monthlyOperatorCost(),
                 command.energyCostPerHour(),
                 command.productiveHoursPerYear(),
+                setupMinutes,
+                preferred,
                 command.state(),
                 LocalDateTime.now(clock)
         );
+        if (updated.isPreferred()) {
+            machineRepository.clearPreferredForType(
+                    companyId, type.getApiValue(), updated.getMachineId());
+        }
         return machineRepository.save(updated, userId);
+    }
+
+    private static boolean resolvePreferred(
+            Machine existing,
+            MachineType type,
+            Boolean requested,
+            boolean state
+    ) {
+        if (!state) {
+            return false;
+        }
+        if (requested != null) {
+            return requested;
+        }
+        // Si cambia de tipo, no arrastrar preferred a ciegas: mantiene el valor actual
+        // solo si sigue en el mismo tipo.
+        if (existing.getMachineType() != type) {
+            return false;
+        }
+        return existing.isPreferred();
     }
 }

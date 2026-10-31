@@ -30,6 +30,7 @@ class UpdateProductionOrderStatusUseCaseTest {
     @Mock ProductionOrderSupport support;
     @Mock CustomerOrderRepositoryPort customerOrderRepository;
     @Mock PaperRemnantStockSync remnantStockSync;
+    @Mock PaperRemnantStatusSync remnantStatusSync;
     @Mock Authentication authentication;
     @Mock com.inkcore.domain.productionorder.ports.out.ProductionOrderRepositoryPort repository;
 
@@ -37,7 +38,8 @@ class UpdateProductionOrderStatusUseCaseTest {
 
     @BeforeEach
     void setUp() {
-        useCase = new UpdateProductionOrderStatusUseCase(support, customerOrderRepository, remnantStockSync);
+        useCase = new UpdateProductionOrderStatusUseCase(
+                support, customerOrderRepository, remnantStockSync, remnantStatusSync);
     }
 
     @Test

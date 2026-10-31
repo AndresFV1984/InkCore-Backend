@@ -72,6 +72,9 @@ public final class PaperCommands {
             String sourcePaperRowId,
             LocalDate entryDate,
             String note,
+            /** Estado canónico (wire). Si null, se deriva de la OP origen o de {@code state}. */
+            String status,
+            /** Legacy: true→AVAILABLE, false→INACTIVE. Ignorado si {@code status} viene informado. */
             Boolean state
     ) {
     }
@@ -87,6 +90,7 @@ public final class PaperCommands {
             String sourcePaperRowId,
             LocalDate entryDate,
             String note,
+            String status,
             Boolean state
     ) {
     }

@@ -8,7 +8,7 @@ import java.time.LocalDate;
 
 @Schema(name = "AssemblyPriceResponse", description = "Precio de montaje del catálogo (formulario Nuevo precio de montaje)")
 public record AssemblyPriceResponse(
-        @Schema(description = "Identificador único del precio de montaje", example = "a1b2c3d4-e5f6-7890-abcd-ef1234567890")
+        @Schema(description = "Identificador único del precio de montaje", example = "assembly-price-seed-001")
         String assemblyPriceId,
 
         @Schema(description = "Identificador de empresa", example = "company-seed-001")

@@ -7,13 +7,13 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PaperRemnantTest {
 
     @Test
-    void createNewDefaultsAvailableAndUnitCost() {
+    void createNewDefaultsPendingAndUnitCost() {
         PaperRemnant remnant = PaperRemnant.createNew(
                 "company-1",
                 "paper-1",
@@ -35,7 +35,8 @@ class PaperRemnantTest {
         assertEquals(new BigDecimal("12.00"), remnant.getQuantityAvailable());
         assertEquals(new BigDecimal("0.00"), remnant.getUnitCost());
         assertEquals("sobrante", remnant.getNote());
-        assertTrue(remnant.isState());
+        assertEquals(PaperRemnantStatus.PENDING, remnant.getStatus());
+        assertFalse(remnant.isState());
         assertEquals("cm", remnant.getUnit());
     }
 
@@ -54,8 +55,20 @@ class PaperRemnantTest {
                 null,
                 LocalDate.of(2026, 10, 6),
                 null,
-                true,
+                PaperRemnantStatus.AVAILABLE,
                 LocalDateTime.of(2026, 10, 6, 12, 0)
         ));
+    }
+
+    @Test
+    void fromProductionOrderCompletedMapsToAvailable() {
+        assertEquals(
+                PaperRemnantStatus.AVAILABLE,
+                PaperRemnantStatus.fromProductionOrderStatus(
+                        com.inkcore.domain.productionorder.model.ProductionOrderStatus.COMPLETED));
+        assertEquals(
+                PaperRemnantStatus.IN_PROGRESS_CUTTING,
+                PaperRemnantStatus.fromProductionOrderStatus(
+                        com.inkcore.domain.productionorder.model.ProductionOrderStatus.IN_PROGRESS_CUTTING));
     }
 }

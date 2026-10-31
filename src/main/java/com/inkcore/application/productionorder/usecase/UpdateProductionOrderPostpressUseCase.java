@@ -11,6 +11,7 @@ import com.inkcore.domain.productionorder.model.PostpressLine;
 import com.inkcore.domain.productionorder.model.PostpressRecord;
 import com.inkcore.domain.productionorder.model.PostpressType;
 import com.inkcore.domain.productionorder.model.ProductionOrder;
+import com.inkcore.domain.productionorder.model.ProductionOrderStage;
 import com.inkcore.domain.productionorder.service.ProductionOrderCalculator;
 import com.inkcore.domain.shared.exception.ResourceNotFoundException;
 import org.springframework.security.core.Authentication;
@@ -31,6 +32,7 @@ public class UpdateProductionOrderPostpressUseCase {
 
     private final ProductionOrderSupport support;
     private final ProductionOrderOperatorsApplier operatorsApplier;
+    private final OutsourcedStagesApplier outsourcedStagesApplier;
     private final FinishRepositoryPort finishRepository;
     private final FinishingProcessRepositoryPort finishingProcessRepository;
     private final ProductionOrderCostingCoordinator costing;
@@ -38,12 +40,14 @@ public class UpdateProductionOrderPostpressUseCase {
     public UpdateProductionOrderPostpressUseCase(
             ProductionOrderSupport support,
             ProductionOrderOperatorsApplier operatorsApplier,
+            OutsourcedStagesApplier outsourcedStagesApplier,
             FinishRepositoryPort finishRepository,
             FinishingProcessRepositoryPort finishingProcessRepository,
             ProductionOrderCostingCoordinator costing
     ) {
         this.support = support;
         this.operatorsApplier = operatorsApplier;
+        this.outsourcedStagesApplier = outsourcedStagesApplier;
         this.finishRepository = finishRepository;
         this.finishingProcessRepository = finishingProcessRepository;
         this.costing = costing;
@@ -80,6 +84,10 @@ public class UpdateProductionOrderPostpressUseCase {
                 command.operatorUserId(),
                 type.getStage()
         );
+        outsourcedStagesApplier.applySingle(
+                order,
+                withDefaultStage(command.outsourcedPricing(), type.getStage())
+        );
         if (Boolean.TRUE.equals(command.completed())) {
             if (type == PostpressType.FINISHED_PRODUCT) {
                 order.setFinishedProductsCompletedAt(support.now());
@@ -94,6 +102,16 @@ public class UpdateProductionOrderPostpressUseCase {
                 ? ProductionOrderCostingCoordinator.PHASE_FINISHED
                 : ProductionOrderCostingCoordinator.PHASE_FINISHING;
         return costing.afterPhase(saved, phase, command.machineUsages(), command.plannedWastePercentage());
+    }
+
+    private static OutsourcedStageCommand withDefaultStage(
+            OutsourcedStageCommand command,
+            ProductionOrderStage stage
+    ) {
+        if (command == null) {
+            return null;
+        }
+        return command.withStageIfMissing(stage.name());
     }
 
     private List<PostpressRecord> buildRecords(

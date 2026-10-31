@@ -26,3 +26,22 @@ COMMENT ON COLUMN indicolors.assembly_prices.name IS 'Nombre del precio de monta
 COMMENT ON COLUMN indicolors.assembly_prices.cost IS 'Costo del montaje';
 COMMENT ON COLUMN indicolors.assembly_prices.state IS 'True=Activo, False=Inactivo';
 COMMENT ON COLUMN indicolors.assembly_prices.creation_date IS 'Fecha de registro del precio de montaje en el sistema';
+
+GRANT ALL PRIVILEGES ON TABLE indicolors.assembly_prices TO indicolors_owner;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.assembly_prices TO indicolors_app;
+
+-- Datos semilla demo (company-seed-001). Nombres con U&... por encoding.
+INSERT INTO indicolors.assembly_prices (
+    assembly_price_id, company_id, name, cost, state, creation_date
+)
+SELECT v.assembly_price_id, v.company_id, v.name, v.cost, v.state, v.creation_date
+FROM (VALUES
+    ('assembly-price-seed-001', 'company-seed-001', U&'Montaje est\00E1ndar 4 tintas', 85000.00::numeric, TRUE, CURRENT_DATE),
+    ('assembly-price-seed-002', 'company-seed-001', 'Montaje complejo 6 tintas', 125000.00::numeric, TRUE, CURRENT_DATE),
+    ('assembly-price-seed-003', 'company-seed-001', U&'Montaje econ\00F3mico 2 tintas', 55000.00::numeric, TRUE, CURRENT_DATE)
+) AS v(assembly_price_id, company_id, name, cost, state, creation_date)
+WHERE NOT EXISTS (
+    SELECT 1 FROM indicolors.assembly_prices a
+    WHERE a.assembly_price_id = v.assembly_price_id
+       OR (a.company_id = v.company_id AND lower(trim(a.name)) = lower(trim(v.name)))
+);

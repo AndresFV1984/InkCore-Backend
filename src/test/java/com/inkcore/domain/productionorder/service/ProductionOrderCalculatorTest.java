@@ -3,6 +3,7 @@ package com.inkcore.domain.productionorder.service;
 import com.inkcore.domain.productionorder.model.BillingDetails;
 import com.inkcore.domain.productionorder.model.DiscountType;
 import com.inkcore.domain.productionorder.model.FlipType;
+import com.inkcore.domain.productionorder.model.OutsourcedStage;
 import com.inkcore.domain.productionorder.model.PaperRow;
 import com.inkcore.domain.productionorder.model.PostpressLine;
 import com.inkcore.domain.productionorder.model.PostpressRecord;
@@ -154,5 +155,49 @@ class ProductionOrderCalculatorTest {
     @Test
     void amountToCollectIsNullWhenThereIsNoCostAndNoAddition() {
         assertNull(ProductionOrderCalculator.calculateAmountToCollect(ProductionOrder.reconstitute()));
+    }
+
+    @Test
+    void calculateTotalToCharge_usesOutsourcedSellPriceInsteadOfInternalStageCharge() {
+        ProductionOrder order = ProductionOrder.reconstitute();
+        order.setCompanyId("co-1");
+        order.setProductionOrderId("op-1");
+
+        PrepressDetails prepress = new PrepressDetails();
+        prepress.setTotalPlatesValue(new BigDecimal("1000000.00"));
+        order.setPrepress(prepress);
+
+        PostpressRecord finished = new PostpressRecord();
+        finished.setType(PostpressType.FINISHED_PRODUCT);
+        PostpressLine finishedLine = new PostpressLine();
+        finishedLine.setChargedPrice(new BigDecimal("500000.00"));
+        finished.setLines(List.of(finishedLine));
+        order.setPostpressRecords(List.of(finished));
+
+        order.upsertOutsourcedStage(OutsourcedStage.of(
+                "co-1",
+                "op-1",
+                ProductionOrderStage.FINISHED_PRODUCTS,
+                true,
+                new BigDecimal("200000.00"),
+                new BigDecimal("50.00"),
+                null,
+                null,
+                "Proveedor UV",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        ));
+
+        // preprensa 1_000_000 + terminados tercerizados 300_000 (no 500_000 internos)
+        assertEquals(new BigDecimal("1300000.00"), ProductionOrderCalculator.calculateTotalToCharge(order));
     }
 }

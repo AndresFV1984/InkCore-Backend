@@ -27,6 +27,8 @@ public class MachinePersistenceMapper {
         entity.setMonthlyOperatorCost(machine.getMonthlyOperatorCost());
         entity.setEnergyCostPerHour(machine.getEnergyCostPerHour());
         entity.setProductiveHoursPerYear(machine.getProductiveHoursPerYear());
+        entity.setSetupMinutes(machine.getSetupMinutes());
+        entity.setPreferred(machine.isPreferred());
         entity.setState(machine.isState());
         entity.setCreationDate(machine.getCreationDate());
         entity.setUpdatedAt(machine.getUpdatedAt());
@@ -47,6 +49,8 @@ public class MachinePersistenceMapper {
                 entity.getEnergyCostPerHour(),
                 entity.getProductiveHoursPerYear(),
                 entity.getCostPerHour(),
+                entity.getSetupMinutes(),
+                entity.isPreferred(),
                 entity.isState(),
                 entity.getCreationDate(),
                 entity.getUpdatedAt()

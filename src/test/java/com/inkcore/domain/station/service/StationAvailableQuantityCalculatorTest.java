@@ -1,13 +1,18 @@
 package com.inkcore.domain.station.service;
 
+import com.inkcore.domain.productionorder.model.OutsourcedFulfillmentStatus;
+import com.inkcore.domain.productionorder.model.OutsourcedStage;
 import com.inkcore.domain.productionorder.model.PostpressLine;
 import com.inkcore.domain.productionorder.model.PostpressRecord;
 import com.inkcore.domain.productionorder.model.PostpressType;
 import com.inkcore.domain.productionorder.model.ProductionOrder;
+import com.inkcore.domain.productionorder.model.ProductionOrderStage;
 import com.inkcore.domain.station.model.StationEventType;
 import com.inkcore.domain.station.model.StationOperationEvent;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -94,6 +99,89 @@ class StationAvailableQuantityCalculatorTest {
         );
 
         assertEquals(800, StationAvailableQuantityCalculator.calculate(order, events));
+    }
+
+    @Test
+    void calculate_outsourcedCompletedCountsAsRequestedQuantity() {
+        ProductionOrder order = ProductionOrder.reconstitute();
+        order.setCompanyId("c1");
+        order.setProductionOrderId("po-1");
+        order.setRequestedQuantity(2000);
+        order.setPostpressRecords(List.of());
+        order.setOutsourcedStages(List.of(
+                outsourced(ProductionOrderStage.PREPRESS, OutsourcedFulfillmentStatus.COMPLETED)
+        ));
+
+        List<StationOperationEvent> events = List.of(
+                // Preprensa tercerizada COMPLETED: sin AVANCE, aporta 2000
+                avance("corte-papel", null, 2000),
+                avance("impresion", null, 1500)
+        );
+
+        assertEquals(1500, StationAvailableQuantityCalculator.calculate(order, events));
+    }
+
+    @Test
+    void calculate_outsourcedPendingBlocksAvailability() {
+        ProductionOrder order = ProductionOrder.reconstitute();
+        order.setCompanyId("c1");
+        order.setProductionOrderId("po-1");
+        order.setRequestedQuantity(2000);
+        order.setPostpressRecords(List.of());
+        order.setOutsourcedStages(List.of(
+                outsourced(ProductionOrderStage.PRINTING, OutsourcedFulfillmentStatus.DISPATCHED)
+        ));
+
+        List<StationOperationEvent> events = List.of(
+                avance("preprensa", null, 2000),
+                avance("corte-papel", null, 2000)
+        );
+
+        assertEquals(0, StationAvailableQuantityCalculator.calculate(order, events));
+    }
+
+    @Test
+    void calculate_allStagesOutsourcedCompleted_returnsRequestedQuantity() {
+        ProductionOrder order = ProductionOrder.reconstitute();
+        order.setCompanyId("c1");
+        order.setProductionOrderId("po-1");
+        order.setRequestedQuantity(1200);
+        order.setPostpressRecords(List.of());
+        order.setOutsourcedStages(List.of(
+                outsourced(ProductionOrderStage.PREPRESS, OutsourcedFulfillmentStatus.COMPLETED),
+                outsourced(ProductionOrderStage.CUTTING, OutsourcedFulfillmentStatus.COMPLETED),
+                outsourced(ProductionOrderStage.PRINTING, OutsourcedFulfillmentStatus.COMPLETED)
+        ));
+
+        assertEquals(1200, StationAvailableQuantityCalculator.calculate(order, List.of()));
+    }
+
+    private static OutsourcedStage outsourced(
+            ProductionOrderStage stage,
+            OutsourcedFulfillmentStatus status
+    ) {
+        return OutsourcedStage.of(
+                "c1",
+                "po-1",
+                stage,
+                true,
+                BigDecimal.TEN,
+                BigDecimal.ZERO,
+                null,
+                "sup-1",
+                "Proveedor",
+                LocalDate.of(2026, 1, 1),
+                1200,
+                null,
+                null,
+                null,
+                LocalDate.of(2026, 1, 2),
+                "envío",
+                LocalDate.of(2026, 1, 10),
+                status == OutsourcedFulfillmentStatus.COMPLETED ? LocalDate.of(2026, 1, 11) : null,
+                status == OutsourcedFulfillmentStatus.COMPLETED ? "user-1" : null,
+                status
+        );
     }
 
     private static PostpressRecord finishedProducts(PostpressLine... lines) {

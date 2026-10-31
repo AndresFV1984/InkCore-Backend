@@ -90,7 +90,7 @@ public class AssemblyPriceController {
                                       },
                                       "timestamp": "2026-08-08T12:00:00Z",
                                       "data": {
-                                        "assemblyPriceId": "814ad646-c4fe-42fa-9f13-4a44823e6bee",
+                                        "assemblyPriceId": "assembly-price-seed-001",
                                         "companyId": "company-seed-001",
                                         "name": "Montaje estándar 4 tintas",
                                         "cost": 85000.00,
@@ -161,7 +161,7 @@ public class AssemblyPriceController {
                                       },
                                       "timestamp": "2026-08-08T12:30:00Z",
                                       "data": {
-                                        "assemblyPriceId": "814ad646-c4fe-42fa-9f13-4a44823e6bee",
+                                        "assemblyPriceId": "assembly-price-seed-001",
                                         "companyId": "company-seed-001",
                                         "name": "Montaje estándar 4 tintas",
                                         "cost": 90000.00,
@@ -177,7 +177,7 @@ public class AssemblyPriceController {
     @ApiSecuredErrorResponses
     public ResponseEntity<ApiSuccessEnvelope<AssemblyPriceResponse>> update(
             @Parameter(description = "Identificador del precio de montaje", required = true,
-                    example = "814ad646-c4fe-42fa-9f13-4a44823e6bee")
+                    example = "assembly-price-seed-001")
             @PathVariable String assemblyPriceId,
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     required = true,
@@ -231,7 +231,7 @@ public class AssemblyPriceController {
                                       "data": {
                                         "content": [
                                           {
-                                            "assemblyPriceId": "814ad646-c4fe-42fa-9f13-4a44823e6bee",
+                                            "assemblyPriceId": "assembly-price-seed-001",
                                             "companyId": "company-seed-001",
                                             "name": "Montaje estándar 4 tintas",
                                             "cost": 85000.00,
@@ -295,7 +295,7 @@ public class AssemblyPriceController {
                                       },
                                       "timestamp": "2026-08-08T12:00:00Z",
                                       "data": {
-                                        "assemblyPriceId": "814ad646-c4fe-42fa-9f13-4a44823e6bee",
+                                        "assemblyPriceId": "assembly-price-seed-001",
                                         "companyId": "company-seed-001",
                                         "name": "Montaje estándar 4 tintas",
                                         "cost": 85000.00,
@@ -319,7 +319,7 @@ public class AssemblyPriceController {
     @ApiSecuredErrorResponses
     public ResponseEntity<ApiSuccessEnvelope<AssemblyPriceResponse>> get(
             @Parameter(description = "Identificador del precio de montaje", required = true,
-                    example = "814ad646-c4fe-42fa-9f13-4a44823e6bee")
+                    example = "assembly-price-seed-001")
             @PathVariable String assemblyPriceId,
             HttpServletRequest httpRequest
     ) {

@@ -25,7 +25,8 @@ public record UpdateProductionOrderPrepressCommand(
         String operatorUserId,
         List<PlateInput> plates,
         List<MachineUsageInput> machineUsages,
-        BigDecimal plannedWastePercentage
+        BigDecimal plannedWastePercentage,
+        OutsourcedStageCommand outsourcedPricing
 ) {
     public record PlateInput(
             String plateId,

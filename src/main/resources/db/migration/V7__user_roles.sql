@@ -14,11 +14,15 @@ CREATE INDEX IF NOT EXISTS idx_user_roles_role_id ON indicolors.user_roles (role
 
 COMMENT ON TABLE indicolors.user_roles IS 'Relación N:M entre usuarios y roles';
 
--- Asignar rol Administrador al usuario semilla
+-- Roles semilla: Administrador + Operadores de planta
 INSERT INTO indicolors.user_roles (user_id, role_id)
-VALUES (
-    'seed-cfg-9f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c',
-    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'::uuid
-)
+VALUES
+    (
+        'seed-cfg-9f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c',
+        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'::uuid
+    ),
+    ('operator-seed-001', 'b1ffbc99-9c0b-4ef8-bb6d-6bb9bd380a22'::uuid),
+    ('operator-seed-002', 'b1ffbc99-9c0b-4ef8-bb6d-6bb9bd380a22'::uuid),
+    ('operator-seed-003', 'b1ffbc99-9c0b-4ef8-bb6d-6bb9bd380a22'::uuid)
 ON CONFLICT DO NOTHING;
 

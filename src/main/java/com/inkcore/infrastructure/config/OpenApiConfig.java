@@ -33,7 +33,7 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("InkCore API")
                         .description("")
-                        .version("0.0.81")
+                        .version("0.0.85")
                         .contact(new Contact().name("InkCore").email("admin@indicolors.com")))
                 .servers(List.of(
                         new Server().url(basePath).description("Context path local")
@@ -50,25 +50,27 @@ public class OpenApiConfig {
                         new Tag().name("Terminados").description("Gestión de terminados"),
                         new Tag().name("Acabados").description("Gestión de acabados"),
                         new Tag().name("Papeles").description(
-                                "Catálogo (acceptsRemnants + minRemnant W/H/unit), precios, despieces, "
-                                        + "stock y remanentes."),
+                                "Catálogo (acceptsRemnants + minRemnant), precios, despieces, stock y remanentes "
+                                        + "(status alineado a OP; AVAILABLE usable en corte)."),
                         new Tag().name("Despieces").description("Catálogo de despieces / patrones de corte"),
                         new Tag().name("Tipos de plancha").description("Catálogo de tipos de plancha"),
                         new Tag().name("Precios de montaje").description("Catálogo de precios de montaje"),
                         new Tag().name("Tarifas por millar").description("Catálogo de tarifas por millar"),
-                        new Tag().name("Máquinas").description("Catálogo de máquinas y costo por hora"),
-                        new Tag().name("Mermas").description("Rangos sugeridos de merma por compañía"),
+                        new Tag().name("Máquinas").description("Catálogo por fase: preferred, setupMinutes y costo/hora"),
+                        new Tag().name("Mermas").description(
+                                "Rangos y default de merma por proceso; activo/inactivo por proceso. "
+                                        + "Pliegos de arranque (makeready) se envían en corte/impresión de la OP "
+                                        + "(plannedMakereadyQuantity)."),
                         new Tag().name("Órdenes de producción").description(
                                 "Wizard OP (OP-{n}). Detalle recalcula totalToCharge; listado lo lee de "
-                                        + "cost_summary.quoted_price. negotiatedAdditionsTotal y amountToCollect "
-                                        + "(cobro + ADN vigentes). Al pasar a IN_PROGRESS* crea customer_orders "
-                                        + "(customerOrderId + odpNumber ODP-{n}) y Abonos (abonosNumber ABN-{n}). "
-                                        + "ANULADA reemplaza CANCELLED."),
+                                        + "cost_summary.quoted_price. Tercerización (outsourcedStages): "
+                                        + "PENDING→DISPATCHED→IN_PROGRESS→COMPLETED. "
+                                        + "negotiatedAdditionsTotal / amountToCollect. IN_PROGRESS* crea "
+                                        + "customer_orders (ODP/ABN). ANULADA reemplaza CANCELLED."),
                         new Tag().name("Estación").description(
-                                "Bitácora de planta: inbox, eventos (inicio/pausa/avance), intervalos y reportes. "
-                                        + "complete-if-ready → COMPLETED; admin-close-stages (solo ADMIN; "
-                                        + "normaliza status legacy → IN_PROGRESS_*). "
-                                        + "Roles OPERADOR|ADMINISTRADOR. occurredAt sin zona (sin Z)."),
+                                "Bitácora de planta: inbox, eventos, intervalos y reportes. "
+                                        + "complete-if-ready y admin-close-stages solo ADMIN "
+                                        + "(no auto-finaliza al operar). occurredAt sin zona (sin Z)."),
                         new Tag().name("Reportes").description("Rentabilidad real de órdenes de producción"),
                         new Tag().name("Pedidos").description(
                                 "Ledgers comerciales: ENT-{n}, LIQ-{n}, ADN-{n}; documentos CxC (1 ENT/ADN → 1 CxC). "

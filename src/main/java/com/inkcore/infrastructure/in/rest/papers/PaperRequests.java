@@ -228,7 +228,19 @@ public final class PaperRequests {
             LocalDate entryDate,
             @Schema(description = "Nota libre", example = "Sobrante de corte Bond 70x100")
             String note,
-            @Schema(description = "true = activo/disponible (default true)", example = "true")
+            @Schema(description = "Estado canónico. Sin OP → default PENDING (igual que OP nueva). "
+                    + "Con OP origen y sin enviar: hereda el de la OP (COMPLETED→AVAILABLE). Admin puede forzar.",
+                    example = "PENDING",
+                    allowableValues = {
+                            "PENDING", "PAUSED", "UNDER_REVIEW", "IN_PROGRESS",
+                            "IN_PROGRESS_PREPRESS", "IN_PROGRESS_CUTTING", "IN_PROGRESS_PRINTING",
+                            "IN_PROGRESS_FINISHED_PRODUCTS", "IN_PROGRESS_FINISHING",
+                            "AVAILABLE", "ANULADA", "INACTIVE"
+                    })
+            String status,
+            @Schema(description = "Legacy: true→AVAILABLE, false→INACTIVE. Ignorado si status viene informado. "
+                    + "true solo si status=AVAILABLE.",
+                    example = "false")
             Boolean state
     ) {
     }
@@ -261,7 +273,19 @@ public final class PaperRequests {
             LocalDate entryDate,
             @Schema(description = "Nota libre")
             String note,
-            @Schema(description = "true = activo/disponible", example = "true")
+            @Schema(description = "Estado canónico del remanente (admin puede modificar). "
+                    + "AVAILABLE = usable en corte.",
+                    example = "AVAILABLE",
+                    allowableValues = {
+                            "PENDING", "PAUSED", "UNDER_REVIEW", "IN_PROGRESS",
+                            "IN_PROGRESS_PREPRESS", "IN_PROGRESS_CUTTING", "IN_PROGRESS_PRINTING",
+                            "IN_PROGRESS_FINISHED_PRODUCTS", "IN_PROGRESS_FINISHING",
+                            "AVAILABLE", "ANULADA", "INACTIVE"
+                    })
+            String status,
+            @Schema(description = "Legacy: true→AVAILABLE, false→INACTIVE. Ignorado si status viene informado. "
+                    + "true solo si status=AVAILABLE.",
+                    example = "true")
             Boolean state
     ) {
     }

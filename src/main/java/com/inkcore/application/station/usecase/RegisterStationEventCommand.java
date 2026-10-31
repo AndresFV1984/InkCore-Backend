@@ -22,8 +22,6 @@ public record RegisterStationEventCommand(
         Integer actualSetupMinutes,
         Integer actualRunMinutes,
         String machineId,
-        String wasteReason,
-        /** Si true, no marca la OP COMPLETED aquí (p. ej. cierre admin en lote). */
-        Boolean deferOrderCompletion
+        String wasteReason
 ) {
 }

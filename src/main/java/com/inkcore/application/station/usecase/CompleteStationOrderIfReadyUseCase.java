@@ -8,8 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Si todas las etapas reales de la OP ya están cumplidas, la marca COMPLETED (Finalizada).
- * Idempotente: útil para sanear OPs que quedaron al 100% sin pasar de estado.
+ * Acción de administrador: si todas las etapas reales ya están cumplidas,
+ * marca la OP COMPLETED (Finalizada). Idempotente. No se dispara al operar etapas.
  */
 @Service
 public class CompleteStationOrderIfReadyUseCase {

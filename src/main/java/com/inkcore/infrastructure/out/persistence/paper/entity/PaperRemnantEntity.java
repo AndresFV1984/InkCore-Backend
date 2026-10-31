@@ -60,6 +60,9 @@ public class PaperRemnantEntity implements Persistable<String> {
     @Column(name = "note", length = 500)
     private String note;
 
+    @Column(name = "status", nullable = false, length = 40)
+    private String status;
+
     @Column(name = "state", nullable = false)
     private boolean state;
 
@@ -190,6 +193,14 @@ public class PaperRemnantEntity implements Persistable<String> {
 
     public void setNote(String note) {
         this.note = note;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 
     public boolean isState() {

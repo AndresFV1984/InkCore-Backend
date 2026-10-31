@@ -786,7 +786,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.suppliers TO indicolors
 -- ============================================================================
 -- 25. PAPERS (catálogo: material + formato + política remanentes + precios + despieces + stock)
 --     Política remanentes: accepts_remnants, min_remnant_width/height/unit (guia UI).
---     Equivale a Flyway V21–V25 (+ remanentes V61). Una tabla por archivo; DDL completo aquí.
+--     Equivale a Flyway V20–V24 (+ remanentes V55). Una tabla por archivo; DDL completo aquí.
 -- ============================================================================
 CREATE TABLE indicolors.papers (
     paper_id             CHARACTER VARYING(64)  NOT NULL DEFAULT gen_random_uuid()::text,
@@ -1143,6 +1143,22 @@ COMMENT ON COLUMN indicolors.plate_types.creation_date IS 'Fecha de registro del
 GRANT ALL PRIVILEGES ON TABLE indicolors.plate_types TO indicolors_owner;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.plate_types TO indicolors_app;
 
+-- 26.4 DATOS SEMILLA TIPOS DE PLANCHA (company-seed-001)
+INSERT INTO indicolors.plate_types (
+    plate_type_id, company_id, name, width, height, unit, value, state, creation_date
+)
+SELECT v.plate_type_id, v.company_id, v.name, v.width, v.height, v.unit, v.value, v.state, v.creation_date
+FROM (VALUES
+    ('plate-type-seed-001', 'company-seed-001', U&'Plancha est\00E1ndar', 70.00::numeric, 100.00::numeric, 'cm', 185000.00::numeric, TRUE, CURRENT_DATE),
+    ('plate-type-seed-002', 'company-seed-001', 'Plancha media', 64.00::numeric, 90.00::numeric, 'cm', 152000.00::numeric, TRUE, CURRENT_DATE),
+    ('plate-type-seed-003', 'company-seed-001', U&'Plancha peque\00F1a', 50.00::numeric, 70.00::numeric, 'cm', 98000.00::numeric, TRUE, CURRENT_DATE)
+) AS v(plate_type_id, company_id, name, width, height, unit, value, state, creation_date)
+WHERE NOT EXISTS (
+    SELECT 1 FROM indicolors.plate_types p
+    WHERE p.plate_type_id = v.plate_type_id
+       OR (p.company_id = v.company_id AND lower(trim(p.name)) = lower(trim(v.name)))
+);
+
 -- ============================================
 -- 27. CREAR TABLA PRECIOS DE MONTAJE (formulario "Nuevo precio de montaje")
 -- ============================================
@@ -1178,6 +1194,22 @@ COMMENT ON COLUMN indicolors.assembly_prices.creation_date IS 'Fecha de registro
 -- 27.3 PERMISOS PRECIOS DE MONTAJE
 GRANT ALL PRIVILEGES ON TABLE indicolors.assembly_prices TO indicolors_owner;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.assembly_prices TO indicolors_app;
+
+-- 27.4 DATOS SEMILLA PRECIOS DE MONTAJE (company-seed-001)
+INSERT INTO indicolors.assembly_prices (
+    assembly_price_id, company_id, name, cost, state, creation_date
+)
+SELECT v.assembly_price_id, v.company_id, v.name, v.cost, v.state, v.creation_date
+FROM (VALUES
+    ('assembly-price-seed-001', 'company-seed-001', U&'Montaje est\00E1ndar 4 tintas', 85000.00::numeric, TRUE, CURRENT_DATE),
+    ('assembly-price-seed-002', 'company-seed-001', 'Montaje complejo 6 tintas', 125000.00::numeric, TRUE, CURRENT_DATE),
+    ('assembly-price-seed-003', 'company-seed-001', U&'Montaje econ\00F3mico 2 tintas', 55000.00::numeric, TRUE, CURRENT_DATE)
+) AS v(assembly_price_id, company_id, name, cost, state, creation_date)
+WHERE NOT EXISTS (
+    SELECT 1 FROM indicolors.assembly_prices a
+    WHERE a.assembly_price_id = v.assembly_price_id
+       OR (a.company_id = v.company_id AND lower(trim(a.name)) = lower(trim(v.name)))
+);
 
 -- ============================================
 -- 28. CREAR TABLA TARIFAS POR MILLAR (formulario "Nueva tarifa por millar")
@@ -1243,6 +1275,65 @@ COMMENT ON INDEX indicolors.idx_thousand_rates_one_default_per_company_color IS
 GRANT ALL PRIVILEGES ON TABLE indicolors.thousand_rates TO indicolors_owner;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.thousand_rates TO indicolors_app;
 
+-- 28.4 DATOS SEMILLA TARIFAS POR MILLAR (company-seed-001)
+INSERT INTO indicolors.thousand_rates (
+    thousand_rate_id,
+    company_id,
+    name,
+    color_category,
+    thousand_unit,
+    price,
+    state,
+    min_threshold_units,
+    min_thousand,
+    decimal_threshold,
+    gripper_flip_price,
+    square_flip_price,
+    is_default,
+    creation_date
+)
+SELECT
+    v.thousand_rate_id,
+    v.company_id,
+    v.name,
+    v.color_category,
+    v.thousand_unit,
+    v.price,
+    v.state,
+    v.min_threshold_units,
+    v.min_thousand,
+    v.decimal_threshold,
+    v.gripper_flip_price,
+    v.square_flip_price,
+    v.is_default,
+    v.creation_date
+FROM (VALUES
+    (
+        'thousand-rate-seed-001', 'company-seed-001', U&'Color b\00E1sico', 'basico',
+        1000, 17500.00::numeric, TRUE, 600, 500.00::numeric, 0.20::numeric,
+        20000.00::numeric, 20000.00::numeric, TRUE, CURRENT_DATE
+    ),
+    (
+        'thousand-rate-seed-002', 'company-seed-001', 'Pantone', 'pantone',
+        1000, 50000.00::numeric, TRUE, 600, 500.00::numeric, 0.20::numeric,
+        70000.00::numeric, 70000.00::numeric, TRUE, CURRENT_DATE
+    )
+) AS v(
+    thousand_rate_id, company_id, name, color_category,
+    thousand_unit, price, state, min_threshold_units, min_thousand, decimal_threshold,
+    gripper_flip_price, square_flip_price, is_default, creation_date
+)
+WHERE NOT EXISTS (
+    SELECT 1 FROM indicolors.thousand_rates t
+    WHERE t.thousand_rate_id = v.thousand_rate_id
+       OR (t.company_id = v.company_id AND lower(trim(t.name)) = lower(trim(v.name)))
+       OR (
+           v.is_default = TRUE
+           AND t.company_id = v.company_id
+           AND lower(trim(t.color_category)) = lower(trim(v.color_category))
+           AND t.is_default = TRUE
+       )
+);
 
 -- ============================================
 -- MÓDULO: ÓRDENES DE PRODUCCIÓN (production-orders)
@@ -1753,6 +1844,9 @@ CREATE TABLE indicolors.production_order_paper_rows (
 
     paper_remnant_id              CHARACTER VARYING(64),
     remnant_quantity_used         NUMERIC(12,2),
+    -- Dual pricing: cobro lista (sheet_value / total_paper_value) vs costo planta del origen.
+    plant_sheet_cost              NUMERIC(12,2),
+    total_plant_paper_value       NUMERIC(12,2),
 
     created_at                    TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
     updated_at                    TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
@@ -1770,7 +1864,11 @@ CREATE TABLE indicolors.production_order_paper_rows (
     CONSTRAINT production_order_paper_rows_price_rule_check
         CHECK (price_rule IS NULL OR price_rule IN ('PREFERRED', 'REPLACEMENT', 'BEST_COST')),
     CONSTRAINT production_order_paper_rows_remnant_qty_check
-        CHECK (remnant_quantity_used IS NULL OR remnant_quantity_used >= 0)
+        CHECK (remnant_quantity_used IS NULL OR remnant_quantity_used >= 0),
+    CONSTRAINT production_order_paper_rows_plant_sheet_cost_check
+        CHECK (plant_sheet_cost IS NULL OR plant_sheet_cost >= 0),
+    CONSTRAINT production_order_paper_rows_total_plant_paper_value_check
+        CHECK (total_plant_paper_value IS NULL OR total_plant_paper_value >= 0)
 );
 
 CREATE INDEX idx_production_order_paper_rows_company_id ON indicolors.production_order_paper_rows (company_id);
@@ -1791,6 +1889,8 @@ COMMENT ON COLUMN indicolors.production_order_paper_rows.paper_size IS 'Snapshot
 COMMENT ON COLUMN indicolors.production_order_paper_rows.planned_waste_percentage IS 'Merma de corte aplicada (company_waste_settings u override de OP; no del waste sugerido del papel-despiece)';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.paper_remnant_id IS 'Remanente usado como origen del corte (opcional; FK paper_remnants)';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.remnant_quantity_used IS 'Unidades descontadas de quantity_available del remanente al guardar el corte';
+COMMENT ON COLUMN indicolors.production_order_paper_rows.plant_sheet_cost IS 'Costo planta por hoja. Con remanente: unit_cost congelado. Sin remanente: igual a sheet_value';
+COMMENT ON COLUMN indicolors.production_order_paper_rows.total_plant_paper_value IS 'Total costo planta de papel (hojas × plant_sheet_cost); distinto del cobro total_paper_value';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.created_at IS 'Fecha y hora de creación del registro';
 COMMENT ON COLUMN indicolors.production_order_paper_rows.updated_at IS 'Fecha y hora de la última actualización del registro';
 
@@ -1798,7 +1898,7 @@ GRANT ALL PRIVILEGES ON TABLE indicolors.production_order_paper_rows TO indicolo
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.production_order_paper_rows TO indicolors_app;
 
 -- ============================================
--- 31.1 PAPER_REMNANTS (remanentes reutilizables de corte; medidas propias + state)
+-- 31.1 PAPER_REMNANTS (remanentes; status default PENDING; state legacy sync con AVAILABLE)
 -- ============================================
 CREATE TABLE indicolors.paper_remnants (
     paper_remnant_id             CHARACTER VARYING(64)       NOT NULL DEFAULT gen_random_uuid()::text,
@@ -1814,7 +1914,8 @@ CREATE TABLE indicolors.paper_remnants (
     source_paper_row_id          CHARACTER VARYING(64),
     entry_date                   DATE                        NOT NULL DEFAULT CURRENT_DATE,
     note                         CHARACTER VARYING(500),
-    state                        BOOLEAN                     NOT NULL DEFAULT TRUE,
+    status                       CHARACTER VARYING(40)       NOT NULL DEFAULT 'PENDING',
+    state                        BOOLEAN                     NOT NULL DEFAULT FALSE,
     created_at                   TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
     updated_at                   TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
     CONSTRAINT paper_remnants_pkey PRIMARY KEY (paper_remnant_id),
@@ -1835,13 +1936,21 @@ CREATE TABLE indicolors.paper_remnants (
     CONSTRAINT paper_remnants_quantity_initial_check CHECK (quantity_initial >= 0),
     CONSTRAINT paper_remnants_quantity_available_check
         CHECK (quantity_available >= 0 AND quantity_available <= quantity_initial),
-    CONSTRAINT paper_remnants_unit_cost_check CHECK (unit_cost >= 0)
+    CONSTRAINT paper_remnants_unit_cost_check CHECK (unit_cost >= 0),
+    CONSTRAINT paper_remnants_status_check CHECK (status IN (
+        'PENDING', 'PAUSED', 'UNDER_REVIEW', 'IN_PROGRESS',
+        'IN_PROGRESS_PREPRESS', 'IN_PROGRESS_CUTTING', 'IN_PROGRESS_PRINTING',
+        'IN_PROGRESS_FINISHED_PRODUCTS', 'IN_PROGRESS_FINISHING',
+        'AVAILABLE', 'ANULADA', 'INACTIVE'
+    ))
 );
 
 CREATE INDEX idx_paper_remnants_company_id ON indicolors.paper_remnants (company_id);
 CREATE INDEX idx_paper_remnants_paper_id ON indicolors.paper_remnants (paper_id);
 CREATE INDEX idx_paper_remnants_company_state ON indicolors.paper_remnants (company_id, state);
+CREATE INDEX idx_paper_remnants_company_status ON indicolors.paper_remnants (company_id, status);
 CREATE INDEX idx_paper_remnants_source_order_id ON indicolors.paper_remnants (source_production_order_id);
+CREATE INDEX idx_paper_remnants_source_order_status ON indicolors.paper_remnants (source_production_order_id, status);
 CREATE INDEX idx_paper_remnants_source_paper_row_id ON indicolors.paper_remnants (source_paper_row_id);
 
 COMMENT ON TABLE indicolors.paper_remnants IS
@@ -1858,7 +1967,10 @@ COMMENT ON COLUMN indicolors.paper_remnants.source_production_order_id IS 'OP qu
 COMMENT ON COLUMN indicolors.paper_remnants.source_paper_row_id IS 'Fila de corte origen (opcional)';
 COMMENT ON COLUMN indicolors.paper_remnants.entry_date IS 'Fecha de ingreso del remanente';
 COMMENT ON COLUMN indicolors.paper_remnants.note IS 'Nota libre';
-COMMENT ON COLUMN indicolors.paper_remnants.state IS 'True=disponible para uso, False=inactivo';
+COMMENT ON COLUMN indicolors.paper_remnants.status IS
+    'Estado del remanente (alineado a OP). Alta sin OP → PENDING. COMPLETED de OP → AVAILABLE. INACTIVE = baja manual.';
+COMMENT ON COLUMN indicolors.paper_remnants.state IS
+    'Legacy: true si status=AVAILABLE (usable en corte); se mantiene sincronizado con status.';
 
 GRANT ALL PRIVILEGES ON TABLE indicolors.paper_remnants TO indicolors_owner;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.paper_remnants TO indicolors_app;
@@ -2100,6 +2212,100 @@ COMMENT ON COLUMN indicolors.production_order_postpress_lines.created_at IS 'Fec
 
 GRANT ALL PRIVILEGES ON TABLE indicolors.production_order_postpress_lines TO indicolors_owner;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.production_order_postpress_lines TO indicolors_app;
+
+-- ============================================
+-- 35.1 ETAPAS TERCERIZADAS DE LA ORDEN (brokered / outside work)
+-- ============================================
+CREATE TABLE indicolors.production_order_outsourced_stages (
+    production_order_outsourced_stage_id CHARACTER VARYING(64)       NOT NULL DEFAULT gen_random_uuid()::text,
+    company_id                           CHARACTER VARYING(64)       NOT NULL,
+    production_order_id                  CHARACTER VARYING(64)       NOT NULL,
+    stage                                CHARACTER VARYING(30)       NOT NULL,
+    enabled                              BOOLEAN                     NOT NULL DEFAULT TRUE,
+    vendor_cost                          NUMERIC(14,2)               NOT NULL DEFAULT 0,
+    markup_percent                       NUMERIC(8,2)                NOT NULL DEFAULT 0,
+    sell_price                           NUMERIC(14,2)               NOT NULL DEFAULT 0,
+    supplier_id                          CHARACTER VARYING(64),
+    supplier_name                        CHARACTER VARYING(200),
+
+    quoted_at                            DATE,
+    quantity                             INTEGER                     NOT NULL DEFAULT 0,
+    cost_responsible_user_id             CHARACTER VARYING(64),
+    cost_responsible_user_name           CHARACTER VARYING(200),
+    quote_valid_until                    DATE,
+
+    sent_at                              DATE,
+    sent_description                     CHARACTER VARYING(1000),
+    expected_return_at                   DATE,
+
+    received_at                          DATE,
+    received_by_user_id                  CHARACTER VARYING(64),
+    fulfillment_status                   CHARACTER VARYING(20)       NOT NULL DEFAULT 'PENDING',
+
+    created_at                           TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
+    updated_at                           TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
+
+    CONSTRAINT production_order_outsourced_stages_pkey PRIMARY KEY (production_order_outsourced_stage_id),
+    CONSTRAINT production_order_outsourced_stages_order_stage_unique UNIQUE (production_order_id, stage),
+    CONSTRAINT production_order_outsourced_stages_company_fk
+        FOREIGN KEY (company_id) REFERENCES indicolors.companies (company_id),
+    CONSTRAINT production_order_outsourced_stages_order_fk
+        FOREIGN KEY (production_order_id) REFERENCES indicolors.production_orders (production_order_id) ON DELETE CASCADE,
+    CONSTRAINT production_order_outsourced_stages_stage_check CHECK (
+        stage IN ('PREPRESS', 'CUTTING', 'PRINTING', 'FINISHED_PRODUCTS', 'FINISHING_PROCESSES')
+    ),
+    CONSTRAINT production_order_outsourced_stages_vendor_cost_check CHECK (vendor_cost >= 0),
+    CONSTRAINT production_order_outsourced_stages_markup_check CHECK (markup_percent >= 0),
+    CONSTRAINT production_order_outsourced_stages_sell_price_check CHECK (sell_price >= 0),
+    CONSTRAINT production_order_outsourced_stages_quantity_check CHECK (quantity >= 0),
+    CONSTRAINT production_order_outsourced_stages_fulfillment_check CHECK (
+        fulfillment_status IN ('PENDING', 'DISPATCHED', 'IN_PROGRESS', 'COMPLETED')
+    )
+);
+
+CREATE INDEX idx_production_order_outsourced_stages_company_id
+    ON indicolors.production_order_outsourced_stages (company_id);
+CREATE INDEX idx_production_order_outsourced_stages_order_id
+    ON indicolors.production_order_outsourced_stages (production_order_id);
+CREATE INDEX idx_production_order_outsourced_stages_fulfillment
+    ON indicolors.production_order_outsourced_stages (company_id, fulfillment_status)
+    WHERE enabled = TRUE;
+
+COMMENT ON TABLE indicolors.production_order_outsourced_stages IS
+    'Etapa ejecutada por proveedor externo; cobro al cliente = sell_price (costo × markup). Ciclo PENDING→DISPATCHED→IN_PROGRESS→COMPLETED. Máximo 1 por etapa.';
+COMMENT ON COLUMN indicolors.production_order_outsourced_stages.stage IS
+    'PREPRESS|CUTTING|PRINTING|FINISHED_PRODUCTS|FINISHING_PROCESSES';
+COMMENT ON COLUMN indicolors.production_order_outsourced_stages.vendor_cost IS
+    'Costo pactado con el proveedor (COP)';
+COMMENT ON COLUMN indicolors.production_order_outsourced_stages.markup_percent IS
+    'Markup % sobre vendor_cost';
+COMMENT ON COLUMN indicolors.production_order_outsourced_stages.sell_price IS
+    'Cobro al cliente de la etapa; si enabled, sustituye el cobro interno en totalToCharge';
+COMMENT ON COLUMN indicolors.production_order_outsourced_stages.supplier_id IS
+    'Id del proveedor en directorio (opcional)';
+COMMENT ON COLUMN indicolors.production_order_outsourced_stages.quoted_at IS
+    'Fecha del acuerdo/registro de cotización con el proveedor';
+COMMENT ON COLUMN indicolors.production_order_outsourced_stages.quantity IS
+    'Cantidad a tercerizar (unidades de la etapa)';
+COMMENT ON COLUMN indicolors.production_order_outsourced_stages.cost_responsible_user_id IS
+    'Usuario de la litografía que autoriza/gestiona el costo con el proveedor';
+COMMENT ON COLUMN indicolors.production_order_outsourced_stages.quote_valid_until IS
+    'Fecha límite de vigencia de la cotización del proveedor';
+COMMENT ON COLUMN indicolors.production_order_outsourced_stages.sent_at IS
+    'Fecha de envío/entrega del trabajo al proveedor';
+COMMENT ON COLUMN indicolors.production_order_outsourced_stages.sent_description IS
+    'Qué se entrega de la etapa al proveedor';
+COMMENT ON COLUMN indicolors.production_order_outsourced_stages.expected_return_at IS
+    'Fecha límite esperada de retorno del proveedor';
+COMMENT ON COLUMN indicolors.production_order_outsourced_stages.received_at IS
+    'Fecha en que producción/admin registra la recepción del trabajo';
+COMMENT ON COLUMN indicolors.production_order_outsourced_stages.received_by_user_id IS
+    'Usuario (producción/admin) que registró la recepción';
+COMMENT ON COLUMN indicolors.production_order_outsourced_stages.fulfillment_status IS
+    'PENDING=pendiente; DISPATCHED=envío proveedor; IN_PROGRESS=en proceso proveedor; COMPLETED=finalizado proveedor';
+
+GRANT ALL PRIVILEGES ON TABLE indicolors.production_order_outsourced_stages TO indicolors_owner;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.production_order_outsourced_stages TO indicolors_app;
 
 -- ============================================
 -- MÓDULO ESTACIÓN — Bitácora operativa de planta
@@ -3258,56 +3464,6 @@ GRANT ALL PRIVILEGES ON TABLE indicolors.order_payment_applications TO indicolor
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.order_payment_applications TO indicolors_app;
 
 -- ============================================
--- 41.5 VISTA CxC ABIERTAS (saldo > 0)
--- ============================================
-
-CREATE OR REPLACE VIEW indicolors.v_order_cxc_open AS
-SELECT
-    d.cxc_document_id,
-    d.company_id,
-    d.cxc_number,
-    d.production_order_id,
-    d.customer_order_id,
-    d.client_id,
-    d.concept,
-    d.source_delivery_id,
-    d.source_addition_id,
-    d.total,
-    d.status,
-    d.issued_at,
-    d.due_date,
-    d.payment_term_days,
-    COALESCE(SUM(a.amount) FILTER (WHERE a.status = 'activo'), 0)::NUMERIC(14,2) AS total_applied,
-    (d.total - COALESCE(SUM(a.amount) FILTER (WHERE a.status = 'activo'), 0))::NUMERIC(14,2) AS remaining
-FROM indicolors.order_cxc_documents d
-LEFT JOIN indicolors.order_payment_applications a
-    ON a.cxc_document_id = d.cxc_document_id
-   AND a.company_id = d.company_id
-WHERE d.status IN ('pendiente', 'parcial', 'pagada')
-GROUP BY
-    d.cxc_document_id,
-    d.company_id,
-    d.cxc_number,
-    d.production_order_id,
-    d.customer_order_id,
-    d.client_id,
-    d.concept,
-    d.source_delivery_id,
-    d.source_addition_id,
-    d.total,
-    d.status,
-    d.issued_at,
-    d.due_date,
-    d.payment_term_days
-HAVING (d.total - COALESCE(SUM(a.amount) FILTER (WHERE a.status = 'activo'), 0)) > 0;
-
-COMMENT ON VIEW indicolors.v_order_cxc_open IS
-    'CxC con saldo pendiente > 0. Listado Cuentas por cobrar multi-documento.';
-
-GRANT SELECT ON indicolors.v_order_cxc_open TO indicolors_owner;
-GRANT SELECT ON indicolors.v_order_cxc_open TO indicolors_app;
-
--- ============================================
 -- 42-44. TRIGGERS CxC / Abonos (validación entregas + sync entrega/pago)
 -- ============================================
 -- Triggers del módulo Pedidos / CxC / Abonos (sin CREATE TABLE).
@@ -3736,6 +3892,8 @@ CREATE TABLE indicolors.machines (
         ) / productive_hours_per_year
         + energy_cost_per_hour
     ) STORED,
+    setup_minutes              INTEGER                 NOT NULL DEFAULT 0,
+    preferred                  BOOLEAN                 NOT NULL DEFAULT FALSE,
     state                      BOOLEAN                 NOT NULL DEFAULT TRUE,
     creation_date              DATE                    NOT NULL DEFAULT CURRENT_DATE,
     updated_at                 TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
@@ -3750,7 +3908,8 @@ CREATE TABLE indicolors.machines (
     CONSTRAINT machines_annual_maintenance_cost_check CHECK (annual_maintenance_cost >= 0),
     CONSTRAINT machines_monthly_operator_cost_check CHECK (monthly_operator_cost >= 0),
     CONSTRAINT machines_energy_cost_per_hour_check CHECK (energy_cost_per_hour >= 0),
-    CONSTRAINT machines_productive_hours_per_year_check CHECK (productive_hours_per_year > 0)
+    CONSTRAINT machines_productive_hours_per_year_check CHECK (productive_hours_per_year > 0),
+    CONSTRAINT machines_setup_minutes_check CHECK (setup_minutes >= 0)
 );
 
 CREATE INDEX idx_machines_company_id ON indicolors.machines (company_id);
@@ -3758,6 +3917,9 @@ CREATE INDEX idx_machines_machine_type ON indicolors.machines (machine_type);
 CREATE INDEX idx_machines_state ON indicolors.machines (state);
 CREATE INDEX idx_machines_company_state ON indicolors.machines (company_id, state);
 CREATE INDEX idx_machines_company_type_state ON indicolors.machines (company_id, machine_type, state);
+CREATE UNIQUE INDEX idx_machines_preferred_unique
+    ON indicolors.machines (company_id, machine_type)
+    WHERE preferred = TRUE;
 
 COMMENT ON TABLE indicolors.machines IS 'Catálogo de máquinas por compañía, con costo/hora calculado (depreciación + mantenimiento + operario + energía, sobre horas productivas reales), usado para costear cada fase de una Orden de Producción';
 COMMENT ON COLUMN indicolors.machines.machine_id IS 'Identificador único de la máquina';
@@ -3773,12 +3935,125 @@ COMMENT ON COLUMN indicolors.machines.monthly_operator_cost IS 'Costo mensual de
 COMMENT ON COLUMN indicolors.machines.energy_cost_per_hour IS 'Costo de energía/consumo eléctrico por hora de operación';
 COMMENT ON COLUMN indicolors.machines.productive_hours_per_year IS 'Horas REALES de producción al año (descontando mantenimiento, montajes y tiempos muertos); NO son horas de calendario laboral. Usar este dato mal es el error más común del sector y subestima el costo real';
 COMMENT ON COLUMN indicolors.machines.cost_per_hour IS 'Costo/hora calculado automáticamente: ((costo de compra / vida útil) + mantenimiento anual + (costo mensual operario * 12)) / horas productivas al año + energía por hora';
+COMMENT ON COLUMN indicolors.machines.setup_minutes IS 'Minutos de arranque/calibración por defecto al cotizar la máquina en una OP';
+COMMENT ON COLUMN indicolors.machines.preferred IS 'True=máquina preferida de la fase (solo una por company_id + machine_type); se precarga al crear OP';
 COMMENT ON COLUMN indicolors.machines.state IS 'True=Activa, False=Inactiva';
 COMMENT ON COLUMN indicolors.machines.creation_date IS 'Fecha de registro de la máquina en el sistema';
 COMMENT ON COLUMN indicolors.machines.updated_at IS 'Fecha y hora de la última actualización del registro';
 
 GRANT ALL PRIVILEGES ON TABLE indicolors.machines TO indicolors_owner;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.machines TO indicolors_app;
+
+-- 50.0 DATOS SEMILLA MÁQUINAS (company-seed-001), una preferida por fase
+INSERT INTO indicolors.machines (
+    machine_id,
+    company_id,
+    name,
+    machine_type,
+    manufacturer,
+    model,
+    purchase_cost,
+    useful_life_years,
+    annual_maintenance_cost,
+    monthly_operator_cost,
+    energy_cost_per_hour,
+    productive_hours_per_year,
+    setup_minutes,
+    preferred,
+    state,
+    creation_date
+) VALUES
+    (
+        'machine-seed-preprensa-001',
+        'company-seed-001',
+        'CTP Kodak Trendsetter',
+        'preprensa',
+        'Kodak',
+        'Trendsetter 800',
+        160000000.00,
+        10.00,
+        4000000.00,
+        2000000.00,
+        5000.00,
+        1600.00,
+        20,
+        TRUE,
+        TRUE,
+        CURRENT_DATE
+    ),
+    (
+        'machine-seed-corte-001',
+        'company-seed-001',
+        'Guillotina Polar 115',
+        'corte-papel',
+        'Polar',
+        '115',
+        80000000.00,
+        10.00,
+        2000000.00,
+        1800000.00,
+        2500.00,
+        1600.00,
+        10,
+        TRUE,
+        TRUE,
+        CURRENT_DATE
+    ),
+    (
+        '814ad646-c4fe-42fa-9f13-4a44823e6bee',
+        'company-seed-001',
+        'Offset Heidelberg 4 colores',
+        'impresion',
+        'Heidelberg',
+        'SM 74',
+        250000000.00,
+        10.00,
+        8000000.00,
+        2500000.00,
+        15000.00,
+        1600.00,
+        15,
+        TRUE,
+        TRUE,
+        CURRENT_DATE
+    ),
+    (
+        'machine-seed-terminados-001',
+        'company-seed-001',
+        'Plegadora Stahlfolder',
+        'terminados',
+        'Heidelberg',
+        'Stahlfolder Ti 52',
+        90000000.00,
+        10.00,
+        2400000.00,
+        1600000.00,
+        3000.00,
+        1600.00,
+        5,
+        TRUE,
+        TRUE,
+        CURRENT_DATE
+    ),
+    (
+        'machine-seed-acabados-001',
+        'company-seed-001',
+        'Laminadora Autobond',
+        'acabados',
+        'Autobond',
+        'Mini 74',
+        70000000.00,
+        10.00,
+        1800000.00,
+        1500000.00,
+        4000.00,
+        1600.00,
+        5,
+        TRUE,
+        TRUE,
+        CURRENT_DATE
+    )
+ON CONFLICT (machine_id) DO NOTHING;
 
 -- ============================================================================
 -- 50.1 HISTORIAL DE COSTO/HORA POR MÁQUINA (auditoría de recálculo de tarifas)
@@ -4347,6 +4622,11 @@ CREATE TABLE indicolors.company_waste_settings (
     finishing_waste_default_percentage      NUMERIC(5,2)          NOT NULL DEFAULT 3,
     cut_makeready_sheets                    NUMERIC(12,2)         NOT NULL DEFAULT 0,
     operational_makeready_sheets            NUMERIC(12,2)         NOT NULL DEFAULT 0,
+    cut_waste_active                        BOOLEAN               NOT NULL DEFAULT TRUE,
+    operational_waste_active                BOOLEAN               NOT NULL DEFAULT TRUE,
+    prepress_waste_active                   BOOLEAN               NOT NULL DEFAULT TRUE,
+    finished_waste_active                   BOOLEAN               NOT NULL DEFAULT TRUE,
+    finishing_waste_active                  BOOLEAN               NOT NULL DEFAULT TRUE,
     updated_at                              TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
     CONSTRAINT company_waste_settings_pkey PRIMARY KEY (company_id),
     CONSTRAINT company_waste_settings_company_fk
@@ -4404,10 +4684,16 @@ COMMENT ON COLUMN indicolors.company_waste_settings.finishing_waste_max_percenta
 COMMENT ON COLUMN indicolors.company_waste_settings.finishing_waste_default_percentage IS 'Porcentaje aplicado en Acabados si el usuario no lo cambia';
 COMMENT ON COLUMN indicolors.company_waste_settings.cut_makeready_sheets IS 'Pliegos fijos de arranque de Corte de papel. Default 0 para no cambiar la cantidad planificada de las órdenes actuales; el ejemplo de UI 400 + 2% no se siembra aquí';
 COMMENT ON COLUMN indicolors.company_waste_settings.operational_makeready_sheets IS 'Pliegos fijos de arranque de Impresión. Default 0 para no cambiar la cantidad planificada de las órdenes actuales; el ejemplo de UI 400 + 2% no se siembra aquí';
+COMMENT ON COLUMN indicolors.company_waste_settings.cut_waste_active IS 'Si false, el rango de corte no se sugiere ni se aplica por defecto en OP.';
+COMMENT ON COLUMN indicolors.company_waste_settings.operational_waste_active IS 'Si false, el rango de impresión no se sugiere ni se aplica por defecto en OP.';
+COMMENT ON COLUMN indicolors.company_waste_settings.prepress_waste_active IS 'Si false, el rango de preprensa no se sugiere ni se aplica por defecto en OP.';
+COMMENT ON COLUMN indicolors.company_waste_settings.finished_waste_active IS 'Si false, el rango de terminados no se sugiere ni se aplica por defecto en OP.';
+COMMENT ON COLUMN indicolors.company_waste_settings.finishing_waste_active IS 'Si false, el rango de acabados no se sugiere ni se aplica por defecto en OP.';
 
 GRANT ALL PRIVILEGES ON TABLE indicolors.company_waste_settings TO indicolors_owner;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE indicolors.company_waste_settings TO indicolors_app;
 
 -- ============================================================================
--- FIN DE LA MIGRACIÓN
+-- FIN DEL SCRIPT
+-- Alineado con Flyway V1–V62 (un archivo por tabla; CREATE completo, sin ADD COLUMN).
 -- ============================================================================

@@ -10,6 +10,7 @@ alwaysApply: false
 
 - **Un archivo = una tabla.** No poner dos `CREATE TABLE` (ni DDL de dos tablas) en el mismo `V{n}__*.sql`.
 - Nombre: `V{n}__{nombre_tabla}.sql` (ej. `V16__paper_types.sql`, `V21__suppliers.sql`).
+- **Semillas en el mismo archivo.** Los `INSERT` de datos demo/semilla van al final del `V{n}__{tabla}.sql` de esa tabla. Prohibido `V{n}__seed_*.sql` o migraciones solo de semillas multi-tabla.
 
 ## CREATE completo (sin ADD COLUMN)
 

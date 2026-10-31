@@ -144,6 +144,12 @@ public class ProductionOrderPaperRowEntity implements Persistable<String> {
     @Column(name = "remnant_quantity_used", precision = 12, scale = 2)
     private BigDecimal remnantQuantityUsed;
 
+    @Column(name = "plant_sheet_cost", precision = 12, scale = 2)
+    private BigDecimal plantSheetCost;
+
+    @Column(name = "total_plant_paper_value", precision = 12, scale = 2)
+    private BigDecimal totalPlantPaperValue;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -487,6 +493,22 @@ public class ProductionOrderPaperRowEntity implements Persistable<String> {
 
     public void setRemnantQuantityUsed(BigDecimal remnantQuantityUsed) {
         this.remnantQuantityUsed = remnantQuantityUsed;
+    }
+
+    public BigDecimal getPlantSheetCost() {
+        return plantSheetCost;
+    }
+
+    public void setPlantSheetCost(BigDecimal plantSheetCost) {
+        this.plantSheetCost = plantSheetCost;
+    }
+
+    public BigDecimal getTotalPlantPaperValue() {
+        return totalPlantPaperValue;
+    }
+
+    public void setTotalPlantPaperValue(BigDecimal totalPlantPaperValue) {
+        this.totalPlantPaperValue = totalPlantPaperValue;
     }
 
     public LocalDateTime getCreatedAt() {

@@ -40,7 +40,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/papers")
-@Tag(name = "Papeles", description = "Catálogo (acceptsRemnants + minRemnant W/H/unit), precios, despieces, stock y remanentes.")
+@Tag(name = "Papeles", description = "Catálogo (acceptsRemnants + minRemnant), precios, despieces, stock y remanentes (status alineado a OP; AVAILABLE usable en corte).")
 @SecurityRequirement(name = "bearerAuth")
 public class PaperController {
 

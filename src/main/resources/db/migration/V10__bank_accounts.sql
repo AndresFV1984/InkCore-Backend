@@ -43,3 +43,45 @@ COMMENT ON COLUMN indicolors.bank_accounts.include_in_pdf IS 'True=Incluir esta 
 COMMENT ON COLUMN indicolors.bank_accounts.is_primary IS 'True=Cuenta principal de la compañía (solo una por compañía)';
 COMMENT ON COLUMN indicolors.bank_accounts.state IS 'True=Activa, False=Inactiva';
 COMMENT ON COLUMN indicolors.bank_accounts.creation_date IS 'Fecha de registro de la cuenta en el sistema';
+
+-- Datos semilla demo (company-seed-001)
+INSERT INTO indicolors.bank_accounts (
+    account_id,
+    company_id,
+    bank_name,
+    account_type,
+    account_number,
+    holder_name,
+    holder_nit,
+    include_in_pdf,
+    is_primary,
+    state,
+    creation_date
+) VALUES
+    (
+        'account-seed-001',
+        'company-seed-001',
+        'Bancolombia',
+        'Corriente',
+        '12345678901',
+        'InkCore S.A.S.',
+        '900123456-7',
+        TRUE,
+        TRUE,
+        TRUE,
+        CURRENT_DATE
+    ),
+    (
+        'account-seed-002',
+        'company-seed-001',
+        'Davivienda',
+        'Ahorros',
+        '98765432100',
+        'InkCore S.A.S.',
+        '900123456-7',
+        TRUE,
+        FALSE,
+        TRUE,
+        CURRENT_DATE
+    )
+ON CONFLICT (account_id) DO NOTHING;

@@ -10,6 +10,9 @@ import java.util.UUID;
 /**
  * Catálogo de máquinas. {@code cost_per_hour} lo calcula la base (columna
  * generada); el dominio solo valida los insumos.
+ * <p>
+ * Solo una máquina {@code preferred} por compañía y {@link MachineType};
+ * esa es la que se precarga al crear una Orden de Producción.
  */
 public final class Machine {
 
@@ -26,6 +29,8 @@ public final class Machine {
     private final BigDecimal energyCostPerHour;
     private final BigDecimal productiveHoursPerYear;
     private final BigDecimal costPerHour;
+    private final int setupMinutes;
+    private final boolean preferred;
     private final boolean state;
     private final LocalDate creationDate;
     private final LocalDateTime updatedAt;
@@ -44,6 +49,8 @@ public final class Machine {
             BigDecimal energyCostPerHour,
             BigDecimal productiveHoursPerYear,
             BigDecimal costPerHour,
+            int setupMinutes,
+            boolean preferred,
             boolean state,
             LocalDate creationDate,
             LocalDateTime updatedAt
@@ -61,6 +68,8 @@ public final class Machine {
         this.energyCostPerHour = energyCostPerHour;
         this.productiveHoursPerYear = productiveHoursPerYear;
         this.costPerHour = costPerHour;
+        this.setupMinutes = setupMinutes;
+        this.preferred = preferred;
         this.state = state;
         this.creationDate = creationDate;
         this.updatedAt = updatedAt;
@@ -78,6 +87,8 @@ public final class Machine {
             BigDecimal monthlyOperatorCost,
             BigDecimal energyCostPerHour,
             BigDecimal productiveHoursPerYear,
+            Integer setupMinutes,
+            boolean preferred,
             boolean state,
             LocalDate creationDate,
             LocalDateTime updatedAt
@@ -101,6 +112,8 @@ public final class Machine {
                 nonNegativeMoney(zeroIfNull(energyCostPerHour), "El costo de energía por hora no puede ser negativo"),
                 positive(productiveHoursPerYear, "Las horas productivas al año deben ser mayores que 0"),
                 null,
+                nonNegativeMinutes(setupMinutes),
+                preferred,
                 state,
                 creationDate,
                 updatedAt
@@ -118,6 +131,8 @@ public final class Machine {
             BigDecimal monthlyOperatorCost,
             BigDecimal energyCostPerHour,
             BigDecimal productiveHoursPerYear,
+            Integer setupMinutes,
+            boolean preferred,
             boolean state,
             LocalDateTime updatedAt
     ) {
@@ -139,6 +154,8 @@ public final class Machine {
                 nonNegativeMoney(zeroIfNull(energyCostPerHour), "El costo de energía por hora no puede ser negativo"),
                 positive(productiveHoursPerYear, "Las horas productivas al año deben ser mayores que 0"),
                 this.costPerHour,
+                nonNegativeMinutes(setupMinutes),
+                preferred,
                 state,
                 this.creationDate,
                 updatedAt
@@ -159,6 +176,8 @@ public final class Machine {
             BigDecimal energyCostPerHour,
             BigDecimal productiveHoursPerYear,
             BigDecimal costPerHour,
+            int setupMinutes,
+            boolean preferred,
             boolean state,
             LocalDate creationDate,
             LocalDateTime updatedAt
@@ -177,10 +196,20 @@ public final class Machine {
                 energyCostPerHour,
                 productiveHoursPerYear,
                 costPerHour,
+                setupMinutes,
+                preferred,
                 state,
                 creationDate,
                 updatedAt
         );
+    }
+
+    private static int nonNegativeMinutes(Integer minutes) {
+        int value = minutes == null ? 0 : minutes;
+        if (value < 0) {
+            throw new IllegalArgumentException("Los minutos de arranque no pueden ser negativos");
+        }
+        return value;
     }
 
     private static BigDecimal nonNegativeMoney(BigDecimal value, String message) {
@@ -261,6 +290,14 @@ public final class Machine {
 
     public BigDecimal getCostPerHour() {
         return costPerHour;
+    }
+
+    public int getSetupMinutes() {
+        return setupMinutes;
+    }
+
+    public boolean isPreferred() {
+        return preferred;
     }
 
     public boolean isState() {

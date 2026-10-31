@@ -45,7 +45,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/machines")
-@Tag(name = "Máquinas", description = "Catálogo de máquinas y costo por hora")
+@Tag(name = "Máquinas", description = "Catálogo por fase: preferred (uno por tipo), setupMinutes y costo/hora")
 @SecurityRequirement(name = "bearerAuth")
 public class MachineController {
 
@@ -76,9 +76,10 @@ public class MachineController {
     @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "registerMachine",
-            summary = "Crea una máquina.",
-            description = "companyId sale del JWT. costPerHour lo calcula la base y vuelve en la respuesta. "
-                    + "Sin borrado físico: desactivar con state=false en la actualización."
+            summary = "Crea una máquina (preferred + setupMinutes).",
+            description = "companyId sale del JWT. costPerHour lo calcula la base. "
+                    + "Solo un preferred=true por machineType; si se omite y no hay preferida del tipo, queda preferida. "
+                    + "setupMinutes se precarga al crear una OP. Sin borrado físico: desactivar con state=false."
     )
     @ApiResponse(
             responseCode = "201",
@@ -113,9 +114,9 @@ public class MachineController {
     @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('OPERADOR')")
     @Operation(
             operationId = "updateMachine",
-            summary = "Actualiza una máquina.",
-            description = "Incluye desactivar con state=false. Si cambia un componente del costo, "
-                    + "el trigger deja auditoría en machine_cost_history."
+            summary = "Actualiza una máquina (preferred, setupMinutes, costos).",
+            description = "Solo un preferred=true por machineType. state=false quita preferred. "
+                    + "Si cambia un componente del costo, el trigger deja auditoría en machine_cost_history."
     )
     @ApiResponse(
             responseCode = "200",
@@ -260,7 +261,7 @@ public class MachineController {
                 request.name(), request.machineType(), request.manufacturer(), request.model(),
                 request.purchaseCost(), request.usefulLifeYears(), request.annualMaintenanceCost(),
                 request.monthlyOperatorCost(), request.energyCostPerHour(), request.productiveHoursPerYear(),
-                request.state()
+                request.setupMinutes(), request.preferred(), request.state()
         );
     }
 
@@ -269,7 +270,7 @@ public class MachineController {
                 machineId, request.name(), request.machineType(), request.manufacturer(), request.model(),
                 request.purchaseCost(), request.usefulLifeYears(), request.annualMaintenanceCost(),
                 request.monthlyOperatorCost(), request.energyCostPerHour(), request.productiveHoursPerYear(),
-                Boolean.TRUE.equals(request.state())
+                request.setupMinutes(), request.preferred(), Boolean.TRUE.equals(request.state())
         );
     }
 

@@ -33,7 +33,7 @@ import java.math.BigDecimal;
 
 @RestController
 @RequestMapping("/api/v1/waste-settings")
-@Tag(name = "Mermas", description = "Rangos sugeridos de merma por compañía")
+@Tag(name = "Mermas", description = "Rangos y default de merma por proceso; activo/inactivo por proceso")
 @SecurityRequirement(name = "bearerAuth")
 public class WasteSettingsController {
 
@@ -58,10 +58,8 @@ public class WasteSettingsController {
             summary = "Consulta los rangos sugeridos de merma de la compañía.",
             description = "Si la compañía no configuró nada, responde la sugerencia inicial: "
                     + "corte 2%-5% (default 2%) e impresión, preprensa, terminados y acabados 3%-8% (default 3%). "
-                    + "Cada proceso tiene su propio rango. El sugerido se aplica al cotizar si el paso no envía porcentaje. "
-                    + "cutMakereadySheets y operationalMakereadySheets son pliegos fijos de arranque (inicial 0). "
-                    + "En corte e impresión la cantidad planificada es pliegos fijos + base * porcentaje / 100. "
-                    + "Mínimo y máximo orientan la UI."
+                    + "Cada proceso tiene su propio rango y flag de activo. El sugerido se aplica al cotizar si el paso no envía porcentaje. "
+                    + "Mínimo y máximo orientan la UI. Si un proceso está inactivo, el default aplicado es 0."
     )
     @ApiResponse(
             responseCode = "200",
@@ -87,8 +85,7 @@ public class WasteSettingsController {
             operationId = "updateWasteSettings",
             summary = "Actualiza los rangos sugeridos de merma.",
             description = "Solo administrador. En cada proceso el sugerido debe caer entre el mínimo y el máximo. "
-                    + "Corte, impresión, preprensa, terminados y acabados se guardan por separado. "
-                    + "Los pliegos fijos se suman al porcentaje solo en Corte de papel e Impresión."
+                    + "Corte, impresión, preprensa, terminados y acabados se guardan por separado, con activo por proceso."
     )
     @ApiResponse(
             responseCode = "200",
@@ -130,8 +127,11 @@ public class WasteSettingsController {
                 request.finishingWasteMinPercentage(),
                 request.finishingWasteMaxPercentage(),
                 request.finishingWasteDefaultPercentage(),
-                request.cutMakereadySheets(),
-                request.operationalMakereadySheets(),
+                request.cutWasteActive(),
+                request.operationalWasteActive(),
+                request.prepressWasteActive(),
+                request.finishedWasteActive(),
+                request.finishingWasteActive(),
                 authentication
         );
         return responseFactory.success(httpRequest, HttpStatus.OK, WasteSettingsResponse.from(saved));
@@ -169,10 +169,16 @@ public class WasteSettingsController {
             BigDecimal finishingWasteMaxPercentage,
             @NotNull @Schema(description = "Default de acabados si el usuario no envía porcentaje", example = "3.00", requiredMode = Schema.RequiredMode.REQUIRED)
             BigDecimal finishingWasteDefaultPercentage,
-            @NotNull @Schema(description = "Pliegos fijos de arranque de Corte de papel. 0 no cambia la cantidad planificada.", example = "0.00", requiredMode = Schema.RequiredMode.REQUIRED)
-            BigDecimal cutMakereadySheets,
-            @NotNull @Schema(description = "Pliegos fijos de arranque de Impresión. 0 no cambia la cantidad planificada.", example = "0.00", requiredMode = Schema.RequiredMode.REQUIRED)
-            BigDecimal operationalMakereadySheets
+            @NotNull @Schema(description = "Activo por proceso: merma de corte", example = "true", requiredMode = Schema.RequiredMode.REQUIRED)
+            Boolean cutWasteActive,
+            @NotNull @Schema(description = "Activo por proceso: merma de impresión", example = "true", requiredMode = Schema.RequiredMode.REQUIRED)
+            Boolean operationalWasteActive,
+            @NotNull @Schema(description = "Activo por proceso: merma de preprensa", example = "true", requiredMode = Schema.RequiredMode.REQUIRED)
+            Boolean prepressWasteActive,
+            @NotNull @Schema(description = "Activo por proceso: merma de terminados", example = "true", requiredMode = Schema.RequiredMode.REQUIRED)
+            Boolean finishedWasteActive,
+            @NotNull @Schema(description = "Activo por proceso: merma de acabados", example = "true", requiredMode = Schema.RequiredMode.REQUIRED)
+            Boolean finishingWasteActive
     ) {
     }
 
@@ -210,10 +216,16 @@ public class WasteSettingsController {
             BigDecimal finishingWasteMaxPercentage,
             @Schema(description = "Default de acabados si el usuario no envía porcentaje", example = "3.00")
             BigDecimal finishingWasteDefaultPercentage,
-            @Schema(description = "Pliegos fijos de arranque de Corte de papel", example = "0.00")
-            BigDecimal cutMakereadySheets,
-            @Schema(description = "Pliegos fijos de arranque de Impresión", example = "0.00")
-            BigDecimal operationalMakereadySheets
+            @Schema(description = "Activo por proceso: merma de corte", example = "true")
+            boolean cutWasteActive,
+            @Schema(description = "Activo por proceso: merma de impresión", example = "true")
+            boolean operationalWasteActive,
+            @Schema(description = "Activo por proceso: merma de preprensa", example = "true")
+            boolean prepressWasteActive,
+            @Schema(description = "Activo por proceso: merma de terminados", example = "true")
+            boolean finishedWasteActive,
+            @Schema(description = "Activo por proceso: merma de acabados", example = "true")
+            boolean finishingWasteActive
     ) {
         static WasteSettingsResponse from(CompanyWasteSettings settings) {
             return new WasteSettingsResponse(
@@ -233,8 +245,11 @@ public class WasteSettingsController {
                     settings.getFinishingWasteMinPercentage(),
                     settings.getFinishingWasteMaxPercentage(),
                     settings.getFinishingWasteDefaultPercentage(),
-                    settings.getCutMakereadySheets(),
-                    settings.getOperationalMakereadySheets()
+                    settings.isCutWasteActive(),
+                    settings.isOperationalWasteActive(),
+                    settings.isPrepressWasteActive(),
+                    settings.isFinishedWasteActive(),
+                    settings.isFinishingWasteActive()
             );
         }
     }

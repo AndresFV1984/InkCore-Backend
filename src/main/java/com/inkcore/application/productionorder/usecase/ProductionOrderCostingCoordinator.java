@@ -272,7 +272,10 @@ public class ProductionOrderCostingCoordinator {
             usage.setMachineId(machine.getMachineId());
             usage.setMachineNameSnapshot(machine.getName());
             usage.setCostPerHourSnapshot(machine.getCostPerHour());
-            usage.setEstimatedSetupMinutes(nonNegativeMinutes(input.estimatedSetupMinutes(), "estimatedSetupMinutes"));
+            int setupMinutes = input.estimatedSetupMinutes() != null
+                    ? nonNegativeMinutes(input.estimatedSetupMinutes(), "estimatedSetupMinutes")
+                    : machine.getSetupMinutes();
+            usage.setEstimatedSetupMinutes(setupMinutes);
             usage.setEstimatedRunMinutes(nonNegativeMinutes(input.estimatedRunMinutes(), "estimatedRunMinutes"));
             usage.setCreatedAt(now);
             usage.setUpdatedAt(now);
